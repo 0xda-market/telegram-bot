@@ -2,7 +2,7 @@
 
 The client bot runs on the same VPS as the provider-agnostic `0xda-market` core.
 Caddy in the core stack owns public HTTPS and forwards `/bot/*` over the private
-external network `zero-x-da-market-edge` to the alias `market-bot`.
+external network `nilx-edge` to the alias `market-bot`.
 
 The VPS is the canonical bot runtime. Render configuration is no longer part of
 the supported deployment path.
@@ -65,6 +65,7 @@ Example:
 
 ```env
 DEPLOY_ENV=development
+MARKET_EDGE_NETWORK=nilx-edge
 PORT=10000
 TELEGRAM_BOT_TOKEN=<test bot value>
 TELEGRAM_WEBHOOK_SECRET=<development value>
