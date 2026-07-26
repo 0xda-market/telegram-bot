@@ -24,5 +24,6 @@ use Rack::CommonLogger, $stdout
 
 run ZeroXDA::MarketClientBot::WebApp.new(
   bot: bot,
-  webhook_secret: ENV.fetch("TELEGRAM_WEBHOOK_SECRET")
+  webhook_secret: ENV.fetch("TELEGRAM_WEBHOOK_SECRET"),
+  telegram_api: telegram_api
 )

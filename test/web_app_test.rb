@@ -30,16 +30,62 @@ class WebAppTest < Minitest::Test
     end
   end
 
+  class TelegramIdentity
+    attr_reader :requests
+
+    def initialize(username: "market_development_bot")
+      @username = username
+      @requests = 0
+    end
+
+    def get_me
+      @requests += 1
+      { "username" => @username }
+    end
+  end
+
   def setup
     @handler = Handler.new
+    @telegram_identity = TelegramIdentity.new
     @client = Rack::MockRequest.new(
       ZeroXDA::MarketClientBot::WebApp.new(
         bot: @handler,
         webhook_secret: "webhook-secret",
+        telegram_api: @telegram_identity,
         dispatcher: ImmediateDispatcher.new,
         revision: "test-revision"
       )
     )
+  end
+
+  def test_root_redirects_to_the_current_environment_bot
+    response = @client.get("/")
+
+    assert_equal 302, response.status
+    assert_equal "https://t.me/market_development_bot", response["location"]
+    assert_equal "no-store", response["cache-control"]
+  end
+
+  def test_bot_identity_is_cached_after_the_first_redirect
+    2.times { @client.get("/") }
+
+    assert_equal 1, @telegram_identity.requests
+  end
+
+  def test_invalid_bot_identity_returns_a_retryable_error
+    client = Rack::MockRequest.new(
+      ZeroXDA::MarketClientBot::WebApp.new(
+        bot: @handler,
+        webhook_secret: "webhook-secret",
+        telegram_api: TelegramIdentity.new(username: "invalid username"),
+        dispatcher: ImmediateDispatcher.new
+      )
+    )
+
+    response = client.get("/")
+
+    assert_equal 503, response.status
+    assert_equal "telegram_redirect_unavailable", JSON.parse(response.body).fetch("error")
   end
 
   def test_health_is_public_and_includes_server_time

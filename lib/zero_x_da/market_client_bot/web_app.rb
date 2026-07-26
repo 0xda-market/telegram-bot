@@ -21,10 +21,12 @@ module ZeroXDA
         "content-type" => "application/json; charset=utf-8",
         "cache-control" => "no-store"
       }.freeze
+      TELEGRAM_USERNAME_PATTERN = /\A[A-Za-z][A-Za-z0-9_]{4,31}\z/
 
       def initialize(
         bot:,
         webhook_secret:,
+        telegram_api: nil,
         dispatcher: AsyncDispatcher.new,
         revision: ENV.fetch("RENDER_GIT_COMMIT", "unknown")
       )
@@ -32,12 +34,15 @@ module ZeroXDA
 
         @bot = bot
         @webhook_secret = webhook_secret
+        @telegram_api = telegram_api
         @dispatcher = dispatcher
         @revision = revision.to_s.empty? ? "unknown" : revision.to_s
       end
 
       def call(environment)
         request = Rack::Request.new(environment)
+        return telegram_redirect if request.get? && request.path_info == "/"
+
         if request.get? && request.path_info == "/health"
           return json_response(
             200,
@@ -61,6 +66,31 @@ module ZeroXDA
       end
 
       private
+
+      def telegram_redirect
+        username = @telegram_username ||= telegram_username
+        [
+          302,
+          {
+            "location" => "https://t.me/#{username}",
+            "cache-control" => "no-store",
+            "content-length" => "0"
+          },
+          []
+        ]
+      rescue StandardError => error
+        warn "telegram redirect unavailable: #{error.class}: #{error.message}"
+        json_response(503, error: "telegram_redirect_unavailable")
+      end
+
+      def telegram_username
+        raise "Telegram API is not configured" unless @telegram_api
+
+        username = @telegram_api.get_me.fetch("username").to_s
+        raise "Telegram bot username is invalid" unless TELEGRAM_USERNAME_PATTERN.match?(username)
+
+        username
+      end
 
       def authorized?(request)
         provided = request.get_header("HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN").to_s
