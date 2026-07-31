@@ -27,7 +27,7 @@ module ZeroXDA
         return send_message(chat_id, t(:admin_format)) if target.to_s.empty?
 
         assignment = @market_api.set_admin(
-          actor_telegram_user_id: message.fetch("from").fetch("id"),
+          actor_user_id: actor.fetch("id"),
           target: target
         )
         attributes = assignment.fetch("attributes")
@@ -48,7 +48,7 @@ module ZeroXDA
 
         locale = locale_for(message)
         proposal = @market_api.price_proposal(
-          actor_telegram_user_id: message.fetch("from").fetch("id"),
+          actor_user_id: user.fetch("id"),
           locale: locale
         )
         users = @market_api.active_users.each_with_object({}) do |entry, result|
