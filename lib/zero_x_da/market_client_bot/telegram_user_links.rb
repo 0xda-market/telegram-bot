@@ -8,12 +8,6 @@ module ZeroXDA
     module TelegramUserLinks
       private
 
-      def parse_command(text)
-        command, argument = super
-        command = "/setadmin" if command == "/set_admin"
-        [command, argument]
-      end
-
       def show_active_users(message)
         chat_id = message.fetch("chat").fetch("id")
         user = authenticate_user(message)
@@ -30,7 +24,7 @@ module ZeroXDA
         actor = authenticate_user(message)
         sync_commands(chat_id, actor)
         return send_message(chat_id, t(:access_denied)) unless admin?(actor)
-        return send_message(chat_id, "формат: /set_admin @username або Telegram ID") if target.to_s.empty?
+        return send_message(chat_id, t(:admin_format)) if target.to_s.empty?
 
         assignment = @market_api.set_admin(
           actor_telegram_user_id: message.fetch("from").fetch("id"),
