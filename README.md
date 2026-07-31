@@ -54,18 +54,10 @@ Client commands:
 - `/buy` — open the active product catalog
 - `/status` — show the persisted role and account status
 
-Administrator commands:
-
-- `/apply_prices` — review the database-defined price proposal
-- `/apply_price <sku|position|name> <amount>` — apply one USDT price
-- `/rates` — show currency products and rates
-- `/set_rate <currency> <amount>` — update a currency product price
-- `/servers` — show core and bot health
-- `/users` — show active users as Telegram profile links
-- `/set_admin @username|TELEGRAM_ID` — assign the persisted admin role
-
-Non-admin chats do not receive administrator commands, and the core independently
-checks the internal admin role for every privileged operation.
+Administrator controls are delivered only through role-scoped private command
+menus and are intentionally not listed in the public README. Non-admin chats do
+not receive those controls, and the core independently checks the internal admin
+role for every privileged operation.
 
 ## Catalog and pricing
 
@@ -80,9 +72,9 @@ core and use the same unified pricing flow.
 Supported interface locales are English, Ukrainian, Russian, French, Spanish and
 German. Unknown languages fall back to `en_US`.
 
-`/apply_prices` uses localized core proposal data and renders current/previous
-prices, application timestamps and clickable editor identities without exposing
-internal UUIDs in Telegram messages.
+The localized administrator pricing form renders current and previous prices,
+application timestamps and clickable editor identities without exposing internal
+UUIDs in Telegram messages.
 
 ## VPS deployment
 
