@@ -89,9 +89,9 @@ class FakeMarketAPI
     end
   end
 
-  def price_proposal(actor_telegram_user_id:, locale: "en_US")
+  def price_proposal(actor_user_id:, locale: "en_US")
     @price_proposal_requests << {
-      actor_telegram_user_id: actor_telegram_user_id,
+      actor_user_id: actor_user_id,
       locale: locale
     }
     products(locale: locale).first(2).map do |product|
@@ -110,8 +110,8 @@ class FakeMarketAPI
     end
   end
 
-  def apply_prices(actor_telegram_user_id:, prices:)
-    @applied_prices << { actor_telegram_user_id: actor_telegram_user_id, prices: prices }
+  def apply_prices(actor_user_id:, prices:)
+    @applied_prices << { actor_user_id: actor_user_id, prices: prices }
     prices.map do |price|
       {
         "type" => "price",
@@ -136,8 +136,8 @@ class FakeMarketAPI
     end
   end
 
-  def set_fx_rates(actor_telegram_user_id:, rates:)
-    @applied_fx_rates << { actor_telegram_user_id: actor_telegram_user_id, rates: rates }
+  def set_fx_rates(actor_user_id:, rates:)
+    @applied_fx_rates << { actor_user_id: actor_user_id, rates: rates }
     rates.map do |rate|
       {
         "type" => "fx_rate",
@@ -150,9 +150,9 @@ class FakeMarketAPI
     end
   end
 
-  def set_admin(actor_telegram_user_id:, target:)
+  def set_admin(actor_user_id:, target:)
     @requests << {
-      actor_telegram_user_id: actor_telegram_user_id,
+      actor_user_id: actor_user_id,
       target: target
     }
     {
