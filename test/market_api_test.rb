@@ -88,25 +88,25 @@ class MarketAPITest < Minitest::Test
     assert_equal "telegram", attributes.fetch("identities").first.fetch("provider")
   end
 
-  def test_translates_actor_telegram_id_to_internal_uuid_for_price_application
+  def test_forwards_internal_actor_uuid_without_loading_active_users
     api = api_with(
-      response("200", generic_users_payload),
       response("201", '{"data":[{"id":"premium_3m","attributes":{"amount_usdt":"12.50"}}]}')
     )
 
     applied = api.apply_prices(
-      actor_telegram_user_id: 77,
+      actor_user_id: "user-1",
       prices: [{ sku: "premium_3m", amount_usdt: "12.50" }]
     )
 
     assert_equal "premium_3m", applied.first.fetch("id")
-    assert_equal "/v1/admin/prices", api.uris.last.path
-    body = JSON.parse(api.requests.last.body)
+    assert_equal 1, api.attempts
+    assert_equal ["/v1/admin/prices"], api.uris.map(&:path)
+    body = JSON.parse(api.requests.first.body)
     assert_equal "user-1", body.fetch("actor_user_id")
     refute body.key?("actor_telegram_user_id")
   end
 
-  def test_resolves_telegram_target_before_assigning_internal_admin_role
+  def test_resolves_only_the_telegram_target_before_assigning_admin_role
     target_payload = generic_users_payload(
       users: [
         generic_user(id: "owner-1", telegram_id: "77", username: "owner"),
@@ -115,12 +115,13 @@ class MarketAPITest < Minitest::Test
     )
     api = api_with(
       response("200", target_payload),
-      response("200", target_payload),
       response("200", '{"data":{"id":"target-1","attributes":{"role":"admin"},"meta":{"changed":true}}}')
     )
 
-    assignment = api.set_admin(actor_telegram_user_id: 77, target: "@target_user")
+    assignment = api.set_admin(actor_user_id: "owner-1", target: "@target_user")
 
+    assert_equal 2, api.attempts
+    assert_equal ["/v1/users", "/v1/admin/users/set-admin"], api.uris.map(&:path)
     body = JSON.parse(api.requests.last.body)
     assert_equal "owner-1", body.fetch("actor_user_id")
     assert_equal "target-1", body.fetch("target_user_id")
