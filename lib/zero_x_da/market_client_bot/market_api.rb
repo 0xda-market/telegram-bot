@@ -132,45 +132,6 @@ module ZeroXDA
         ).fetch("data")
       end
 
-      # Currency resources replaced the old fx-rate resources in core. Keep a
-      # stable command-facing shape so Bot does not depend on either API model.
-      def fx_rates
-        currencies.map do |currency|
-          attributes = currency.fetch("attributes")
-          code = attributes.fetch("code")
-          {
-            "type" => "fx_rate",
-            "id" => code,
-            "attributes" => {
-              "currency" => code,
-              "usdt_per_unit" => attributes["usdt_per_unit"]
-            }
-          }
-        end
-      end
-
-      def set_fx_rates(actor_user_id:, rates:)
-        prices = rates.map do |rate|
-          {
-            sku: rate.fetch(:currency).to_s.downcase,
-            amount_usdt: rate.fetch(:usdt_per_unit)
-          }
-        end
-        applied = apply_prices(actor_user_id: actor_user_id, prices: prices)
-
-        rates.zip(applied).map do |rate, price|
-          currency = rate.fetch(:currency).to_s.upcase
-          {
-            "type" => "fx_rate",
-            "id" => currency,
-            "attributes" => {
-              "currency" => currency,
-              "usdt_per_unit" => price.dig("attributes", "amount_usdt") || rate.fetch(:usdt_per_unit).to_s
-            }
-          }
-        end
-      end
-
       # Telegram-facing target references are resolved to internal UUIDs here
       # through the provider-neutral core lookup. The authenticated actor UUID
       # authorizes both lookup and assignment without enumerating active users.

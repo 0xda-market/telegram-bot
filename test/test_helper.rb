@@ -10,10 +10,9 @@ class FakeMarketAPI
               :health_requests,
               :product_requests,
               :product_locales,
+              :currency_requests,
               :price_proposal_requests,
               :applied_prices,
-              :fx_rate_requests,
-              :applied_fx_rates,
               :intents,
               :quotes,
               :orders
@@ -30,15 +29,21 @@ class FakeMarketAPI
     ["eth", "ETH", "ETH", "ETH", "ETH", "crypto_asset"]
   ].freeze
 
+  CURRENCIES = {
+    "usdt" => "1",
+    "usd" => "1",
+    "uah" => "0.024",
+    "rub" => "0.011"
+  }.freeze
+
   def initialize
     @requests = []
     @health_requests = 0
     @product_requests = 0
     @product_locales = []
+    @currency_requests = []
     @price_proposal_requests = []
     @applied_prices = []
-    @fx_rate_requests = 0
-    @applied_fx_rates = []
     @intents = {}
     @quotes = {}
     @orders = {}
@@ -102,7 +107,8 @@ class FakeMarketAPI
   end
 
   def currencies(locale: "en_US")
-    %w[usdt usd uah rub].each_with_index.map do |sku, index|
+    @currency_requests << locale
+    CURRENCIES.each_with_index.map do |(sku, amount), index|
       {
         "type" => "currency",
         "id" => sku,
@@ -115,7 +121,8 @@ class FakeMarketAPI
           "status" => "active",
           "position" => 100 + index,
           "code" => sku.upcase,
-          "usdt_per_unit" => sku == "usdt" ? "1" : nil
+          "usdt_per_unit" => amount,
+          "updated_at" => "2026-07-19T07:00:00.000000Z"
         }
       }
     end
@@ -237,35 +244,6 @@ class FakeMarketAPI
         "type" => "price",
         "id" => price.fetch(:sku),
         "attributes" => { "amount_usdt" => price.fetch(:amount_usdt) }
-      }
-    end
-  end
-
-  def fx_rates
-    @fx_rate_requests += 1
-    [["USDT", "1"], ["EUR", "1.16"]].map do |currency, value|
-      {
-        "type" => "fx_rate",
-        "id" => currency,
-        "attributes" => {
-          "currency" => currency,
-          "usdt_per_unit" => value,
-          "updated_at" => "2026-07-19T07:00:00.000000Z"
-        }
-      }
-    end
-  end
-
-  def set_fx_rates(actor_user_id:, rates:)
-    @applied_fx_rates << { actor_user_id: actor_user_id, rates: rates }
-    rates.map do |rate|
-      {
-        "type" => "fx_rate",
-        "id" => rate.fetch(:currency),
-        "attributes" => {
-          "currency" => rate.fetch(:currency),
-          "usdt_per_unit" => rate.fetch(:usdt_per_unit)
-        }
       }
     end
   end

@@ -84,8 +84,8 @@ module ZeroXDA
         when "/set_admin" then set_admin(message, argument)
         when "/apply_prices" then start_price_application(message)
         when "/apply_price" then apply_single_price(message, argument)
-        when "/rates" then show_fx_rates(message)
-        when "/set_rate" then set_fx_rate(message, argument)
+        when "/rates" then show_currency_prices(message)
+        when "/set_rate" then set_currency_price(message, argument)
         end
       end
 
@@ -322,27 +322,53 @@ module ZeroXDA
         end
       end
 
-      def set_fx_rate(message, argument)
+      # `/set_rate` remains a Telegram compatibility command. It resolves one
+      # registered core currency and writes through the same generic price API
+      # used by every other priced catalog item.
+      def set_currency_price(message, argument)
         chat_id = message.fetch("chat").fetch("id")
         user = authenticate_user(message)
         sync_commands(chat_id, user)
         return send_message(chat_id, t(:access_denied)) unless admin?(user)
 
-        currency, value = argument.to_s.split(/\s+/, 2)
+        locale = locale_for(message)
+        code, value = argument.to_s.split(/\s+/, 2)
         value = value&.strip
-        unless currency&.match?(CURRENCY_INPUT_PATTERN) && value&.match?(PRICE_AMOUNT_PATTERN)
-          return send_message(chat_id, t(:rate_format))
+        unless code&.match?(CURRENCY_INPUT_PATTERN) && value&.match?(PRICE_AMOUNT_PATTERN)
+          return send_message(chat_id, t(:currency_price_format, locale: locale))
         end
 
-        applied = @market_api.set_fx_rates(
+        currency = resolve_currency(code, locale: locale)
+        unless currency
+          return send_message(
+            chat_id,
+            t(:currency_not_found, locale: locale, currency: code.upcase)
+          )
+        end
+
+        applied = @market_api.apply_prices(
           actor_user_id: user.fetch("id"),
-          rates: [{ currency: currency.upcase, usdt_per_unit: value }]
+          prices: [{ sku: currency.fetch("id"), amount_usdt: value }]
         )
-        rate = applied.first
+        price = applied.first
+        currency_code = currency.dig("attributes", "code") || currency.fetch("id").upcase
         send_message(
           chat_id,
-          t(:rate_applied, currency: rate.fetch("id"), amount: rate.dig("attributes", "usdt_per_unit"))
+          t(
+            :currency_price_applied,
+            locale: locale,
+            currency: currency_code,
+            amount: price.dig("attributes", "amount_usdt")
+          )
         )
+      end
+
+      def resolve_currency(reference, locale:)
+        code = reference.to_s.strip
+        @market_api.currencies(locale: locale).find do |currency|
+          currency.fetch("id").casecmp?(code) ||
+            currency.dig("attributes", "code").to_s.casecmp?(code)
+        end
       end
 
       def request_product_selection(chat_id:, locale:)
