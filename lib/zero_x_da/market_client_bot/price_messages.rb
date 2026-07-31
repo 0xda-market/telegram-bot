@@ -23,6 +23,7 @@ module ZeroXDA
           choose_product: "choose a product to update:",
           enter_amount: "enter the new price for %s in USDT, e.g. 7.45",
           invalid_amount: "invalid amount. enter a number, e.g. 7.45",
+          reply_missing: "No active price request is attached to this number. Use /apply_price and reply to its prompt.",
           product_not_found: "product not found: %s\n" \
                              "enter a sku, position or short name, or pick a product button"
         },
@@ -41,6 +42,7 @@ module ZeroXDA
           choose_product: "обери продукт для оновлення ціни:",
           enter_amount: "введи нову ціну для %s у USDT, наприклад 7.45",
           invalid_amount: "некоректна сума. введи число, наприклад 7.45",
+          reply_missing: "Це число не прив’язане до запиту ціни. Використай /apply_price і відповідай саме на його повідомлення.",
           product_not_found: "продукт не знайдено: %s\n" \
                              "введи sku, позицію або коротку назву, або обери продукт кнопкою"
         },
@@ -59,6 +61,7 @@ module ZeroXDA
           choose_product: "выберите продукт для обновления цены:",
           enter_amount: "введите новую цену для %s в USDT, например 7.45",
           invalid_amount: "некорректная сумма. введите число, например 7.45",
+          reply_missing: "Это число не связано с запросом цены. Используйте /apply_price и ответьте на его сообщение.",
           product_not_found: "продукт не найден: %s\n" \
                              "введите sku, позицию или короткое название либо выберите продукт кнопкой"
         },
@@ -77,6 +80,7 @@ module ZeroXDA
           choose_product: "choisissez un produit dont le prix doit être mis à jour :",
           enter_amount: "saisissez le nouveau prix de %s en USDT, par exemple 7.45",
           invalid_amount: "montant incorrect. saisissez un nombre, par exemple 7.45",
+          reply_missing: "Ce nombre n’est lié à aucune demande de prix. Utilisez /apply_price et répondez à son message.",
           product_not_found: "produit introuvable : %s\n" \
                              "saisissez un sku, une position ou un nom court, ou choisissez un bouton"
         },
@@ -95,6 +99,7 @@ module ZeroXDA
           choose_product: "elige un producto para actualizar su precio:",
           enter_amount: "introduce el nuevo precio de %s en USDT, por ejemplo 7.45",
           invalid_amount: "importe incorrecto. introduce un número, por ejemplo 7.45",
+          reply_missing: "Este número no está vinculado a una solicitud de precio. Usa /apply_price y responde a su mensaje.",
           product_not_found: "producto no encontrado: %s\n" \
                              "introduce un sku, posición o nombre corto, o elige un botón"
         },
@@ -113,10 +118,16 @@ module ZeroXDA
           choose_product: "Wähle ein Produkt zur Preisaktualisierung:",
           enter_amount: "Gib den neuen Preis für %s in USDT ein, z. B. 7.45",
           invalid_amount: "Ungültiger Betrag. Gib eine Zahl ein, z. B. 7.45",
+          reply_missing: "Diese Zahl gehört zu keiner Preisanfrage. Nutze /apply_price und antworte auf dessen Nachricht.",
           product_not_found: "Produkt nicht gefunden: %s\n" \
                              "Gib sku, Position oder Kurzname ein oder wähle eine Produktschaltfläche"
         }
       }.freeze
+
+      DEFAULT_KEYS = COPY.fetch(Locale::DEFAULT).keys.freeze
+      COPY.each do |locale, values|
+        raise KeyError, "price copy mismatch for #{locale}" unless values.keys.sort == DEFAULT_KEYS.sort
+      end
 
       module_function
 
@@ -158,6 +169,10 @@ module ZeroXDA
 
       def invalid_amount(locale: Locale::DEFAULT)
         copy_for(locale).fetch(:invalid_amount)
+      end
+
+      def reply_missing(locale: Locale::DEFAULT)
+        copy_for(locale).fetch(:reply_missing)
       end
 
       def product_not_found(reference, locale: Locale::DEFAULT)

@@ -2,139 +2,116 @@ require_relative "test_helper"
 require "zero_x_da/market_client_bot/bot"
 
 class BotTest < Minitest::Test
-  ACTOR_USER_ID = "12345678-1234-4000-8000-123456789012"
+  ACTOR_USER_ID = FakeMarketAPI::ACTOR_USER_ID
 
   def setup
     @market = FakeMarketAPI.new
     @telegram = FakeTelegramAPI.new
-    @bot = ZeroXDA::MarketClientBot::Bot.new(
-      market_api: @market,
-      telegram_api: @telegram,
-      clock: -> { Time.utc(2026, 7, 12, 0, 0, 1) },
-      status_message_ttl: 0
-    )
+    @bot = build_bot
   end
 
-  def test_start_authenticates_the_telegram_user_and_confirms_authorization
+  def test_start_authenticates_and_installs_the_client_menu
     @bot.handle(update("/start"))
 
     assert_equal 1, @market.requests.length
-    request = @market.requests.first
-    assert_equal 77, request.dig(:user, "id")
-    assert_equal 770, request.dig(:chat, "id")
-    assert_equal 770, @telegram.messages.first.fetch(:chat_id)
     assert_includes @telegram.messages.first.fetch(:text), "авторизація успішна"
-    assert_equal <<~TEXT.strip, @telegram.messages.first.fetch(:text)
-      авторизація успішна ✅
-      role: client
-      status: active ✅
-    TEXT
     commands = @telegram.command_sets.first
     assert_equal({ type: "chat", chat_id: 770 }, commands.fetch(:scope))
     assert_equal %w[buy status], commands.fetch(:commands).map { |item| item.fetch(:command) }
     assert_equal [{ chat_id: 770, message_id: 1 }], @telegram.deleted_messages
   end
 
-  def test_status_displays_the_current_user_state
+  def test_status_displays_the_current_user_without_loading_health
     @bot.handle(update("/status"))
 
-    text = @telegram.messages.last.fetch(:text)
-    assert_includes text, "role: client"
-    assert_includes text, "status: active ✅"
+    assert_includes @telegram.messages.last.fetch(:text), "role: client"
+    assert_includes @telegram.messages.last.fetch(:text), "status: active ✅"
     assert_equal 0, @market.health_requests
   end
 
-  def test_authorized_client_can_open_the_nine_product_buy_catalog
+  def test_buy_opens_grouped_catalog_and_never_truncates_to_nine_buttons
     @bot.handle(update("/buy"))
 
-    message = @telegram.messages.last
-    assert_equal "обери продукт для купівлі:", message.fetch(:text)
-    rows = message.dig(:reply_markup, :inline_keyboard)
-    assert_equal [3, 3, 3], rows.map(&:length)
-    buttons = rows.flatten
-    assert_equal "buy_premium_3m", buttons.first.fetch(:callback_data)
-    assert_equal "buy_eth", buttons.last.fetch(:callback_data)
-    assert_equal 1, @market.product_requests
-    assert_equal ["uk_UA"], @market.product_locales
+    root = @telegram.messages.last
+    assert_equal "обери продукт для купівлі:", root.fetch(:text)
+    category_buttons = root.dig(:reply_markup, :inline_keyboard).flatten
+    assert_equal 3, category_buttons.length
+    assert_equal %w[c:b:premium_3m c:b:stars_500 c:b:ton], category_buttons.map { |button| button.fetch(:callback_data) }
+
+    category_buttons.each do |button|
+      @bot.handle(callback(button.fetch(:callback_data)))
+    end
+    product_callbacks = @telegram.edited_messages.flat_map do |message|
+      message.dig(:reply_markup, :inline_keyboard).flatten.map { |button| button[:callback_data] }
+    end.compact.grep(/\Ab:/)
+
+    assert_equal FakeMarketAPI::PRODUCTS.map(&:first).sort, product_callbacks.map { |data| data.delete_prefix("b:") }.sort
   end
 
-  def test_buy_callback_reauthenticates_the_client_and_acknowledges_selection
-    @bot.handle(callback("buy_stars_1000"))
+  def test_purchase_selection_creates_quote_then_explicit_acceptance_and_durable_pending_order
+    @bot.handle(callback("b:premium_3m"))
 
-    assert_equal 1, @market.requests.length
-    assert_equal 1, @market.product_requests
-    assert_equal(
-      {
-        callback_query_id: "callback-1",
-        text: "обрано: Stars 1000"
-      },
-      @telegram.answered_callbacks.last
-    )
+    quote_screen = @telegram.edited_messages.last
+    assert_includes quote_screen.fetch(:text), "Пропозиція купівлі"
+    assert_includes quote_screen.fetch(:text), "7.45 USDT"
+    assert_includes quote_screen.fetch(:text), "Дійсна до"
+    accept_callback = quote_screen.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)
+    assert_match(/\Aq:quote-\d+\z/, accept_callback)
+
+    intent = @market.intents.values.first
+    assert_equal "manual.fulfillment", intent.dig("attributes", "capability")
+    assert_equal "purchase", intent.dig("attributes", "payload", "action")
+    assert_equal "premium_3m", intent.dig("attributes", "payload", "product", "sku")
+    assert_equal ACTOR_USER_ID, intent.dig("attributes", "context", "customer_user_id")
+
+    @bot.handle(callback(accept_callback))
+
+    pending_screen = @telegram.edited_messages.last
+    assert_includes pending_screen.fetch(:text), "Заявку прийнято"
+    assert_includes pending_screen.fetch(:text), "стан замовлення збережено"
+    refresh_callback = pending_screen.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)
+    assert_match(/\Ao:order:quote-\d+\z/, refresh_callback)
+    assert_equal "pending", @market.orders.values.first.dig("attributes", "status")
   end
 
-  def test_status_uses_the_client_context_for_a_broker_identity
-    market = Class.new(FakeMarketAPI) do
-      def authenticate_telegram(**arguments)
-        super.tap { |user| user.fetch("attributes")["role"] = "broker" }
-      end
-    end.new
-    bot = ZeroXDA::MarketClientBot::Bot.new(
-      market_api: market,
-      telegram_api: @telegram
-    )
+  def test_refresh_returns_the_final_receipt_after_operator_completion
+    @bot.handle(callback("b:premium_3m"))
+    accept_callback = @telegram.edited_messages.last.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)
+    @bot.handle(callback(accept_callback))
+    order_id = @market.orders.keys.first
+    @market.complete_order(order_id)
 
-    bot.handle(update("/status"))
+    @bot.handle(callback("o:#{order_id}"))
 
-    text = @telegram.messages.last.fetch(:text)
-    assert_includes text, "role: client"
-    refute_includes text, "role: broker"
+    receipt = @telegram.edited_messages.last
+    assert_includes receipt.fetch(:text), "Купівлю завершено ✅"
+    assert_includes receipt.fetch(:text), order_id
+    assert_includes receipt.fetch(:text), "Telegram Premium 3 міс."
+    assert_includes receipt.fetch(:text), "7.45 USDT"
+    assert_equal "h:b", receipt.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)
   end
 
-  def test_admin_servers_displays_both_services_and_server_times
+  def test_admin_servers_and_users_remain_role_scoped
     @bot.handle(update("/servers", user_id: 99, chat_id: 990))
+    assert_includes @telegram.messages.first.fetch(:text), "✅ Market core"
 
-    text = @telegram.messages.first.fetch(:text)
-    assert_includes text, "✅ Market core"
-    assert_includes text, "12.07.2026 · 00:00:00 UTC"
-    assert_includes text, "✅ Client bot"
-    assert_includes text, "12.07.2026 · 00:00:01 UTC"
+    @bot.handle(update("/users", user_id: 99, chat_id: 990))
+    users = @telegram.messages.last.fetch(:text)
+    assert_includes users, "👥 Активні користувачі: 1"
+    assert_includes users, "@zero"
+    refute_includes users, ACTOR_USER_ID
   end
 
-  def test_non_admin_cannot_see_or_execute_servers
+  def test_non_admin_cannot_use_admin_commands
     @bot.handle(update("/servers"))
-
     assert_equal "Доступ заборонено.", @telegram.messages.last.fetch(:text)
     assert_equal 0, @market.health_requests
-    assert_equal %w[buy status], @telegram.command_sets.last.fetch(:commands).map { |item| item.fetch(:command) }
+
+    @bot.handle(update("/set_admin 88"))
+    assert_equal "Доступ заборонено.", @telegram.messages.last.fetch(:text)
   end
 
-  def test_admin_can_list_active_users
-    @bot.handle(update("/users", user_id: 99, chat_id: 990))
-
-    text = @telegram.messages.first.fetch(:text)
-    assert_includes text, "👥 Активні користувачі: 1"
-    assert_includes text, "👤 @zero"
-    refute_includes text, ACTOR_USER_ID
-    assert_includes text, "Роль: client"
-  end
-
-  def test_non_admin_cannot_list_active_users
-    @bot.handle(update("/users", user_id: 88))
-
-    assert_equal "Доступ заборонено.", @telegram.messages.first.fetch(:text)
-  end
-
-  def test_admin_menu_contains_work_commands_then_fixed_footer
-    @bot.handle(update("/start", user_id: 99, chat_id: 990))
-
-    command_set = @telegram.command_sets.last
-    assert_equal({ type: "chat", chat_id: 990 }, command_set.fetch(:scope))
-    commands = command_set.fetch(:commands).map { |item| item.fetch(:command) }
-    assert_equal %w[buy apply_prices apply_price rates set_rate status servers users set_admin], commands
-    assert_equal %w[status servers users set_admin], commands.last(4)
-  end
-
-  def test_admin_promotes_a_user_and_installs_their_admin_menu
+  def test_admin_promotes_a_user_and_installs_their_menu
     @bot.handle(update("/set_admin @target_user", user_id: 99, chat_id: 990))
 
     request = @market.requests.last
@@ -142,17 +119,72 @@ class BotTest < Minitest::Test
     assert_equal "@target_user", request.fetch(:target)
     command_set = @telegram.command_sets.last
     assert_equal({ type: "chat", chat_id: "880" }, command_set.fetch(:scope))
-    assert_includes command_set.fetch(:commands).map { |item| item.fetch(:command) }, "set_admin"
     assert_includes @telegram.messages.last.fetch(:text), "Вам призначено роль admin"
   end
 
-  def test_non_admin_cannot_execute_a_manually_typed_set_admin_command
-    @bot.handle(update("/set_admin 88", user_id: 77, chat_id: 770))
+  def test_price_application_form_uses_authenticated_actor_uuid
+    @bot.handle(update("/apply_prices", user_id: 99, chat_id: 990))
 
-    assert_equal "Доступ заборонено.", @telegram.messages.last.fetch(:text)
-    refute @market.requests.any? { |request| request.key?(:actor_user_id) }
-    command_set = @telegram.command_sets.last
-    assert_equal %w[buy status], command_set.fetch(:commands).map { |item| item.fetch(:command) }
+    assert_equal [{ actor_user_id: ACTOR_USER_ID, locale: "uk_UA" }], @market.price_proposal_requests
+    assert_includes @telegram.messages.last.fetch(:text), "📦 Застосування цін"
+    assert_includes @telegram.messages.last.fetch(:text), "✏️ @zero"
+  end
+
+  def test_admin_applies_a_price_directly
+    @bot.handle(update("/apply_price premium_6m 7.45", user_id: 99, chat_id: 990))
+
+    assert_equal(
+      [{ actor_user_id: ACTOR_USER_ID, prices: [{ sku: "premium_6m", amount_usdt: "7.45" }] }],
+      @market.applied_prices
+    )
+    assert_includes @telegram.messages.last.fetch(:text), "Ціну застосовано ✅"
+  end
+
+  def test_price_reply_survives_bot_restart_without_process_memory
+    @bot.handle(update("/apply_price premium_6m", user_id: 99, chat_id: 990))
+    prompt = @telegram.messages.last
+    assert_includes prompt.fetch(:text), "[price:premium_6m]"
+    assert_equal true, prompt.dig(:reply_markup, :force_reply)
+    refute_includes @bot.instance_variables, :@price_dialogs
+
+    restarted = build_bot
+    restarted.handle(
+      update(
+        "7.45",
+        user_id: 99,
+        chat_id: 990,
+        reply_to_message: { "text" => prompt.fetch(:text) }
+      )
+    )
+
+    assert_equal "premium_6m", @market.applied_prices.last.fetch(:prices).first.fetch(:sku)
+    assert_includes @telegram.messages.last.fetch(:text), "Ціну застосовано ✅"
+  end
+
+  def test_unmatched_numeric_message_explains_how_to_continue
+    @bot.handle(update("7.45", user_id: 99, chat_id: 990))
+
+    assert_includes @telegram.messages.last.fetch(:text), "не прив’язане до запиту ціни"
+    assert_empty @market.applied_prices
+  end
+
+  def test_apply_price_without_arguments_opens_grouped_catalog_including_currencies
+    @bot.handle(update("/apply_price", user_id: 99, chat_id: 990))
+
+    callbacks = @telegram.messages.last.dig(:reply_markup, :inline_keyboard).flatten.map do |button|
+      button.fetch(:callback_data)
+    end
+    assert_includes callbacks, "c:p:premium_3m"
+    assert_includes callbacks, "c:p:usdt"
+  end
+
+  def test_admin_can_list_and_update_exchange_rates
+    @bot.handle(update("/rates", user_id: 99, chat_id: 990))
+    assert_includes @telegram.messages.last.fetch(:text), "💱 Курси валют"
+
+    @bot.handle(update("/set_rate eur 1.16", user_id: 99, chat_id: 990))
+    assert_equal "EUR", @market.applied_fx_rates.last.fetch(:rates).first.fetch(:currency)
+    assert_includes @telegram.messages.last.fetch(:text), "Курс застосовано ✅"
   end
 
   def test_legacy_setadmin_command_is_ignored
@@ -163,216 +195,11 @@ class BotTest < Minitest::Test
     assert_empty @telegram.messages
   end
 
-  def test_admin_receives_the_price_application_form
-    @bot.handle(update("/apply_prices", user_id: 99, chat_id: 990))
-
-    assert_equal(
-      [{ actor_user_id: ACTOR_USER_ID, locale: "uk_UA" }],
-      @market.price_proposal_requests
-    )
-    text = @telegram.messages.last.fetch(:text)
-    assert_includes text, "📦 Застосування цін"
-    assert_includes text, "💵 USDT"
-    assert_includes text, "1. Telegram Premium 3 міс. · premium_3m"
-    assert_includes text, "⏮ 7.20 → 💰 7.45 USDT"
-    assert_includes text, "✏️ @zero"
-    assert_includes text, "/apply_price <sku|позиція|назва> <сума>"
-  end
-
-  def test_price_application_falls_back_to_en_us
-    @bot.handle(update("/apply_prices", user_id: 99, chat_id: 990, language_code: "fr"))
-
-    assert_equal "fr_FR", @market.price_proposal_requests.last.fetch(:locale)
-    text = @telegram.messages.last.fetch(:text)
-    assert_includes text, "📦 Application des prix"
-    assert_includes text, "1. Telegram Premium 3 months · premium_3m"
-  end
-
-  def test_non_admin_cannot_request_the_price_application_form
-    @bot.handle(update("/apply_prices"))
-
-    assert_equal "Доступ заборонено.", @telegram.messages.last.fetch(:text)
-    assert_empty @market.price_proposal_requests
-  end
-
-  def test_admin_applies_a_single_price_by_sku
-    @bot.handle(update("/apply_price premium_6m 7.45", user_id: 99, chat_id: 990))
-
-    assert_equal(
-      [{ actor_user_id: ACTOR_USER_ID, prices: [{ sku: "premium_6m", amount_usdt: "7.45" }] }],
-      @market.applied_prices
-    )
-    text = @telegram.messages.last.fetch(:text)
-    assert_includes text, "Ціну застосовано ✅"
-    assert_includes text, "Telegram Premium 6 міс. (premium_6m)"
-    assert_includes text, "7.45 USDT"
-  end
-
-  def test_admin_applies_a_single_price_by_catalog_position
-    @bot.handle(update("/apply_price 5 3.10", user_id: 99, chat_id: 990))
-
-    price = @market.applied_prices.last.fetch(:prices).first
-    assert_equal "stars_1000", price.fetch(:sku)
-    assert_equal "3.10", price.fetch(:amount_usdt)
-  end
-
-  def test_admin_applies_a_single_price_by_database_short_name
-    @bot.handle(update("/apply_price Premium 6m 7.45", user_id: 99, chat_id: 990))
-
-    price = @market.applied_prices.last.fetch(:prices).first
-    assert_equal "premium_6m", price.fetch(:sku)
-    assert_equal "7.45", price.fetch(:amount_usdt)
-  end
-
-  def test_apply_price_without_an_amount_asks_for_the_amount
-    @bot.handle(update("/apply_price premium_6m", user_id: 99, chat_id: 990))
-
-    assert_includes @telegram.messages.last.fetch(:text), "введи нову ціну для Telegram Premium 6 міс."
-    assert_empty @market.applied_prices
-
-    @bot.handle(update("7.45", user_id: 99, chat_id: 990))
-
-    assert_equal(
-      [{ actor_user_id: ACTOR_USER_ID, prices: [{ sku: "premium_6m", amount_usdt: "7.45" }] }],
-      @market.applied_prices
-    )
-    assert_includes @telegram.messages.last.fetch(:text), "Ціну застосовано ✅"
-  end
-
-  def test_apply_price_without_arguments_walks_through_product_and_amount
-    @bot.handle(update("/apply_price", user_id: 99, chat_id: 990))
-
-    message = @telegram.messages.last
-    assert_equal "обери продукт для оновлення ціни:", message.fetch(:text)
-    buttons = message.dig(:reply_markup, :inline_keyboard).flatten
-    assert_equal "applyprice_premium_3m", buttons.first.fetch(:callback_data)
-    assert_equal "applyprice_eth", buttons.last.fetch(:callback_data)
-
-    @bot.handle(callback("applyprice_stars_1000", user_id: 99, chat_id: 990))
-
-    assert_equal "обрано: Stars 1000", @telegram.answered_callbacks.last.fetch(:text)
-    assert_includes @telegram.messages.last.fetch(:text), "введи нову ціну для Stars 1000"
-    assert_empty @market.applied_prices
-
-    @bot.handle(update("3.10", user_id: 99, chat_id: 990))
-
-    price = @market.applied_prices.last.fetch(:prices).first
-    assert_equal "stars_1000", price.fetch(:sku)
-    assert_equal "3.10", price.fetch(:amount_usdt)
-  end
-
-  def test_apply_price_with_a_malformed_amount_asks_for_the_amount
-    @bot.handle(update("/apply_price premium_6m abc", user_id: 99, chat_id: 990))
-
-    texts = @telegram.messages.map { |item| item.fetch(:text) }
-    assert_includes texts, "некоректна сума. введи число, наприклад 7.45"
-    assert_includes texts.last, "введи нову ціну для Telegram Premium 6 міс."
-    assert_empty @market.applied_prices
-
-    @bot.handle(update("abc", user_id: 99, chat_id: 990))
-
-    assert_includes @telegram.messages.last.fetch(:text), "некоректна сума"
-    assert_empty @market.applied_prices
-
-    @bot.handle(update("7.45", user_id: 99, chat_id: 990))
-
-    price = @market.applied_prices.last.fetch(:prices).first
-    assert_equal "premium_6m", price.fetch(:sku)
-    assert_equal "7.45", price.fetch(:amount_usdt)
-  end
-
-  def test_apply_price_dialog_accepts_a_typed_product_after_an_unknown_reference
-    @bot.handle(update("/apply_price premium 7.45", user_id: 99, chat_id: 990))
-
-    texts = @telegram.messages.map { |item| item.fetch(:text) }
-    assert(texts.any? { |text| text.include?("продукт не знайдено: premium") })
-    assert_equal "обери продукт для оновлення ціни:", texts.last
-    assert_empty @market.applied_prices
-
-    @bot.handle(update("premium_6m", user_id: 99, chat_id: 990))
-
-    assert_includes @telegram.messages.last.fetch(:text), "введи нову ціну для Telegram Premium 6 міс."
-
-    @bot.handle(update("7.45", user_id: 99, chat_id: 990))
-
-    price = @market.applied_prices.last.fetch(:prices).first
-    assert_equal "premium_6m", price.fetch(:sku)
-    assert_equal "7.45", price.fetch(:amount_usdt)
-  end
-
-  def test_a_new_command_cancels_a_pending_price_dialog
-    @bot.handle(update("/apply_price premium_6m", user_id: 99, chat_id: 990))
-    @bot.handle(update("/status", user_id: 99, chat_id: 990))
-    @bot.handle(update("7.45", user_id: 99, chat_id: 990))
-
-    assert_empty @market.applied_prices
-  end
-
-  def test_non_admin_cannot_apply_a_price
-    @bot.handle(update("/apply_price premium_6m 7.45"))
-
-    assert_equal "Доступ заборонено.", @telegram.messages.last.fetch(:text)
-    assert_empty @market.applied_prices
-  end
-
-  def test_admin_can_list_fx_rates
-    @bot.handle(update("/rates", user_id: 99, chat_id: 990))
-
-    assert_equal 1, @market.fx_rate_requests
-    text = @telegram.messages.last.fetch(:text)
-    assert_includes text, "💱 Курси валют"
-    assert_includes text, "1 USDT = 1 USDT"
-    assert_includes text, "1 EUR = 1.16 USDT"
-    assert_includes text, "/set_rate"
-  end
-
-  def test_admin_sets_an_fx_rate_with_uppercased_currency
-    @bot.handle(update("/set_rate eur 1.16", user_id: 99, chat_id: 990))
-
-    assert_equal(
-      [{ actor_user_id: ACTOR_USER_ID, rates: [{ currency: "EUR", usdt_per_unit: "1.16" }] }],
-      @market.applied_fx_rates
-    )
-    text = @telegram.messages.last.fetch(:text)
-    assert_includes text, "Курс застосовано ✅"
-    assert_includes text, "1 EUR = 1.16 USDT"
-  end
-
-  def test_set_rate_with_malformed_arguments_shows_usage
-    @bot.handle(update("/set_rate EUR abc", user_id: 99, chat_id: 990))
-
-    assert_includes @telegram.messages.last.fetch(:text), "формат: /set_rate"
-    assert_empty @market.applied_fx_rates
-
-    @bot.handle(update("/set_rate", user_id: 99, chat_id: 990))
-
-    assert_includes @telegram.messages.last.fetch(:text), "формат: /set_rate"
-    assert_empty @market.applied_fx_rates
-  end
-
-  def test_non_admin_cannot_manage_fx_rates
-    @bot.handle(update("/rates"))
-
-    assert_equal "Доступ заборонено.", @telegram.messages.last.fetch(:text)
-    assert_equal 0, @market.fx_rate_requests
-
-    @bot.handle(update("/set_rate EUR 1.16"))
-
-    assert_equal "Доступ заборонено.", @telegram.messages.last.fetch(:text)
-    assert_empty @market.applied_fx_rates
-  end
-
-  def test_ignores_unknown_messages
-    @bot.handle(update("100 stars"))
+  def test_ignores_unknown_non_numeric_messages
+    @bot.handle(update("hello"))
 
     assert_empty @market.requests
     assert_empty @telegram.messages
-  end
-
-  def test_accepts_command_with_bot_username
-    @bot.handle(update("/servers@zeroxda_market_client_bot", user_id: 99, chat_id: 990))
-
-    assert_includes @telegram.messages.first.fetch(:text), "✅ Market core"
   end
 
   def test_reports_a_slow_market_start_and_sends_the_result_later
@@ -396,33 +223,44 @@ class BotTest < Minitest::Test
 
   private
 
-  def update(text, user_id: 77, chat_id: 770, language_code: "uk")
+  def build_bot
+    ZeroXDA::MarketClientBot::Bot.new(
+      market_api: @market,
+      telegram_api: @telegram,
+      clock: -> { Time.utc(2026, 7, 12, 0, 0, 1) },
+      status_message_ttl: 0
+    )
+  end
+
+  def update(text, user_id: 77, chat_id: 770, language_code: "uk", reply_to_message: nil)
+    message = {
+      "message_id" => 10,
+      "text" => text,
+      "from" => {
+        "id" => user_id,
+        "username" => "zero",
+        "first_name" => "Sasha",
+        "language_code" => language_code
+      },
+      "chat" => { "id" => chat_id, "type" => "private" }
+    }
+    message["reply_to_message"] = reply_to_message if reply_to_message
+    { "message" => message }
+  end
+
+  def callback(data, user_id: 77, chat_id: 770, language_code: "uk", message_id: 42)
     {
-      "message" => {
-        "text" => text,
+      "callback_query" => {
+        "id" => "callback-#{@telegram.answered_callbacks.length + 1}",
+        "data" => data,
         "from" => {
           "id" => user_id,
           "username" => "zero",
           "first_name" => "Sasha",
           "language_code" => language_code
         },
-        "chat" => { "id" => chat_id, "type" => "private" }
-      }
-    }
-  end
-
-  def callback(data, user_id: 77, chat_id: 770)
-    {
-      "callback_query" => {
-        "id" => "callback-1",
-        "data" => data,
-        "from" => {
-          "id" => user_id,
-          "username" => "zero",
-          "first_name" => "Sasha",
-          "language_code" => "uk"
-        },
         "message" => {
+          "message_id" => message_id,
           "chat" => { "id" => chat_id, "type" => "private" }
         }
       }

@@ -15,6 +15,7 @@ module ZeroXDA
       RETRY_BACKOFF_SECONDS = [2, 4, 8, 16, 30].freeze
       TRANSIENT_ERRORS = [IOError, SystemCallError, Timeout::Error].freeze
       TELEGRAM_PROVIDER = "telegram"
+      RESOURCE_ID_PATTERN = /\A[A-Za-z0-9:_-]{1,80}\z/
 
       class RetryableResponseError < StandardError; end
 
@@ -63,11 +64,53 @@ module ZeroXDA
         raw_active_users.map { |profile| adapt_user_profile(profile) }
       end
 
-      def products(locale: "en_US")
+      def products(locale: "en_US", currency: nil)
+        query = { locale: locale }
+        query[:currency] = currency if currency
         get(
-          "v1/products?#{URI.encode_www_form(locale: locale)}",
+          "v1/products?#{URI.encode_www_form(query)}",
           authenticated: true
         ).fetch("data")
+      end
+
+      def currencies(locale: "en_US")
+        get(
+          "v1/currencies?#{URI.encode_www_form(locale: locale)}",
+          authenticated: true
+        ).fetch("data")
+      end
+
+      def create_intent(capability:, payload:, context: {})
+        post(
+          "v1/intents",
+          capability: capability,
+          payload: payload,
+          context: context
+        ).fetch("data")
+      end
+
+      def intent(id)
+        get("v1/intents/#{resource_id(id)}", authenticated: true).fetch("data")
+      end
+
+      def quote_intent(intent_id)
+        post("v1/intents/#{resource_id(intent_id)}/quotes", {}).fetch("data")
+      end
+
+      def quote(id)
+        get("v1/quotes/#{resource_id(id)}", authenticated: true).fetch("data")
+      end
+
+      def accept_quote(id)
+        post("v1/quotes/#{resource_id(id)}/accept", {}).fetch("data")
+      end
+
+      def order(id)
+        get("v1/orders/#{resource_id(id)}", authenticated: true).fetch("data")
+      end
+
+      def execute_order(id)
+        post("v1/orders/#{resource_id(id)}/execute", {}).fetch("data")
       end
 
       def price_proposal(actor_user_id:, locale: "en_US")
@@ -91,7 +134,7 @@ module ZeroXDA
       # Currency resources replaced the old fx-rate resources in core. Keep a
       # stable command-facing shape so Bot does not depend on either API model.
       def fx_rates
-        get("v1/currencies", authenticated: true).fetch("data").map do |currency|
+        currencies.map do |currency|
           attributes = currency.fetch("attributes")
           code = attributes.fetch("code")
           {
@@ -144,6 +187,13 @@ module ZeroXDA
       end
 
       private
+
+      def resource_id(value)
+        id = value.to_s
+        raise ArgumentError, "resource id is invalid" unless RESOURCE_ID_PATTERN.match?(id)
+
+        id
+      end
 
       def raw_active_users
         get("v1/users?status=active", authenticated: true).fetch("data")

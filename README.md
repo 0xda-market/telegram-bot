@@ -5,7 +5,7 @@ Private Telegram client interface for the provider-agnostic [`0xda-market/core`]
 The bot authenticates Telegram identities through the generic core API, renders
 the database-backed catalog and exposes role-gated administrator operations. It
 does not connect to PostgreSQL directly and does not own users, roles, products,
-prices or permissions.
+prices, orders or permissions.
 
 ## Runtime
 
@@ -43,6 +43,18 @@ Telegram IDs, usernames, chat IDs and profile copy remain in this adapter. The
 core receives provider-neutral identity payloads and internal UUIDs for privileged
 actions.
 
+A purchase maps to the existing core lifecycle rather than a Telegram-specific
+order model:
+
+```text
+catalog product
+  -> manual.fulfillment intent
+  -> expiring quote
+  -> explicit acceptance
+  -> durable order and manual operator task
+  -> pending, succeeded or failed
+```
+
 ## Telegram commands
 
 The default public scope contains `/start`. After authentication the bot syncs a
@@ -59,15 +71,33 @@ menus and are intentionally not listed in the public README. Non-admin chats do
 not receive those controls, and the core independently checks the internal admin
 role for every privileged operation.
 
-## Catalog and pricing
+## Catalog and purchase journey
 
-`/buy` loads active products from `GET /v1/products?locale=...`. Product rows,
-ordering, button labels, full names, short names and prices come from the core
-database. Callback data uses the stable `buy_<sku>` contract.
+`/buy` loads active products and localized USDT prices from
+`GET /v1/products?locale=...&currency=USDT`.
 
-The initial marketable catalog contains Telegram Premium 3/6/12 months, Telegram
-Stars 500/1000/3000, TON, BTC and ETH. Currency rows are exposed separately by the
-core and use the same unified pricing flow.
+The catalog is grouped from database metadata instead of being truncated to a
+fixed first page. Category pages show at most six product buttons plus a stable
+previous/categories/next navigation row. Every callback carries only a mode and
+stable SKU anchor, so navigation survives process restarts without server-local
+session state.
+
+Selecting a product creates an immutable purchase intent snapshot and requests a
+core quote. The bot shows the product, USDT amount and `expires_at` before an
+explicit acceptance button is available. A selection alone is not represented as
+a purchase.
+
+After acceptance the bot executes the durable order. Manual fulfillment normally
+returns `pending`; the message clearly says that work is in progress and keeps a
+refresh button containing the order ID. The same button can be used after leaving
+the chat or after a bot restart. Once the operator completes the task, refresh
+renders a final receipt from the terminal order.
+
+The initial catalog contains Telegram Premium 3/6/12 months, Telegram Stars
+500/1000/3000, TON, BTC and ETH. Currency rows are exposed separately by the core
+and are included in the administrator pricing catalog.
+
+## Localization and pricing replies
 
 Supported interface locales are English, Ukrainian, Russian, French, Spanish and
 German. Unknown languages fall back to `en_US`.
@@ -75,6 +105,11 @@ German. Unknown languages fall back to `en_US`.
 The localized administrator pricing form renders current and previous prices,
 application timestamps and clickable editor identities without exposing internal
 UUIDs in Telegram messages.
+
+Interactive price entry does not use in-process dialog state. The bot sends a
+Telegram force-reply prompt containing the selected SKU context. A reply remains
+recoverable after a restart, while an unmatched numeric message receives an
+explicit instruction to start or resume the pricing command.
 
 ## VPS deployment
 
