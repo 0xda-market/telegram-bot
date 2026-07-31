@@ -5,6 +5,7 @@ require "zero_x_da/market_client_bot/bot"
 require "zero_x_da/market_client_bot/command_menu"
 
 class CommandMenuTest < Minitest::Test
+  Bot = ZeroXDA::MarketClientBot::Bot
   CommandMenu = ZeroXDA::MarketClientBot::CommandMenu
 
   def test_unauthorized_menu_uses_authorization_icon
@@ -20,6 +21,18 @@ class CommandMenuTest < Minitest::Test
       buy apply_prices apply_price rates set_rate status servers users set_admin
     ], menu.map { |item| item.fetch(:command) }
     assert_equal %w[status servers users set_admin], menu.last(4).map { |item| item.fetch(:command) }
+  end
+
+  def test_every_menu_command_is_supported_by_the_dispatcher
+    menu_commands = [
+      *CommandMenu.start,
+      *CommandMenu.client,
+      *CommandMenu.admin
+    ].map { |item| "/#{item.fetch(:command)}" }.uniq.sort
+
+    assert_equal menu_commands, Bot::SUPPORTED_COMMANDS.sort
+    assert_includes Bot::SUPPORTED_COMMANDS, "/set_admin"
+    refute_includes Bot::SUPPORTED_COMMANDS, "/setadmin"
   end
 
   def test_status_and_servers_are_transient
