@@ -32,6 +32,10 @@ module ZeroXDA
         payload[:reply_markup] = reply_markup if reply_markup
         payload[:parse_mode] = parse_mode if parse_mode
         post("editMessageText", payload)
+      rescue Error => error
+        return nil if error.message.include?("message is not modified")
+
+        raise
       end
 
       def answer_callback_query(callback_query_id:, text: nil)
