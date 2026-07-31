@@ -2,7 +2,6 @@
 
 require_relative "locale"
 require_relative "admin_messages"
-require_relative "brandless_copy"
 require_relative "i18n"
 
 module ZeroXDA
