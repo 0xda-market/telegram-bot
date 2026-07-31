@@ -28,6 +28,10 @@ jobs:
             cat test.log
             exit 1
           }
+      - name: Validate documented repository links
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash bin/check_documented_repositories
       - name: Upload test failure log
         if: failure() && steps.tests.outcome == 'failure'
         uses: actions/upload-artifact@v4
@@ -37,6 +41,7 @@ jobs:
           retention-days: 3
       - name: Validate VPS deployment configuration
         run: |
+          bash -n bin/check_documented_repositories
           bash -n deploy/vps/deploy.sh
           bash -n deploy/vps/run-price-digest.sh
           bash -n deploy/vps/install-systemd.sh
