@@ -126,28 +126,31 @@ function productCard(product) {
 
 function openCheckout(product) {
   selectedProduct = product;
+  checkout.reset(product);
   elements.dialogCategory.textContent = product.category.label;
   elements.dialogName.textContent = product.attributes.name;
   elements.dialogPrice.textContent = formatPrice(product) || "Unavailable";
-  elements.dialogStatus.textContent = "The current price will be validated before purchase.";
-  elements.action.textContent = "Request quote";
-  elements.action.disabled = false;
+  renderCheckout();
   elements.dialog.showModal();
   telegram?.HapticFeedback?.selectionChanged();
 }
 
 async function performCheckoutAction() {
-  elements.action.disabled = true;
   const status = checkout.state.status;
+  let operation;
 
   if (["idle", "failed", "succeeded"].includes(status)) {
-    await checkout.quote(selectedProduct);
+    operation = checkout.quote(selectedProduct);
   } else if (status === "quoted") {
-    await checkout.accept();
+    operation = checkout.accept();
   } else if (["pending", "accepted"].includes(status)) {
-    await checkout.refresh();
+    operation = checkout.refresh();
+  } else {
+    return;
   }
 
+  renderCheckout();
+  await operation;
   renderCheckout();
 }
 
@@ -169,6 +172,10 @@ function renderCheckout() {
     }
     case "accepting":
       elements.dialogStatus.textContent = "Creating order…";
+      elements.action.disabled = true;
+      break;
+    case "refreshing":
+      elements.dialogStatus.textContent = "Refreshing order…";
       elements.action.disabled = true;
       break;
     case "pending":
