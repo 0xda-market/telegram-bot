@@ -5,7 +5,7 @@ require "zero_x_da/market_client_bot/bot_identity"
 require "zero_x_da/market_client_bot/http_app"
 require "zero_x_da/market_client_bot/web_app"
 
-class HTTPAppTest < Minitest::Test
+class TelegramBotHTTPAppTest < Minitest::Test
   class ImmediateDispatcher
     def call(&task)
       task.call
@@ -43,6 +43,19 @@ class HTTPAppTest < Minitest::Test
     def get_me
       @requests += 1
       { "username" => @username }
+    end
+  end
+
+  class MiniApp
+    attr_reader :paths
+
+    def initialize
+      @paths = []
+    end
+
+    def call(environment)
+      @paths << environment.fetch("PATH_INFO")
+      [200, { "content-type" => "text/plain", "content-length" => "8" }, ["mini app"]]
     end
   end
 
@@ -97,8 +110,20 @@ class HTTPAppTest < Minitest::Test
     assert_includes error.message, "username is invalid"
   end
 
-  def test_legacy_web_app_constant_aliases_the_http_app
-    assert_equal ZeroXDA::MarketClientBot::HTTPApp, ZeroXDA::MarketClientBot::WebApp
+  def test_legacy_constants_alias_the_explicit_bot_runtime
+    assert_equal ZeroXDA::MarketClientBot::TelegramBotHTTPApp, ZeroXDA::MarketClientBot::HTTPApp
+    assert_equal ZeroXDA::MarketClientBot::TelegramBotHTTPApp, ZeroXDA::MarketClientBot::WebApp
+  end
+
+  def test_delegates_the_browser_surface_to_the_mini_app
+    mini_app = MiniApp.new
+    client = Rack::MockRequest.new(build_app(username: "market_development_bot", mini_app: mini_app))
+
+    response = client.get("/webapp/bootstrap")
+
+    assert_equal 200, response.status
+    assert_equal "mini app", response.body
+    assert_equal ["/webapp/bootstrap"], mini_app.paths
   end
 
   def test_health_is_public_and_includes_server_time
@@ -154,11 +179,12 @@ class HTTPAppTest < Minitest::Test
 
   private
 
-  def build_app(username:, dispatcher: ImmediateDispatcher.new)
-    ZeroXDA::MarketClientBot::HTTPApp.new(
+  def build_app(username:, dispatcher: ImmediateDispatcher.new, mini_app: nil)
+    ZeroXDA::MarketClientBot::TelegramBotHTTPApp.new(
       bot: @handler,
       webhook_secret: "webhook-secret",
       telegram_username: username,
+      mini_app: mini_app,
       dispatcher: dispatcher,
       revision: "test-revision"
     )
