@@ -68,12 +68,18 @@ DEPLOY_ENV=development
 MARKET_EDGE_NETWORK=nilx-edge
 PORT=10000
 TELEGRAM_BOT_TOKEN=<test bot value>
+TELEGRAM_BOT_USERNAME=<test bot username without @>
 TELEGRAM_WEBHOOK_SECRET=<development value>
 MARKET_API_URL=https://0xda-market.nilx.one
 MARKET_API_TOKEN=<development core API value>
 REGISTER_TELEGRAM_WEBHOOK=0
 PUBLIC_URL=https://0xda-market.nilx.one/bot
 ```
+
+`TELEGRAM_BOT_USERNAME` keeps Rack boot and the public root redirect independent
+from Telegram API availability. Existing environments without it remain
+compatible: the process calls `getMe` once during boot and then stores the
+validated username in memory. Request handling never calls `getMe`.
 
 Protect the file:
 
@@ -99,15 +105,18 @@ After green CI, `master` stages or refreshes `development`.
 
 ```sh
 cat /opt/0xda-market-runtime/active-environment
+curl -i http://127.0.0.1:10001/
 curl -i http://127.0.0.1:10001/health
+curl -i https://0xda-market.nilx.one/bot/
 curl -i https://0xda-market.nilx.one/bot/health
 cd /opt/0xda-market-bot/environments/development/current/deploy/vps
 docker compose ps
 docker compose logs --tail 200 bot
 ```
 
-Caddy strips the `/bot` prefix, so public
-`/bot/telegram/webhook` maps to internal `/telegram/webhook`.
+The root route must return a static `302` to the configured environment bot. Caddy
+strips the `/bot` prefix, so public `/bot/telegram/webhook` maps to internal
+`/telegram/webhook`.
 
 The complete cross-repository verifier lives in the active core release:
 
