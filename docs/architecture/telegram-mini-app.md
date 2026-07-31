@@ -41,7 +41,9 @@ telegram-bot
 
 The browser stores the full array in `CatalogStore`. With 1,488 products and portrait page size six, page one, page two and page three are local array slices. Search, category filters, previous, categories/home, next and viewport page-size changes do not call the network.
 
-Portrait shows six products. Landscape uses twelve, and wide landscape uses eighteen. Changing page size preserves the first visible product.
+Portrait shows six products. Landscape uses twelve, and wide landscape uses eighteen. Changing page size preserves the current visible region.
+
+Bootstrap metadata exposes only browser-relevant role and account status. The internal market user UUID remains server-side for quote, order ownership and authorization checks.
 
 ## Checkout boundary
 
@@ -56,7 +58,7 @@ local selection
   -> GET /webapp/orders/:id
 ```
 
-The existing `PurchaseFlow` keeps internal-user ownership checks and quote expiry behavior. The browser never receives `MARKET_API_TOKEN` or the Telegram bot token.
+The existing `PurchaseFlow` keeps internal-user ownership checks and quote expiry behavior. The browser never receives `MARKET_API_TOKEN`, the Telegram bot token or an internal market user UUID.
 
 ## Telegram session validation
 
@@ -72,8 +74,11 @@ The default maximum session age is 3,600 seconds and is configurable with `TELEG
 
 ## Dependency order
 
-The Telegram Mini App depends on the core snapshot/runtime change. Merge and deploy order is:
+The Telegram Mini App depends on the core snapshot/runtime change. Merge and activation order is:
 
-1. `0xda-market/core` WebApp snapshot/runtime PR;
-2. `0xda-market/telegram-bot` Mini App PR;
-3. configure the BotFather Mini App URL only after both development deployments are healthy.
+1. merge the `0xda-market/core` WebApp snapshot/runtime PR;
+2. merge the `0xda-market/telegram-bot` Mini App PR;
+3. deploy and verify both development runtimes;
+4. enable the gated Telegram menu-button registration only after both deployments are healthy.
+
+Menu-button registration is controlled by `REGISTER_TELEGRAM_WEBAPP` and remains disabled by default.
