@@ -202,9 +202,6 @@ class FakeTelegramAPI
   end
 
   def set_commands(commands, scope: nil)
-    legacy_commands = commands.map do |command|
-      command.fetch(:command) == "set_admin" ? command.merge(command: "setadmin") : command
-    end
-    @command_sets << { commands: legacy_commands, raw_commands: commands, scope: scope }
+    @command_sets << { commands: commands, scope: scope }
   end
 end

@@ -128,29 +128,37 @@ class BotTest < Minitest::Test
     command_set = @telegram.command_sets.last
     assert_equal({ type: "chat", chat_id: 990 }, command_set.fetch(:scope))
     commands = command_set.fetch(:commands).map { |item| item.fetch(:command) }
-    assert_equal %w[buy apply_prices apply_price rates set_rate status servers users setadmin], commands
-    assert_equal %w[status servers users setadmin], commands.last(4)
+    assert_equal %w[buy apply_prices apply_price rates set_rate status servers users set_admin], commands
+    assert_equal %w[status servers users set_admin], commands.last(4)
   end
 
   def test_admin_promotes_a_user_and_installs_their_admin_menu
-    @bot.handle(update("/setadmin @target_user", user_id: 99, chat_id: 990))
+    @bot.handle(update("/set_admin @target_user", user_id: 99, chat_id: 990))
 
     request = @market.requests.last
     assert_equal 99, request.fetch(:actor_telegram_user_id)
     assert_equal "@target_user", request.fetch(:target)
     command_set = @telegram.command_sets.last
     assert_equal({ type: "chat", chat_id: "880" }, command_set.fetch(:scope))
-    assert_includes command_set.fetch(:commands).map { |item| item.fetch(:command) }, "setadmin"
+    assert_includes command_set.fetch(:commands).map { |item| item.fetch(:command) }, "set_admin"
     assert_includes @telegram.messages.last.fetch(:text), "Вам призначено роль admin"
   end
 
-  def test_non_admin_cannot_execute_a_manually_typed_setadmin_command
-    @bot.handle(update("/setadmin 88", user_id: 77, chat_id: 770))
+  def test_non_admin_cannot_execute_a_manually_typed_set_admin_command
+    @bot.handle(update("/set_admin 88", user_id: 77, chat_id: 770))
 
     assert_equal "Доступ заборонено.", @telegram.messages.last.fetch(:text)
     refute @market.requests.any? { |request| request.key?(:actor_telegram_user_id) }
     command_set = @telegram.command_sets.last
     assert_equal %w[buy status], command_set.fetch(:commands).map { |item| item.fetch(:command) }
+  end
+
+  def test_legacy_setadmin_command_is_ignored
+    @bot.handle(update("/setadmin 88", user_id: 99, chat_id: 990))
+
+    assert_empty @market.requests
+    assert_empty @telegram.command_sets
+    assert_empty @telegram.messages
   end
 
   def test_admin_receives_the_price_application_form
