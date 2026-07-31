@@ -2,6 +2,8 @@ require_relative "test_helper"
 require "zero_x_da/market_client_bot/bot"
 
 class BotTest < Minitest::Test
+  ACTOR_USER_ID = "12345678-1234-4000-8000-123456789012"
+
   def setup
     @market = FakeMarketAPI.new
     @telegram = FakeTelegramAPI.new
@@ -112,7 +114,7 @@ class BotTest < Minitest::Test
     text = @telegram.messages.first.fetch(:text)
     assert_includes text, "👥 Активні користувачі: 1"
     assert_includes text, "👤 @zero"
-    refute_includes text, "12345678-1234-4000-8000-123456789012"
+    refute_includes text, ACTOR_USER_ID
     assert_includes text, "Роль: client"
   end
 
@@ -136,7 +138,7 @@ class BotTest < Minitest::Test
     @bot.handle(update("/set_admin @target_user", user_id: 99, chat_id: 990))
 
     request = @market.requests.last
-    assert_equal 99, request.fetch(:actor_telegram_user_id)
+    assert_equal ACTOR_USER_ID, request.fetch(:actor_user_id)
     assert_equal "@target_user", request.fetch(:target)
     command_set = @telegram.command_sets.last
     assert_equal({ type: "chat", chat_id: "880" }, command_set.fetch(:scope))
@@ -148,7 +150,7 @@ class BotTest < Minitest::Test
     @bot.handle(update("/set_admin 88", user_id: 77, chat_id: 770))
 
     assert_equal "Доступ заборонено.", @telegram.messages.last.fetch(:text)
-    refute @market.requests.any? { |request| request.key?(:actor_telegram_user_id) }
+    refute @market.requests.any? { |request| request.key?(:actor_user_id) }
     command_set = @telegram.command_sets.last
     assert_equal %w[buy status], command_set.fetch(:commands).map { |item| item.fetch(:command) }
   end
@@ -165,7 +167,7 @@ class BotTest < Minitest::Test
     @bot.handle(update("/apply_prices", user_id: 99, chat_id: 990))
 
     assert_equal(
-      [{ actor_telegram_user_id: 99, locale: "uk_UA" }],
+      [{ actor_user_id: ACTOR_USER_ID, locale: "uk_UA" }],
       @market.price_proposal_requests
     )
     text = @telegram.messages.last.fetch(:text)
@@ -197,7 +199,7 @@ class BotTest < Minitest::Test
     @bot.handle(update("/apply_price premium_6m 7.45", user_id: 99, chat_id: 990))
 
     assert_equal(
-      [{ actor_telegram_user_id: 99, prices: [{ sku: "premium_6m", amount_usdt: "7.45" }] }],
+      [{ actor_user_id: ACTOR_USER_ID, prices: [{ sku: "premium_6m", amount_usdt: "7.45" }] }],
       @market.applied_prices
     )
     text = @telegram.messages.last.fetch(:text)
@@ -231,7 +233,7 @@ class BotTest < Minitest::Test
     @bot.handle(update("7.45", user_id: 99, chat_id: 990))
 
     assert_equal(
-      [{ actor_telegram_user_id: 99, prices: [{ sku: "premium_6m", amount_usdt: "7.45" }] }],
+      [{ actor_user_id: ACTOR_USER_ID, prices: [{ sku: "premium_6m", amount_usdt: "7.45" }] }],
       @market.applied_prices
     )
     assert_includes @telegram.messages.last.fetch(:text), "price applied ✅"
@@ -328,7 +330,7 @@ class BotTest < Minitest::Test
     @bot.handle(update("/set_rate eur 1.16", user_id: 99, chat_id: 990))
 
     assert_equal(
-      [{ actor_telegram_user_id: 99, rates: [{ currency: "EUR", usdt_per_unit: "1.16" }] }],
+      [{ actor_user_id: ACTOR_USER_ID, rates: [{ currency: "EUR", usdt_per_unit: "1.16" }] }],
       @market.applied_fx_rates
     )
     text = @telegram.messages.last.fetch(:text)

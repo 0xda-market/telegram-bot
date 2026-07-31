@@ -19,7 +19,9 @@ class PriceDigestTest < Minitest::Test
     )
 
     assert_equal 1, digest.deliver
-    assert_equal "uk_UA", market.price_proposal_requests.first.fetch(:locale)
+    request = market.price_proposal_requests.first
+    assert_equal "12345678-1234-4000-8000-123456789012", request.fetch(:actor_user_id)
+    assert_equal "uk_UA", request.fetch(:locale)
     assert_includes telegram.messages.first.fetch(:text), "Застосування цін"
     assert_includes telegram.messages.first.fetch(:text), "Telegram Premium 3 міс."
   end

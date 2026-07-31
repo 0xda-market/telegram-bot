@@ -70,8 +70,7 @@ module ZeroXDA
         ).fetch("data")
       end
 
-      def price_proposal(actor_user_id: nil, actor_telegram_user_id: nil, locale: "en_US")
-        actor_user_id ||= internal_user_id_for_telegram(actor_telegram_user_id)
+      def price_proposal(actor_user_id:, locale: "en_US")
         get(
           "v1/admin/prices/proposal?#{URI.encode_www_form(
             actor_user_id: actor_user_id,
@@ -81,8 +80,7 @@ module ZeroXDA
         ).fetch("data")
       end
 
-      def apply_prices(actor_user_id: nil, actor_telegram_user_id: nil, prices:)
-        actor_user_id ||= internal_user_id_for_telegram(actor_telegram_user_id)
+      def apply_prices(actor_user_id:, prices:)
         post(
           "v1/admin/prices",
           actor_user_id: actor_user_id,
@@ -107,8 +105,7 @@ module ZeroXDA
         end
       end
 
-      def set_fx_rates(actor_user_id: nil, actor_telegram_user_id: nil, rates:)
-        actor_user_id ||= internal_user_id_for_telegram(actor_telegram_user_id)
+      def set_fx_rates(actor_user_id:, rates:)
         prices = rates.map do |rate|
           {
             sku: rate.fetch(:currency).to_s.downcase,
@@ -130,10 +127,10 @@ module ZeroXDA
         end
       end
 
-      # Telegram-facing references are resolved to internal UUIDs here before
-      # calling the provider-neutral core API.
-      def set_admin(actor_user_id: nil, actor_telegram_user_id: nil, target:)
-        actor_user_id ||= internal_user_id_for_telegram(actor_telegram_user_id)
+      # Telegram-facing target references are resolved to internal UUIDs here
+      # before calling the provider-neutral core API. The authenticated actor
+      # UUID is supplied directly by the caller.
+      def set_admin(actor_user_id:, target:)
         profile = resolve_telegram_target(target)
         assignment = post(
           "v1/admin/users/set-admin",
@@ -168,18 +165,6 @@ module ZeroXDA
             "language_code" => data["language_code"]
           )
         )
-      end
-
-      def internal_user_id_for_telegram(telegram_user_id)
-        identifier = telegram_user_id.to_s
-        raise ArgumentError, "actor Telegram user ID must not be empty" if identifier.empty?
-
-        profile = active_users.find do |entry|
-          entry.dig("attributes", "telegram_user_id").to_s == identifier
-        end
-        raise Error.new("Actor user is not registered", code: "not_found") unless profile
-
-        profile.fetch("id")
       end
 
       def resolve_telegram_target(target)

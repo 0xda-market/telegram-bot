@@ -32,7 +32,7 @@ module ZeroXDA
           telegram_user_id = admin.dig("attributes", "telegram_user_id")
           begin
             proposal = @market_api.price_proposal(
-              actor_telegram_user_id: telegram_user_id,
+              actor_user_id: admin.fetch("id"),
               locale: admin.dig("attributes", "locale") || "en_US"
             )
             # In private chats the chat id equals the telegram user id.
