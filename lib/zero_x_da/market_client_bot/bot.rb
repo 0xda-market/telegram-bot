@@ -6,6 +6,9 @@ require_relative "telegram_api"
 require_relative "price_messages"
 require_relative "locale"
 require_relative "i18n"
+require_relative "catalog_menu"
+require_relative "purchase_flow"
+require_relative "purchase_messages"
 
 module ZeroXDA
   module MarketClientBot
@@ -15,13 +18,19 @@ module ZeroXDA
       MESSAGE_LIMIT = 3_800
       SERVER_START_NOTICE_DELAY = 3
       STATUS_MESSAGE_TTL = 3
-      CATALOG_PAGE_SIZE = 9
-      CATALOG_COLUMNS = 3
-      BUY_CALLBACK_PATTERN = /\Abuy_([a-z0-9][a-z0-9_-]{0,59})\z/
-      APPLY_PRICE_CALLBACK_PATTERN = /\Aapplyprice_([a-z0-9][a-z0-9_-]{0,59})\z/
+      SKU_PATTERN = /([a-z0-9][a-z0-9_-]{0,59})/
+      RESOURCE_ID_PATTERN = /([A-Za-z0-9:_-]{1,61})/
+      BUY_CALLBACK_PATTERN = /\Ab:#{SKU_PATTERN}\z/
+      LEGACY_BUY_CALLBACK_PATTERN = /\Abuy_#{SKU_PATTERN}\z/
+      APPLY_PRICE_CALLBACK_PATTERN = /\Ap:#{SKU_PATTERN}\z/
+      LEGACY_APPLY_PRICE_CALLBACK_PATTERN = /\Aapplyprice_#{SKU_PATTERN}\z/
+      CATEGORY_CALLBACK_PATTERN = /\Ac:([bp]):#{SKU_PATTERN}\z/
+      HOME_CALLBACK_PATTERN = /\Ah:([bp])\z/
+      QUOTE_CALLBACK_PATTERN = /\Aq:#{RESOURCE_ID_PATTERN}\z/
+      ORDER_CALLBACK_PATTERN = /\Ao:#{RESOURCE_ID_PATTERN}\z/
+      PRICE_REPLY_PATTERN = /\[price:#{SKU_PATTERN}\]/
       PRICE_AMOUNT_PATTERN = /\A\d+(?:\.\d{1,6})?\z/
       CURRENCY_INPUT_PATTERN = /\A[A-Za-z][A-Za-z0-9]{2,9}\z/
-      PRICE_DIALOG_TTL = 600
       SUPPORTED_COMMANDS = %w[
         /start /status /buy /servers /users /set_admin /apply_prices /apply_price /rates /set_rate
       ].freeze
@@ -38,8 +47,8 @@ module ZeroXDA
         @clock = clock
         @server_start_notice_delay = server_start_notice_delay
         @status_message_ttl = status_message_ttl
-        @price_dialogs = {}
-        @price_dialogs_lock = Mutex.new
+        @catalog_menu = CatalogMenu.new
+        @purchase_flow = PurchaseFlow.new(market_api: market_api)
       end
 
       def handle(update)
@@ -50,39 +59,35 @@ module ZeroXDA
 
         command, argument = parse_command(message["text"])
         if command
-          clear_price_dialog(message.fetch("chat").fetch("id"))
-          with_server_start_notice(message) do
-            case command
-            when "/start"
-              authenticate(message)
-            when "/status"
-              show_status(message)
-            when "/buy"
-              show_products(message)
-            when "/servers"
-              show_servers(message)
-            when "/users"
-              show_active_users(message)
-            when "/set_admin"
-              set_admin(message, argument)
-            when "/apply_prices"
-              start_price_application(message)
-            when "/apply_price"
-              apply_single_price(message, argument)
-            when "/rates"
-              show_fx_rates(message)
-            when "/set_rate"
-              set_fx_rate(message, argument)
-            end
-          end
-        elsif message["text"] && price_dialog_for(message)
-          continue_price_dialog(message)
+          with_server_start_notice(message) { dispatch_command(command, message, argument) }
+        elsif (sku = price_reply_sku(message))
+          continue_price_reply(message, sku)
+        elsif message["text"].to_s.strip.match?(PRICE_AMOUNT_PATTERN)
+          send_message(
+            message.fetch("chat").fetch("id"),
+            PriceMessages.reply_missing(locale: locale_for(message))
+          )
         end
       rescue KeyError, ArgumentError, MarketAPI::Error => error
         notify_failure(message || callback&.fetch("message", nil), error)
       end
 
       private
+
+      def dispatch_command(command, message, argument)
+        case command
+        when "/start" then authenticate(message)
+        when "/status" then show_status(message)
+        when "/buy" then show_products(message)
+        when "/servers" then show_servers(message)
+        when "/users" then show_active_users(message)
+        when "/set_admin" then set_admin(message, argument)
+        when "/apply_prices" then start_price_application(message)
+        when "/apply_price" then apply_single_price(message, argument)
+        when "/rates" then show_fx_rates(message)
+        when "/set_rate" then set_fx_rate(message, argument)
+        end
+      end
 
       def with_server_start_notice(message)
         return yield unless supported_command?(message["text"])
@@ -117,10 +122,7 @@ module ZeroXDA
 
       def authenticate(message)
         chat = message.fetch("chat")
-        user = @market_api.authenticate_telegram(
-          user: message.fetch("from"),
-          chat: chat
-        )
+        user = @market_api.authenticate_telegram(user: message.fetch("from"), chat: chat)
         chat_id = chat.fetch("id")
         sync_commands(chat_id, user)
         send_status_message(chat_id, user)
@@ -137,88 +139,154 @@ module ZeroXDA
         chat_id = message.fetch("chat").fetch("id")
         user = authenticate_user(message)
         sync_commands(chat_id, user)
-        products = @market_api.products(locale: locale_for(message))
-        send_message(
-          chat_id,
-          t(:choose_product_to_buy),
-          reply_markup: catalog_keyboard(products, callback_prefix: "buy")
+        locale = locale_for(message)
+        screen = @catalog_menu.root(
+          products: catalog_products(mode: "b", locale: locale),
+          mode: "b",
+          locale: locale
         )
+        send_message(chat_id, t(:choose_product_to_buy), reply_markup: screen.reply_markup)
       end
 
       def handle_callback(callback)
         data = callback.fetch("data").to_s
-        if (match = BUY_CALLBACK_PATTERN.match(data))
-          handle_buy_callback(callback, match[1])
-        elsif (match = APPLY_PRICE_CALLBACK_PATTERN.match(data))
-          handle_apply_price_callback(callback, match[1])
+        case data
+        when "n"
+          answer_callback(callback)
+        when HOME_CALLBACK_PATTERN
+          show_catalog_root_callback(callback, Regexp.last_match(1))
+        when CATEGORY_CALLBACK_PATTERN
+          show_catalog_category_callback(callback, Regexp.last_match(1), Regexp.last_match(2))
+        when BUY_CALLBACK_PATTERN, LEGACY_BUY_CALLBACK_PATTERN
+          handle_buy_callback(callback, Regexp.last_match(1))
+        when APPLY_PRICE_CALLBACK_PATTERN, LEGACY_APPLY_PRICE_CALLBACK_PATTERN
+          handle_apply_price_callback(callback, Regexp.last_match(1))
+        when QUOTE_CALLBACK_PATTERN
+          handle_quote_acceptance(callback, Regexp.last_match(1))
+        when ORDER_CALLBACK_PATTERN
+          handle_order_refresh(callback, Regexp.last_match(1))
+        else
+          answer_callback(callback)
         end
+      rescue PurchaseFlow::AccessDenied
+        answer_callback(callback, text: t(:access_denied, locale: locale_for(callback)))
+      rescue PurchaseFlow::UnpricedProduct
+        screen = PurchaseMessages.unpriced(locale: locale_for(callback))
+        replace_callback_message(callback, screen.text, reply_markup: screen.reply_markup)
+        answer_callback(callback)
+      rescue MarketAPI::Error => error
+        return handle_expired_quote(callback) if error.code == "quote_expired"
+
+        raise
+      end
+
+      def show_catalog_root_callback(callback, mode)
+        locale = locale_for(callback)
+        ensure_price_admin!(callback) if mode == "p"
+        screen = @catalog_menu.root(
+          products: catalog_products(mode: mode, locale: locale),
+          mode: mode,
+          locale: locale
+        )
+        replace_callback_message(callback, catalog_root_title(mode, locale), reply_markup: screen.reply_markup)
+        answer_callback(callback)
+      end
+
+      def show_catalog_category_callback(callback, mode, anchor_sku)
+        locale = locale_for(callback)
+        ensure_price_admin!(callback) if mode == "p"
+        screen = @catalog_menu.category(
+          products: catalog_products(mode: mode, locale: locale),
+          mode: mode,
+          anchor_sku: anchor_sku,
+          locale: locale
+        )
+        text = "#{catalog_root_title(mode, locale)}\n\n#{screen.title}"
+        replace_callback_message(callback, text, reply_markup: screen.reply_markup)
+        answer_callback(callback)
       end
 
       def handle_buy_callback(callback, sku)
         message = callback.fetch("message")
-        chat_id = message.fetch("chat").fetch("id")
-        user = @market_api.authenticate_telegram(
-          user: callback.fetch("from"),
-          chat: message.fetch("chat")
-        )
-        sync_commands(chat_id, user)
-        product = find_product_by_sku(sku, locale: locale_for(callback))
-        raise ArgumentError, t(:product_unavailable) unless product
+        locale = locale_for(callback)
+        user = authenticate_callback_user(callback)
+        sync_commands(message.fetch("chat").fetch("id"), user)
+        product = find_product_by_sku(sku, locale: locale, mode: "b")
+        raise ArgumentError, t(:product_unavailable, locale: locale) unless product
 
-        @telegram_api.answer_callback_query(
-          callback_query_id: callback.fetch("id"),
-          text: t(:selected_product, name: product.dig("attributes", "name"))
+        _intent, quote = @purchase_flow.quote(
+          product: product,
+          user: user,
+          telegram_user: callback.fetch("from"),
+          chat: message.fetch("chat"),
+          locale: locale
         )
+        screen = PurchaseMessages.quote(product: product, quote: quote, locale: locale)
+        replace_callback_message(callback, screen.text, reply_markup: screen.reply_markup)
+        answer_callback(callback, text: t(:selected_product, locale: locale, name: product.dig("attributes", "name")))
+      end
+
+      def handle_quote_acceptance(callback, quote_id)
+        user = authenticate_callback_user(callback)
+        order = @purchase_flow.accept(quote_id: quote_id, user: user)
+        screen = PurchaseMessages.order(order: order, locale: locale_for(callback))
+        replace_callback_message(callback, screen.text, reply_markup: screen.reply_markup)
+        answer_callback(callback)
+      end
+
+      def handle_order_refresh(callback, order_id)
+        user = authenticate_callback_user(callback)
+        order = @purchase_flow.refresh(order_id: order_id, user: user)
+        screen = PurchaseMessages.order(order: order, locale: locale_for(callback))
+        replace_callback_message(callback, screen.text, reply_markup: screen.reply_markup)
+        answer_callback(callback)
+      end
+
+      def handle_expired_quote(callback)
+        screen = PurchaseMessages.quote_expired(locale: locale_for(callback))
+        replace_callback_message(callback, screen.text, reply_markup: screen.reply_markup)
+        answer_callback(callback)
       end
 
       def handle_apply_price_callback(callback, sku)
         message = callback.fetch("message")
-        chat_id = message.fetch("chat").fetch("id")
-        user = @market_api.authenticate_telegram(
-          user: callback.fetch("from"),
-          chat: message.fetch("chat")
-        )
-        sync_commands(chat_id, user)
-        unless admin?(user)
-          @telegram_api.answer_callback_query(callback_query_id: callback.fetch("id"))
-          return send_message(chat_id, t(:access_denied))
-        end
-
         locale = locale_for(callback)
-        product = find_product_by_sku(sku, locale: locale)
+        user = authenticate_callback_user(callback)
+        sync_commands(message.fetch("chat").fetch("id"), user)
+        raise PurchaseFlow::AccessDenied unless admin?(user)
+
+        product = find_product_by_sku(sku, locale: locale, mode: "p")
         raise ArgumentError, t(:product_unavailable, locale: locale) unless product
 
         request_price_amount(
-          chat_id: chat_id,
-          user_id: callback.fetch("from").fetch("id"),
+          chat_id: message.fetch("chat").fetch("id"),
           product: product,
           locale: locale
         )
-        @telegram_api.answer_callback_query(
-          callback_query_id: callback.fetch("id"),
-          text: t(:selected_product, locale: locale, name: product.dig("attributes", "name"))
-        )
+        answer_callback(callback, text: t(:selected_product, locale: locale, name: product.dig("attributes", "name")))
       end
 
-      def find_product_by_sku(sku, locale:)
-        @market_api.products(locale: locale).find do |entry|
-          entry.fetch("id") == sku
-        end
+      def ensure_price_admin!(callback)
+        user = authenticate_callback_user(callback)
+        sync_commands(callback.dig("message", "chat", "id"), user)
+        raise PurchaseFlow::AccessDenied unless admin?(user)
       end
 
-      def catalog_keyboard(products, callback_prefix:)
-        buttons = products.first(CATALOG_PAGE_SIZE).map do |product|
-          {
-            text: product.dig("attributes", "button_label") || product.dig("attributes", "name"),
-            callback_data: "#{callback_prefix}_#{product.fetch("id")}"
-          }
-        end
-        { inline_keyboard: buttons.each_slice(CATALOG_COLUMNS).to_a }
+      def catalog_products(mode:, locale:)
+        products = @market_api.products(locale: locale, currency: mode == "b" ? "USDT" : nil)
+        return products if mode == "b"
+
+        (products + @market_api.currencies(locale: locale)).uniq { |product| product.fetch("id") }
       end
 
-      # /apply_price <sku|position|short name> <amount in USDT>. Missing or
-      # invalid parts fall back to a short dialog: first the product (typed or
-      # picked from the catalog keyboard), then the amount.
+      def find_product_by_sku(sku, locale:, mode:)
+        catalog_products(mode: mode, locale: locale).find { |entry| entry.fetch("id") == sku }
+      end
+
+      def catalog_root_title(mode, locale)
+        mode == "b" ? t(:choose_product_to_buy, locale: locale) : PriceMessages.choose_product(locale: locale)
+      end
+
       def apply_single_price(message, argument)
         chat_id = message.fetch("chat").fetch("id")
         user = authenticate_user(message)
@@ -226,11 +294,8 @@ module ZeroXDA
         return send_message(chat_id, t(:access_denied)) unless admin?(user)
 
         locale = locale_for(message)
-        user_id = message.fetch("from").fetch("id")
         parts = argument.to_s.split(/\s+/)
-        if parts.empty?
-          return request_product_selection(chat_id: chat_id, user_id: user_id, locale: locale)
-        end
+        return request_product_selection(chat_id: chat_id, locale: locale) if parts.empty?
 
         amount = parts.last if parts.length >= 2 && parts.last.match?(PRICE_AMOUNT_PATTERN)
         reference = (amount ? parts[0..-2] : parts).join(" ")
@@ -246,18 +311,17 @@ module ZeroXDA
             locale: locale
           )
         elsif product
-          request_price_amount(chat_id: chat_id, user_id: user_id, product: product, locale: locale)
+          request_price_amount(chat_id: chat_id, product: product, locale: locale)
         elsif amount.nil? && parts.length >= 2 &&
               (product = resolve_product(parts[0..-2].join(" "), locale: locale))
           send_message(chat_id, PriceMessages.invalid_amount(locale: locale))
-          request_price_amount(chat_id: chat_id, user_id: user_id, product: product, locale: locale)
+          request_price_amount(chat_id: chat_id, product: product, locale: locale)
         else
           send_message(chat_id, PriceMessages.product_not_found(reference, locale: locale))
-          request_product_selection(chat_id: chat_id, user_id: user_id, locale: locale)
+          request_product_selection(chat_id: chat_id, locale: locale)
         end
       end
 
-      # /set_rate <currency> <usdt per 1 unit>
       def set_fx_rate(message, argument)
         chat_id = message.fetch("chat").fetch("id")
         user = authenticate_user(message)
@@ -277,78 +341,62 @@ module ZeroXDA
         rate = applied.first
         send_message(
           chat_id,
-          t(
-            :rate_applied,
-            currency: rate.fetch("id"),
-            amount: rate.dig("attributes", "usdt_per_unit")
-          )
+          t(:rate_applied, currency: rate.fetch("id"), amount: rate.dig("attributes", "usdt_per_unit"))
         )
       end
 
-      def request_product_selection(chat_id:, user_id:, locale:)
-        products = @market_api.products(locale: locale)
-        store_price_dialog(chat_id, user_id: user_id, step: :product)
+      def request_product_selection(chat_id:, locale:)
+        screen = @catalog_menu.root(
+          products: catalog_products(mode: "p", locale: locale),
+          mode: "p",
+          locale: locale
+        )
+        send_message(chat_id, PriceMessages.choose_product(locale: locale), reply_markup: screen.reply_markup)
+      end
+
+      def request_price_amount(chat_id:, product:, locale:)
+        sku = product.fetch("id")
+        text = "#{PriceMessages.enter_amount(product.dig("attributes", "name"), locale: locale)}\n\n[price:#{sku}]"
         send_message(
           chat_id,
-          PriceMessages.choose_product(locale: locale),
-          reply_markup: catalog_keyboard(products, callback_prefix: "applyprice")
+          text,
+          reply_markup: {
+            force_reply: true,
+            selective: true,
+            input_field_placeholder: "7.45"
+          }
         )
       end
 
-      def request_price_amount(chat_id:, user_id:, product:, locale:)
-        store_price_dialog(
-          chat_id,
-          user_id: user_id,
-          step: :amount,
-          sku: product.fetch("id"),
-          name: product.dig("attributes", "name")
-        )
-        send_message(
-          chat_id,
-          PriceMessages.enter_amount(product.dig("attributes", "name"), locale: locale)
-        )
+      def price_reply_sku(message)
+        reply_text = message.dig("reply_to_message", "text").to_s
+        PRICE_REPLY_PATTERN.match(reply_text)&.[](1)
       end
 
-      def continue_price_dialog(message)
+      def continue_price_reply(message, sku)
         chat_id = message.fetch("chat").fetch("id")
-        dialog = price_dialog_for(message)
-        return unless dialog
-
         user = authenticate_user(message)
-        unless admin?(user)
-          clear_price_dialog(chat_id)
-          return send_message(chat_id, t(:access_denied))
-        end
+        sync_commands(chat_id, user)
+        return send_message(chat_id, t(:access_denied)) unless admin?(user)
 
         locale = locale_for(message)
-        text = message["text"].to_s.strip
-        case dialog.fetch(:step)
-        when :product
-          product = resolve_product(text, locale: locale)
-          if product
-            request_price_amount(
-              chat_id: chat_id,
-              user_id: dialog.fetch(:user_id),
-              product: product,
-              locale: locale
-            )
-          else
-            send_message(chat_id, PriceMessages.product_not_found(text, locale: locale))
-          end
-        when :amount
-          if text.match?(PRICE_AMOUNT_PATTERN)
-            perform_price_application(
-              chat_id: chat_id,
-              actor_user_id: user.fetch("id"),
-              sku: dialog.fetch(:sku),
-              name: dialog.fetch(:name),
-              amount: text,
-              locale: locale
-            )
-          else
-            send_message(chat_id, PriceMessages.invalid_amount(locale: locale))
-          end
+        product = find_product_by_sku(sku, locale: locale, mode: "p")
+        raise ArgumentError, t(:product_unavailable, locale: locale) unless product
+
+        amount = message["text"].to_s.strip
+        unless amount.match?(PRICE_AMOUNT_PATTERN)
+          send_message(chat_id, PriceMessages.invalid_amount(locale: locale))
+          return request_price_amount(chat_id: chat_id, product: product, locale: locale)
         end
+
+        perform_price_application(
+          chat_id: chat_id,
+          actor_user_id: user.fetch("id"),
+          sku: sku,
+          name: product.dig("attributes", "name"),
+          amount: amount,
+          locale: locale
+        )
       end
 
       def perform_price_application(chat_id:, actor_user_id:, sku:, name:, amount:, locale:)
@@ -356,7 +404,6 @@ module ZeroXDA
           actor_user_id: actor_user_id,
           prices: [{ sku: sku, amount_usdt: amount }]
         )
-        clear_price_dialog(chat_id)
         price = applied.first
         send_message(
           chat_id,
@@ -370,43 +417,14 @@ module ZeroXDA
         )
       end
 
-      def store_price_dialog(chat_id, **state)
-        @price_dialogs_lock.synchronize do
-          @price_dialogs[chat_id] = state.merge(expires_at: @clock.call + PRICE_DIALOG_TTL)
-        end
-      end
-
-      def price_dialog_for(message)
-        chat_id = message.fetch("chat").fetch("id")
-        @price_dialogs_lock.synchronize do
-          dialog = @price_dialogs[chat_id]
-          next nil unless dialog
-
-          if dialog.fetch(:expires_at) < @clock.call
-            @price_dialogs.delete(chat_id)
-            next nil
-          end
-          next nil unless dialog.fetch(:user_id) == message.dig("from", "id")
-
-          dialog
-        end
-      end
-
-      def clear_price_dialog(chat_id)
-        @price_dialogs_lock.synchronize { @price_dialogs.delete(chat_id) }
-      end
-
       def resolve_product(reference, locale:)
-        products = @market_api.products(locale: locale)
+        products = catalog_products(mode: "p", locale: locale)
         normalized = reference.to_s.downcase.strip
         products.find { |product| product.fetch("id") == normalized } ||
           products.find { |product| product.dig("attributes", "position").to_s == normalized } ||
           fuzzy_product_match(products, normalized)
       end
 
-      # Best-effort short-name matching: every token of the reference must
-      # prefix a word of the product's sku, name, or button label. Ambiguous
-      # references resolve to nothing rather than to a wrong product.
       def fuzzy_product_match(products, reference)
         tokens = reference.split(/[^a-z0-9]+/).reject(&:empty?)
         return nil if tokens.empty?
@@ -427,9 +445,13 @@ module ZeroXDA
       end
 
       def authenticate_user(message)
+        @market_api.authenticate_telegram(user: message.fetch("from"), chat: message.fetch("chat"))
+      end
+
+      def authenticate_callback_user(callback)
         @market_api.authenticate_telegram(
-          user: message.fetch("from"),
-          chat: message.fetch("chat")
+          user: callback.fetch("from"),
+          chat: callback.fetch("message").fetch("chat")
         )
       end
 
@@ -476,12 +498,26 @@ module ZeroXDA
         admin?(user) ? "admin" : "client"
       end
 
-      def send_message(chat_id, text, reply_markup: nil)
-        @telegram_api.send_message(
+      def answer_callback(callback, text: nil)
+        @telegram_api.answer_callback_query(callback_query_id: callback.fetch("id"), text: text)
+      end
+
+      def replace_callback_message(callback, text, reply_markup: nil)
+        message = callback.fetch("message")
+        chat_id = message.fetch("chat").fetch("id")
+        message_id = message["message_id"]
+        return send_message(chat_id, text, reply_markup: reply_markup) unless message_id
+
+        @telegram_api.edit_message_text(
           chat_id: chat_id,
+          message_id: message_id,
           text: text,
           reply_markup: reply_markup
         )
+      end
+
+      def send_message(chat_id, text, reply_markup: nil)
+        @telegram_api.send_message(chat_id: chat_id, text: text, reply_markup: reply_markup)
       end
 
       def notify_failure(message, error)
