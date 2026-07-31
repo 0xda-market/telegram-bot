@@ -3,6 +3,7 @@
 require_relative "locale"
 require_relative "admin_messages"
 require_relative "i18n"
+require_relative "status_cards"
 
 module ZeroXDA
   module MarketClientBot
@@ -137,32 +138,13 @@ module ZeroXDA
     end
 
     module TransientUserCommands
-      CONTEXT_KEY = "zero_xda_market_client_bot_transient_command"
-
       def handle(update)
         message = update["message"]
         command = transient_command(message)
-        previous_context = Thread.current[CONTEXT_KEY]
-        context = command && { messages: [] }
-        Thread.current[CONTEXT_KEY] = context if context
-
         super
       ensure
-        if context
-          schedule_incoming_command_deletion(message)
-          schedule_response_deletions(context)
-          Thread.current[CONTEXT_KEY] = previous_context
-        end
+        schedule_incoming_command_deletion(message) if command
       end
-
-      def send_message(chat_id, text, reply_markup: nil)
-        message = super
-        context = Thread.current[CONTEXT_KEY]
-        context&.fetch(:messages)&.push([chat_id, message])
-        message
-      end
-
-      private :send_message
 
       private
 
@@ -179,12 +161,6 @@ module ZeroXDA
         return unless chat_id && message_id
 
         schedule_message_deletion(chat_id, { "message_id" => message_id })
-      end
-
-      def schedule_response_deletions(context)
-        context.fetch(:messages).each do |chat_id, message|
-          schedule_message_deletion(chat_id, message)
-        end
       end
     end
 
