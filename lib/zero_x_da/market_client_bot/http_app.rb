@@ -17,7 +17,7 @@ module ZeroXDA
       end
     end
 
-    class HTTPApp
+    class TelegramBotHTTPApp
       JSON_HEADERS = {
         "content-type" => "application/json; charset=utf-8",
         "cache-control" => "no-store"
@@ -27,6 +27,7 @@ module ZeroXDA
         bot:,
         webhook_secret:,
         telegram_username:,
+        mini_app: nil,
         dispatcher: AsyncDispatcher.new,
         revision: ENV.fetch("RENDER_GIT_COMMIT", "unknown")
       )
@@ -35,12 +36,14 @@ module ZeroXDA
         @bot = bot
         @webhook_secret = webhook_secret
         @telegram_username = TelegramBotIdentity.validate!(telegram_username)
+        @mini_app = mini_app
         @dispatcher = dispatcher
         @revision = revision.to_s.empty? ? "unknown" : revision.to_s
       end
 
       def call(environment)
         request = Rack::Request.new(environment)
+        return @mini_app.call(environment) if @mini_app && request.path_info.start_with?("/webapp")
         return telegram_redirect if request.get? && request.path_info == "/"
 
         if request.get? && request.path_info == "/health"
@@ -94,5 +97,9 @@ module ZeroXDA
         [status, JSON_HEADERS, [JSON.generate(document)]]
       end
     end
+
+    # Compatibility only. New code should name the bot runtime explicitly so
+    # `WebApp` remains available for actual browser applications.
+    HTTPApp = TelegramBotHTTPApp unless const_defined?(:HTTPApp, false)
   end
 end
