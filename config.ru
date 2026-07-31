@@ -8,10 +8,12 @@ require_relative "lib/zero_x_da/market_client_bot/command_menu"
 require_relative "lib/zero_x_da/market_client_bot/http_app"
 require_relative "lib/zero_x_da/market_client_bot/market_api"
 require_relative "lib/zero_x_da/market_client_bot/telegram_api"
+require_relative "lib/zero_x_da/market_client_bot/telegram_mini_app"
+require_relative "lib/zero_x_da/market_client_bot/telegram_web_app_auth"
+require_relative "lib/zero_x_da/market_client_bot/telegram_web_app_service"
 
-telegram_api = ZeroXDA::MarketClientBot::TelegramAPI.new(
-  token: ENV.fetch("TELEGRAM_BOT_TOKEN")
-)
+bot_token = ENV.fetch("TELEGRAM_BOT_TOKEN")
+telegram_api = ZeroXDA::MarketClientBot::TelegramAPI.new(token: bot_token)
 telegram_username = ZeroXDA::MarketClientBot::TelegramBotIdentity.resolve(
   configured_username: ENV["TELEGRAM_BOT_USERNAME"],
   telegram_api: telegram_api
@@ -24,11 +26,24 @@ bot = ZeroXDA::MarketClientBot::Bot.new(
   market_api: market_api,
   telegram_api: telegram_api
 )
+web_app_auth = ZeroXDA::MarketClientBot::TelegramWebAppAuth.new(
+  bot_token: bot_token,
+  max_age_seconds: Integer(ENV.fetch("TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS", "3600"))
+)
+web_app_service = ZeroXDA::MarketClientBot::TelegramWebAppService.new(
+  market_api: market_api,
+  authentication: web_app_auth
+)
+mini_app = ZeroXDA::MarketClientBot::TelegramMiniApp.new(
+  service: web_app_service,
+  root: File.expand_path("webapp", __dir__)
+)
 
 use Rack::CommonLogger, $stdout
 
-run ZeroXDA::MarketClientBot::HTTPApp.new(
+run ZeroXDA::MarketClientBot::TelegramBotHTTPApp.new(
   bot: bot,
   webhook_secret: ENV.fetch("TELEGRAM_WEBHOOK_SECRET"),
-  telegram_username: telegram_username
+  telegram_username: telegram_username,
+  mini_app: mini_app
 )
