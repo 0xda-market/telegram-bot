@@ -17,9 +17,14 @@ prices, orders or permissions.
 
 HTTP surface:
 
+- `GET /` — redirect to the configured environment bot
 - `GET /health` — bot health and server time
 - `POST /telegram/webhook` — Telegram webhook authorized with
   `X-Telegram-Bot-Api-Secret-Token`
+
+The Rack adapter is named `HTTPApp`; it is not a Telegram Mini App. The bot
+username used by `GET /` is resolved once during Rack boot and passed to the app
+as immutable configuration. Request handling never calls Telegram `getMe`.
 
 The public Caddy route strips `/bot`, so
 `https://0xda-market.nilx.one/bot/telegram/webhook` reaches the internal
@@ -147,6 +152,8 @@ The active bot runtime file contains:
 - `DEPLOY_ENV` — `development` or `production`, matching its directory
 - `PORT` — internal Puma port, normally `10000`
 - `TELEGRAM_BOT_TOKEN` — token for the exact environment bot
+- `TELEGRAM_BOT_USERNAME` — bot username without `@`; recommended for stable
+  runtimes so Rack boot does not depend on Telegram availability
 - `TELEGRAM_WEBHOOK_SECRET` — webhook request secret
 - `MARKET_API_URL` — matching core URL, normally
   `https://0xda-market.nilx.one`
@@ -154,8 +161,12 @@ The active bot runtime file contains:
 - `PUBLIC_URL` — `https://0xda-market.nilx.one/bot`
 - `REGISTER_TELEGRAM_WEBHOOK` — explicit webhook registration gate
 
-Runtime values live only in protected VPS `.env` files. Production and
-development must use distinct Telegram, webhook and core API tokens.
+When `TELEGRAM_BOT_USERNAME` is absent, the process calls Telegram `getMe` once
+during boot, validates the returned username and then serves a static redirect.
+Production and development must use distinct Telegram, webhook and core API
+tokens.
+
+Runtime values live only in protected VPS `.env` files.
 
 ## Scheduled price digest
 
@@ -195,6 +206,7 @@ bundle exec rake
 
 DEPLOY_ENV=development \
 TELEGRAM_BOT_TOKEN=... \
+TELEGRAM_BOT_USERNAME=market_development_bot \
 TELEGRAM_WEBHOOK_SECRET=... \
 MARKET_API_URL=https://0xda-market.nilx.one \
 MARKET_API_TOKEN=... \
