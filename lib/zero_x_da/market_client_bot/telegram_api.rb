@@ -27,6 +27,13 @@ module ZeroXDA
         post("sendMessage", payload)
       end
 
+      def edit_message_text(chat_id:, message_id:, text:, reply_markup: nil, parse_mode: nil)
+        payload = { chat_id: chat_id, message_id: message_id, text: text }
+        payload[:reply_markup] = reply_markup if reply_markup
+        payload[:parse_mode] = parse_mode if parse_mode
+        post("editMessageText", payload)
+      end
+
       def answer_callback_query(callback_query_id:, text: nil)
         payload = { callback_query_id: callback_query_id }
         payload[:text] = text if text
