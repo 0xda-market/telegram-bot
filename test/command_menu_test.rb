@@ -35,7 +35,7 @@ class CommandMenuTest < Minitest::Test
     refute_includes Bot::SUPPORTED_COMMANDS, "/setadmin"
   end
 
-  def test_status_and_servers_are_transient
+  def test_status_and_servers_delete_only_the_incoming_command
     %w[status servers].each_with_index do |name, index|
       telegram = FakeTelegramAPI.new
       bot = build_bot(telegram: telegram)
@@ -43,14 +43,20 @@ class CommandMenuTest < Minitest::Test
 
       bot.handle(update(command: "/#{name}", message_id: message_id))
 
-      assert_includes telegram.deleted_messages, { chat_id: 990, message_id: message_id }, name
+      assert_equal [{ chat_id: 990, message_id: message_id }], telegram.deleted_messages, name
       telegram.messages.each do |message|
-        assert_includes(
+        refute_includes(
           telegram.deleted_messages,
           { chat_id: message.fetch(:chat_id), message_id: message.fetch("message_id") },
           name
         )
       end
+      expected_callback = name == "status" ? "s:a" : "s:s"
+      assert_equal(
+        expected_callback,
+        telegram.messages.last.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data),
+        name
+      )
     end
   end
 
