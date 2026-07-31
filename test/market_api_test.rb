@@ -106,28 +106,63 @@ class MarketAPITest < Minitest::Test
     refute body.key?("actor_telegram_user_id")
   end
 
-  def test_resolves_only_the_telegram_target_before_assigning_admin_role
-    target_payload = generic_users_payload(
-      users: [
-        generic_user(id: "owner-1", telegram_id: "77", username: "owner"),
-        generic_user(id: "target-1", telegram_id: "78", username: "Target_User")
-      ]
-    )
+  def test_resolves_a_telegram_username_without_loading_active_users
+    target = generic_user(id: "target-1", telegram_id: "78", username: "Target_User")
     api = api_with(
-      response("200", target_payload),
+      response("200", generic_user_payload(user: target)),
       response("200", '{"data":{"id":"target-1","attributes":{"role":"admin"},"meta":{"changed":true}}}')
     )
 
     assignment = api.set_admin(actor_user_id: "owner-1", target: "@target_user")
 
     assert_equal 2, api.attempts
-    assert_equal ["/v1/users", "/v1/admin/users/set-admin"], api.uris.map(&:path)
+    assert_equal(
+      ["/v1/admin/users/by-external-identity", "/v1/admin/users/set-admin"],
+      api.uris.map(&:path)
+    )
+    query = URI.decode_www_form(api.uris.first.query).to_h
+    assert_equal "owner-1", query.fetch("actor_user_id")
+    assert_equal "telegram", query.fetch("provider")
+    assert_equal "username", query.fetch("provider_data_key")
+    assert_equal "target_user", query.fetch("provider_data_value")
+    assert_equal "true", query.fetch("case_insensitive")
+    refute query.key?("provider_user_id")
+
     body = JSON.parse(api.requests.last.body)
     assert_equal "owner-1", body.fetch("actor_user_id")
     assert_equal "target-1", body.fetch("target_user_id")
     assert_equal "78", assignment.dig("attributes", "telegram_user_id")
     assert_equal "780", assignment.dig("attributes", "telegram_chat_id")
     assert_equal "admin", assignment.dig("attributes", "role")
+  end
+
+  def test_resolves_a_telegram_user_id_without_loading_active_users
+    target = generic_user(id: "target-1", telegram_id: "78", username: "target")
+    api = api_with(
+      response("200", generic_user_payload(user: target)),
+      response("200", '{"data":{"id":"target-1","attributes":{"role":"admin"},"meta":{"changed":true}}}')
+    )
+
+    api.set_admin(actor_user_id: "owner-1", target: "78")
+
+    query = URI.decode_www_form(api.uris.first.query).to_h
+    assert_equal "78", query.fetch("provider_user_id")
+    refute query.key?("provider_data_key")
+    assert_equal [
+      "/v1/admin/users/by-external-identity",
+      "/v1/admin/users/set-admin"
+    ], api.uris.map(&:path)
+  end
+
+  def test_rejects_an_ambiguous_admin_target_before_an_api_request
+    api = api_with
+
+    error = assert_raises(ArgumentError) do
+      api.set_admin(actor_user_id: "owner-1", target: "target_user")
+    end
+
+    assert_includes error.message, "@username or Telegram user ID"
+    assert_equal 0, api.attempts
   end
 
   def test_retries_gateway_errors
@@ -175,6 +210,10 @@ class MarketAPITest < Minitest::Test
 
   def generic_users_payload(users: [generic_user])
     JSON.generate("data" => users)
+  end
+
+  def generic_user_payload(user: generic_user)
+    JSON.generate("data" => user)
   end
 
   def generic_user(id: "user-1", telegram_id: "77", username: "zero")

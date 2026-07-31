@@ -16,6 +16,7 @@ module ZeroXDA
       TRANSIENT_ERRORS = [IOError, SystemCallError, Timeout::Error].freeze
       TELEGRAM_PROVIDER = "telegram"
       RESOURCE_ID_PATTERN = /\A[A-Za-z0-9:_-]{1,80}\z/
+      TELEGRAM_USER_ID_PATTERN = /\A\d+\z/
 
       class RetryableResponseError < StandardError; end
 
@@ -171,10 +172,10 @@ module ZeroXDA
       end
 
       # Telegram-facing target references are resolved to internal UUIDs here
-      # before calling the provider-neutral core API. The authenticated actor
-      # UUID is supplied directly by the caller.
+      # through the provider-neutral core lookup. The authenticated actor UUID
+      # authorizes both lookup and assignment without enumerating active users.
       def set_admin(actor_user_id:, target:)
-        profile = resolve_telegram_target(target)
+        profile = resolve_telegram_target(actor_user_id: actor_user_id, target: target)
         assignment = post(
           "v1/admin/users/set-admin",
           actor_user_id: actor_user_id,
@@ -217,25 +218,36 @@ module ZeroXDA
         )
       end
 
-      def resolve_telegram_target(target)
+      def resolve_telegram_target(actor_user_id:, target:)
         normalized = target.to_s.strip
         raise ArgumentError, "target must not be empty" if normalized.empty?
 
-        profiles = active_users
-        profile = if normalized.start_with?("@")
-                    username = normalized.delete_prefix("@").downcase
-                    profiles.find do |entry|
-                      entry.dig("attributes", "telegram_username").to_s.downcase == username
-                    end
-                  else
-                    profiles.find do |entry|
-                      entry.fetch("id") == normalized ||
-                        entry.dig("attributes", "telegram_user_id").to_s == normalized
-                    end
-                  end
-        raise Error.new("Target user is not registered", code: "not_found") unless profile
+        query = {
+          actor_user_id: actor_user_id,
+          provider: TELEGRAM_PROVIDER
+        }
+        if normalized.start_with?("@")
+          username = normalized.delete_prefix("@")
+          raise ArgumentError, "Telegram username must not be empty" if username.empty?
 
-        profile
+          query.merge!(
+            provider_data_key: "username",
+            provider_data_value: username,
+            case_insensitive: "true"
+          )
+        else
+          unless TELEGRAM_USER_ID_PATTERN.match?(normalized)
+            raise ArgumentError, "target must be @username or Telegram user ID"
+          end
+
+          query[:provider_user_id] = normalized
+        end
+
+        profile = get(
+          "v1/admin/users/by-external-identity?#{URI.encode_www_form(query)}",
+          authenticated: true
+        ).fetch("data")
+        adapt_user_profile(profile)
       end
 
       def get(path, authenticated:, allow_error_status: false)

@@ -43,6 +43,12 @@ Telegram IDs, usernames, chat IDs and profile copy remain in this adapter. The
 core receives provider-neutral identity payloads and internal UUIDs for privileged
 actions.
 
+Administrator target references are resolved through the protected generic
+external-identity lookup. A Telegram username becomes an opaque provider-data
+selector and a Telegram ID becomes `provider_user_id`; the returned internal UUID
+is then sent to the separate role-assignment endpoint. The bot never loads the
+active-user collection to resolve one target.
+
 A purchase maps to the existing core lifecycle rather than a Telegram-specific
 order model:
 
