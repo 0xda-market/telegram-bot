@@ -31,14 +31,14 @@ module ZeroXDA
         *CLIENT_COMMANDS,
         { command: "servers", description: "стан серверів" },
         { command: "users", description: "активні користувачі" },
-        { command: "setadmin", description: "призначити адміністратора" },
+        { command: "set_admin", description: "призначити адміністратора" },
         { command: "apply_prices", description: "price application form" },
         { command: "apply_price", description: "set product price (USDT)" },
         { command: "rates", description: "fx rates (USDT base)" },
         { command: "set_rate", description: "set fx rate: CUR usdt_per_unit" }
       ].freeze
       SUPPORTED_COMMANDS = %w[
-        /start /status /buy /servers /users /setadmin /apply_prices /apply_price /rates /set_rate
+        /start /status /buy /servers /users /set_admin /apply_prices /apply_price /rates /set_rate
       ].freeze
 
       def initialize(
@@ -78,7 +78,7 @@ module ZeroXDA
               show_servers(message)
             when "/users"
               show_active_users(message)
-            when "/setadmin"
+            when "/set_admin"
               set_admin(message, argument)
             when "/apply_prices"
               start_price_application(message)
@@ -270,7 +270,7 @@ module ZeroXDA
         sync_commands(chat_id, actor)
         return send_message(chat_id, "доступ заборонено.") unless admin?(actor)
         if target.to_s.empty?
-          return send_message(chat_id, "формат: /setadmin @username або Telegram ID")
+          return send_message(chat_id, "формат: /set_admin @username або Telegram ID")
         end
 
         assignment = @market_api.set_admin(
