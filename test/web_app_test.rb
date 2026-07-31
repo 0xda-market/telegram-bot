@@ -1,9 +1,11 @@
 require_relative "test_helper"
 require "json"
 require "rack/mock"
+require "zero_x_da/market_client_bot/bot_identity"
+require "zero_x_da/market_client_bot/http_app"
 require "zero_x_da/market_client_bot/web_app"
 
-class WebAppTest < Minitest::Test
+class HTTPAppTest < Minitest::Test
   class ImmediateDispatcher
     def call(&task)
       task.call
@@ -47,45 +49,56 @@ class WebAppTest < Minitest::Test
   def setup
     @handler = Handler.new
     @telegram_identity = TelegramIdentity.new
-    @client = Rack::MockRequest.new(
-      ZeroXDA::MarketClientBot::WebApp.new(
-        bot: @handler,
-        webhook_secret: "webhook-secret",
-        telegram_api: @telegram_identity,
-        dispatcher: ImmediateDispatcher.new,
-        revision: "test-revision"
-      )
+    @client = Rack::MockRequest.new(build_app(username: "market_development_bot"))
+  end
+
+  def test_root_redirects_to_the_boot_resolved_bot_without_a_telegram_request
+    2.times do
+      response = @client.get("/")
+
+      assert_equal 302, response.status
+      assert_equal "https://t.me/market_development_bot", response["location"]
+      assert_equal "no-store", response["cache-control"]
+    end
+
+    assert_equal 0, @telegram_identity.requests
+  end
+
+  def test_bot_identity_is_resolved_from_get_me_once_before_http_requests
+    username = ZeroXDA::MarketClientBot::TelegramBotIdentity.resolve(
+      configured_username: nil,
+      telegram_api: @telegram_identity
     )
-  end
+    client = Rack::MockRequest.new(build_app(username: username))
 
-  def test_root_redirects_to_the_current_environment_bot
-    response = @client.get("/")
-
-    assert_equal 302, response.status
-    assert_equal "https://t.me/market_development_bot", response["location"]
-    assert_equal "no-store", response["cache-control"]
-  end
-
-  def test_bot_identity_is_cached_after_the_first_redirect
-    2.times { @client.get("/") }
+    2.times { client.get("/") }
 
     assert_equal 1, @telegram_identity.requests
   end
 
-  def test_invalid_bot_identity_returns_a_retryable_error
-    client = Rack::MockRequest.new(
-      ZeroXDA::MarketClientBot::WebApp.new(
-        bot: @handler,
-        webhook_secret: "webhook-secret",
-        telegram_api: TelegramIdentity.new(username: "invalid username"),
-        dispatcher: ImmediateDispatcher.new
-      )
+  def test_configured_bot_identity_skips_get_me_and_normalizes_the_at_prefix
+    username = ZeroXDA::MarketClientBot::TelegramBotIdentity.resolve(
+      configured_username: "@market_development_bot",
+      telegram_api: @telegram_identity
     )
 
-    response = client.get("/")
+    assert_equal "market_development_bot", username
+    assert_equal 0, @telegram_identity.requests
+  end
 
-    assert_equal 503, response.status
-    assert_equal "telegram_redirect_unavailable", JSON.parse(response.body).fetch("error")
+  def test_invalid_bot_identity_fails_during_boot
+    error = assert_raises(ArgumentError) do
+      ZeroXDA::MarketClientBot::TelegramBotIdentity.resolve(
+        configured_username: "invalid username",
+        telegram_api: @telegram_identity
+      )
+    end
+
+    assert_includes error.message, "username is invalid"
+  end
+
+  def test_legacy_web_app_constant_aliases_the_http_app
+    assert_equal ZeroXDA::MarketClientBot::HTTPApp, ZeroXDA::MarketClientBot::WebApp
   end
 
   def test_health_is_public_and_includes_server_time
@@ -123,13 +136,7 @@ class WebAppTest < Minitest::Test
 
   def test_acknowledges_the_webhook_before_processing_the_update
     dispatcher = HoldingDispatcher.new
-    client = Rack::MockRequest.new(
-      ZeroXDA::MarketClientBot::WebApp.new(
-        bot: @handler,
-        webhook_secret: "webhook-secret",
-        dispatcher: dispatcher
-      )
-    )
+    client = Rack::MockRequest.new(build_app(username: "market_development_bot", dispatcher: dispatcher))
 
     response = client.post(
       "/telegram/webhook",
@@ -143,5 +150,17 @@ class WebAppTest < Minitest::Test
 
     dispatcher.task.call
     assert_equal 2, @handler.updates.first.fetch("update_id")
+  end
+
+  private
+
+  def build_app(username:, dispatcher: ImmediateDispatcher.new)
+    ZeroXDA::MarketClientBot::HTTPApp.new(
+      bot: @handler,
+      webhook_secret: "webhook-secret",
+      telegram_username: username,
+      dispatcher: dispatcher,
+      revision: "test-revision"
+    )
   end
 end
