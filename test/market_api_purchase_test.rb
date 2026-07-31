@@ -68,7 +68,7 @@ class MarketAPIPurchaseTest < Minitest::Test
 
   private
 
-  def resource(type, id, attributes)
+  def resource(type, id, **attributes)
     JSON.generate("data" => { "type" => type, "id" => id, "attributes" => attributes.transform_keys(&:to_s) })
   end
 
