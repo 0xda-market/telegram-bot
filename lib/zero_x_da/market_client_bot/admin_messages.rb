@@ -63,19 +63,29 @@ module ZeroXDA
         send_html_message(chat_id, price_application_text(proposal, users: users, locale: locale))
       end
 
-      def show_fx_rates(message)
+      # `/rates` is retained as a Telegram compatibility command. The adapter
+      # renders the canonical core currency resources without inventing an
+      # `fx_rate` resource type.
+      def show_currency_prices(message)
         chat_id = message.fetch("chat").fetch("id")
         return unless authenticate_admin(message)
 
-        lines = [t(:rates_title), t(:base_currency), ""]
-        @market_api.fx_rates.each do |rate|
-          attributes = rate.fetch("attributes")
-          lines << "• 1 #{attributes.fetch("currency")} = #{attributes.fetch("usdt_per_unit")} USDT"
+        locale = locale_for(message)
+        lines = [t(:currency_prices_title, locale: locale), t(:base_currency, locale: locale), ""]
+        @market_api.currencies(locale: locale).each do |currency|
+          attributes = currency.fetch("attributes")
+          code = attributes["code"] || currency.fetch("id").upcase
+          amount = attributes["usdt_per_unit"]
+          if amount.to_s.empty?
+            lines << "• #{code} — #{t(:currency_price_missing, locale: locale)}"
+          else
+            lines << "• 1 #{code} = #{amount} USDT"
+          end
           updated_at = attributes["updated_at"]
           lines << "  🕒 #{TimestampFormatter.format(updated_at)}" if updated_at
         end
         lines << ""
-        lines << "/set_rate <currency> <USDT per unit>"
+        lines << t(:currency_price_hint, locale: locale)
         send_message(chat_id, lines.join("\n"))
       end
 
