@@ -17,7 +17,7 @@ module ZeroXDA
       CONTENT_SECURITY_POLICY = [
         "default-src 'self'",
         "script-src 'self' https://telegram.org",
-        "style-src 'self' 'unsafe-inline'",
+        "style-src 'self'",
         "connect-src 'self'",
         "img-src 'self' data: https:",
         "font-src 'self' data:"
