@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "cgi"
 require_relative "timestamp_formatter"
 require_relative "i18n"
 
@@ -12,9 +13,7 @@ module ZeroXDA
 
       def show_servers(message)
         chat_id = message.fetch("chat").fetch("id")
-        user = authenticate_user(message)
-        sync_commands(chat_id, user)
-        return send_message(chat_id, t(:access_denied)) unless admin?(user)
+        return unless authenticate_admin(message)
 
         health = @market_api.health
         text = <<~TEXT.strip
@@ -31,33 +30,32 @@ module ZeroXDA
 
       def show_active_users(message)
         chat_id = message.fetch("chat").fetch("id")
-        user = authenticate_user(message)
-        sync_commands(chat_id, user)
-        return send_message(chat_id, t(:access_denied)) unless admin?(user)
+        return unless authenticate_admin(message)
 
-        user_messages(@market_api.active_users).each { |text| send_message(chat_id, text) }
+        active_user_messages(@market_api.active_users).each do |text|
+          send_html_message(chat_id, text)
+        end
       end
 
       def start_price_application(message)
         chat_id = message.fetch("chat").fetch("id")
-        user = authenticate_user(message)
-        sync_commands(chat_id, user)
-        return send_message(chat_id, t(:access_denied)) unless admin?(user)
+        actor = authenticate_admin(message)
+        return unless actor
 
         locale = locale_for(message)
         proposal = @market_api.price_proposal(
-          actor_user_id: user.fetch("id"),
+          actor_user_id: actor.fetch("id"),
           locale: locale
         )
-        usernames = editor_usernames(@market_api.active_users)
-        send_message(chat_id, price_application_text(proposal, usernames: usernames, locale: locale))
+        users = @market_api.active_users.each_with_object({}) do |entry, result|
+          result[entry.fetch("id").to_s] = telegram_user_link(entry.fetch("attributes"))
+        end
+        send_html_message(chat_id, price_application_text(proposal, users: users, locale: locale))
       end
 
       def show_fx_rates(message)
         chat_id = message.fetch("chat").fetch("id")
-        user = authenticate_user(message)
-        sync_commands(chat_id, user)
-        return send_message(chat_id, t(:access_denied)) unless admin?(user)
+        return unless authenticate_admin(message)
 
         lines = [t(:rates_title), t(:base_currency), ""]
         @market_api.fx_rates.each do |rate|
@@ -73,9 +71,8 @@ module ZeroXDA
 
       def set_admin(message, target)
         chat_id = message.fetch("chat").fetch("id")
-        actor = authenticate_user(message)
-        sync_commands(chat_id, actor)
-        return send_message(chat_id, t(:access_denied)) unless admin?(actor)
+        actor = authenticate_admin(message)
+        return unless actor
         return send_message(chat_id, t(:admin_format)) if target.to_s.empty?
 
         assignment = @market_api.set_admin(
@@ -84,74 +81,106 @@ module ZeroXDA
         )
         attributes = assignment.fetch("attributes")
         sync_admin_target(attributes["telegram_chat_id"], chat_id)
-        send_message(
+        send_html_message(
           chat_id,
-          "🔑 #{t(:assigned_admin_notice)}\n\n" \
-          "👤 #{display_username(attributes)}\n" \
-          "#{t(:role_label, role: attributes.fetch("role"))}"
+          "🔑 #{html(t(:assigned_admin_notice))}\n\n" \
+          "👤 #{telegram_user_link(attributes)}\n" \
+          "#{html(t(:role_label, role: attributes.fetch("role")))}"
         )
       end
 
-      def user_messages(users)
-        messages = [t(:active_users_title, count: users.length)]
+      def authenticate_admin(message)
+        chat_id = message.fetch("chat").fetch("id")
+        user = authenticate_user(message)
+        sync_commands(chat_id, user)
+        return user if admin?(user)
+
+        send_message(chat_id, t(:access_denied))
+        nil
+      end
+
+      def active_user_messages(users)
+        messages = [html(t(:active_users_title, count: users.length))]
         users.each do |user|
           attributes = user.fetch("attributes")
-          block = <<~TEXT.strip
-            👤 #{display_username(attributes)}
-            #{t(:role_label, role: attributes.fetch("role"))}
-          TEXT
+          block = <<~HTML.strip
+            👤 #{telegram_user_link(attributes)}
+            #{html(t(:role_label, role: attributes.fetch("role")))}
+          HTML
           candidate = "#{messages.last}\n\n#{block}"
           candidate.bytesize > Bot::MESSAGE_LIMIT ? messages << block : messages[-1] = candidate
         end
         messages
       end
 
-      def price_application_text(proposal, usernames:, locale:)
-        lines = [t(:prices_title, locale: locale), "💵 USDT", ""]
-
+      def price_application_text(proposal, users:, locale:)
+        lines = [html(t(:prices_title, locale: locale)), "💵 USDT", ""]
         proposal.each do |entry|
           attributes = entry.fetch("attributes")
-          lines << "#{attributes.fetch("position")}. #{attributes.fetch("name")} · #{entry.fetch("id")}"
+          lines << "#{attributes.fetch("position")}. #{html(attributes.fetch("name"))} · #{html(entry.fetch("id"))}"
 
           previous = attributes["previous_amount_usdt"]
           current = attributes["current_amount_usdt"]
-          lines << "   ⏮ #{previous} → 💰 #{current} USDT" if previous || current
+          lines << "   ⏮ #{html(previous)} → 💰 #{html(current)} USDT" if previous || current
 
           editor_id = attributes["current_edited_by_user_id"]
-          editor = usernames[editor_id.to_s] || username_from(attributes)
+          editor = users[editor_id.to_s] || legacy_editor_link(attributes)
           lines << "   ✏️ #{editor}" if editor
 
           applied_at = attributes["current_applied_at"]
-          lines << "   🕒 #{TimestampFormatter.format(applied_at)}" if applied_at
+          lines << "   🕒 #{html(TimestampFormatter.format(applied_at))}" if applied_at
           lines << ""
         end
-
-        lines << t(:update_single_price, locale: locale)
-        lines << t(:review_prices, locale: locale)
+        lines << html(t(:update_single_price, locale: locale))
+        lines << html(t(:review_prices, locale: locale))
         lines.join("\n").strip
       end
 
-      def editor_usernames(users)
-        users.each_with_object({}) do |user, result|
-          username = display_username(user.fetch("attributes"), fallback: nil)
-          result[user.fetch("id").to_s] = username if username
+      def legacy_editor_link(attributes)
+        username = attributes["current_edited_by_username"] ||
+                   attributes["current_edited_by_telegram_username"]
+        telegram_id = attributes["current_edited_by_telegram_user_id"]
+        return telegram_user_link("telegram_username" => username, "telegram_user_id" => telegram_id) if username || telegram_id
+
+        nil
+      end
+
+      def telegram_user_link(attributes)
+        username = clean(attributes["telegram_username"] || attributes["username"])&.delete_prefix("@")
+        telegram_id = clean(attributes["telegram_user_id"] || attributes["user_id"])
+        first_name = clean(attributes["telegram_first_name"] || attributes["first_name"])
+        last_name = clean(attributes["telegram_last_name"] || attributes["last_name"])
+        full_name = [first_name, last_name].compact.join(" ")
+
+        if username
+          %(<a href="https://t.me/#{html(username)}">@#{html(username)}</a>)
+        elsif telegram_id
+          label = full_name.empty? ? telegram_id : full_name
+          %(<a href="tg://user?id=#{html(telegram_id)}">#{html(label)}</a>)
+        elsif !full_name.empty?
+          html(full_name)
+        else
+          html(t(:no_username))
         end
       end
 
-      def username_from(attributes)
-        value = attributes["current_edited_by_username"] || attributes["current_edited_by_telegram_username"]
-        normalize_username(value)
+      def send_html_message(chat_id, text)
+        parameters = @telegram_api.method(:send_message).parameters
+        accepts_parse_mode = parameters.any? do |kind, name|
+          kind == :keyrest || %i[key keyreq].include?(kind) && name == :parse_mode
+        end
+        return @telegram_api.send_message(chat_id: chat_id, text: text, parse_mode: "HTML") if accepts_parse_mode
+
+        @telegram_api.send_message(chat_id: chat_id, text: text)
       end
 
-      def display_username(attributes, fallback: nil)
-        normalize_username(attributes["telegram_username"] || attributes["username"]) || fallback || t(:no_username)
+      def html(value)
+        CGI.escapeHTML(value.to_s)
       end
 
-      def normalize_username(value)
+      def clean(value)
         value = value.to_s.strip
-        return nil if value.empty?
-
-        value.start_with?("@") ? value : "@#{value}"
+        value.empty? ? nil : value
       end
 
       def status_icon(status)
@@ -159,8 +188,6 @@ module ZeroXDA
       end
     end
 
-    Bot.prepend(AdminMessages)
+    Bot.include(AdminMessages)
   end
 end
-
-require_relative "telegram_user_links"
