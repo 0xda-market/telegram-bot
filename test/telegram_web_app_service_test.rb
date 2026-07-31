@@ -114,14 +114,16 @@ class TelegramWebAppServiceTest < Minitest::Test
     )
   end
 
-  def test_bootstrap_returns_the_complete_core_snapshot_with_session_meta
+  def test_bootstrap_returns_the_complete_core_snapshot_with_public_session_meta
     document = @service.bootstrap(init_data: "signed", locale: "uk")
 
     assert_equal "snapshot-1", document.dig("meta", "snapshot_id")
     assert_equal true, document.dig("meta", "complete")
     assert_equal "client", document.dig("meta", "pagination")
     assert_equal "telegram", document.dig("meta", "channel")
-    assert_equal "internal-user-id", document.dig("meta", "user", "id")
+    assert_equal "client", document.dig("meta", "user", "role")
+    assert_equal "active", document.dig("meta", "user", "status")
+    refute document.dig("meta", "user").key?("id")
     assert_equal [{ locale: "uk_UA", currency: "USDT" }], @market.bootstrap_requests
     assert_equal 1, @market.authentications.length
   end
