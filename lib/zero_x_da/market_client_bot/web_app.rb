@@ -4,9 +4,9 @@ require_relative "http_app"
 
 module ZeroXDA
   module MarketClientBot
-    # Compatibility alias for integrations that still require `web_app`.
-    # New code must construct HTTPApp directly; a future Telegram Mini App is a
-    # separate surface with its own request-signature contract.
-    WebApp = HTTPApp unless const_defined?(:WebApp, false)
+    # Compatibility alias for integrations that still require `web_app`. The
+    # canonical runtime is TelegramBotHTTPApp; the actual Mini App lives under
+    # the repository's `webapp/` browser surface.
+    WebApp = TelegramBotHTTPApp unless const_defined?(:WebApp, false)
   end
 end
