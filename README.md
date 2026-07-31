@@ -137,6 +137,10 @@ browser never receives the bot token or `MARKET_API_TOKEN`. Explicit quote,
 acceptance and order refresh requests reuse the existing `PurchaseFlow`, so core
 revalidates the current product, price, quote expiry and internal user ownership.
 
+The Mini App can be exposed through Telegram's private-chat menu button. Runtime
+registration is deliberately separate from deployment and gated by
+`REGISTER_TELEGRAM_WEBAPP=1`; the default `0` never mutates Telegram settings.
+
 See [`docs/architecture/telegram-mini-app.md`](docs/architecture/telegram-mini-app.md).
 
 ## Localization and pricing replies
@@ -193,6 +197,8 @@ The active bot runtime file contains:
 - `MARKET_API_TOKEN` — matching core `PUBLIC_API_TOKEN`
 - `PUBLIC_URL` — `https://0xda-market.nilx.one/bot`
 - `REGISTER_TELEGRAM_WEBHOOK` — explicit webhook registration gate
+- `REGISTER_TELEGRAM_WEBAPP` — explicit global Mini App menu-button registration
+  gate, default `0`
 
 When `TELEGRAM_BOT_USERNAME` is absent, the process calls Telegram `getMe` once
 during boot, validates the returned username and then serves a static redirect.
@@ -246,6 +252,7 @@ MARKET_API_URL=https://0xda-market.nilx.one \
 MARKET_API_TOKEN=... \
 PUBLIC_URL=http://localhost:9292 \
 REGISTER_TELEGRAM_WEBHOOK=0 \
+REGISTER_TELEGRAM_WEBAPP=0 \
 bundle exec rackup
 ```
 
