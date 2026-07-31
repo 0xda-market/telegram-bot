@@ -217,13 +217,32 @@ class BotTest < Minitest::Test
     assert_includes callbacks, "c:p:usdt"
   end
 
-  def test_admin_can_list_and_update_exchange_rates
+  def test_compatibility_rate_commands_use_currency_resources_and_generic_prices
     @bot.handle(update("/rates", user_id: 99, chat_id: 990))
-    assert_includes @telegram.messages.last.fetch(:text), "💱 Курси валют"
+    listing = @telegram.messages.last.fetch(:text)
+    assert_includes listing, "💱 Ціни валют"
+    assert_includes listing, "1 UAH = 0.024 USDT"
 
+    @bot.handle(update("/set_rate uah 0.025", user_id: 99, chat_id: 990))
+
+    assert_equal(
+      {
+        actor_user_id: ACTOR_USER_ID,
+        prices: [{ sku: "uah", amount_usdt: "0.025" }]
+      },
+      @market.applied_prices.last
+    )
+    assert_includes @telegram.messages.last.fetch(:text), "Ціну валюти застосовано ✅"
+    assert_includes @telegram.messages.last.fetch(:text), "1 UAH = 0.025 USDT"
+    assert_equal %w[uk_UA uk_UA], @market.currency_requests.last(2)
+  end
+
+  def test_set_rate_rejects_a_currency_absent_from_the_core_catalog
     @bot.handle(update("/set_rate eur 1.16", user_id: 99, chat_id: 990))
-    assert_equal "EUR", @market.applied_fx_rates.last.fetch(:rates).first.fetch(:currency)
-    assert_includes @telegram.messages.last.fetch(:text), "Курс застосовано ✅"
+
+    assert_empty @market.applied_prices
+    assert_includes @telegram.messages.last.fetch(:text), "EUR"
+    assert_includes @telegram.messages.last.fetch(:text), "не зареєстрована"
   end
 
   def test_legacy_setadmin_command_is_ignored
