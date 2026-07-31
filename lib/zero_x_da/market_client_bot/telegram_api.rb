@@ -64,6 +64,23 @@ module ZeroXDA
         post("setMyCommands", payload)
       end
 
+      def set_chat_menu_web_app(text:, url:)
+        raise ArgumentError, "Telegram menu button text must not be empty" if text.to_s.strip.empty?
+        uri = URI(url.to_s)
+        raise ArgumentError, "Telegram WebApp URL must use HTTPS" unless uri.is_a?(URI::HTTPS) && uri.host
+
+        post(
+          "setChatMenuButton",
+          menu_button: {
+            type: "web_app",
+            text: text.to_s.strip,
+            web_app: { url: uri.to_s }
+          }
+        )
+      rescue URI::InvalidURIError
+        raise ArgumentError, "Telegram WebApp URL is invalid"
+      end
+
       private
 
       def post(method, payload)

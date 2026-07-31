@@ -17,13 +17,25 @@ prices, orders or permissions.
 
 HTTP surface:
 
+- `GET /` — redirect to the configured environment bot
 - `GET /health` — bot health and server time
 - `POST /telegram/webhook` — Telegram webhook authorized with
   `X-Telegram-Bot-Api-Secret-Token`
+- `GET /webapp/` — Telegram Mini App browser shell
+- `/webapp/bootstrap`, `/webapp/quotes/*`, `/webapp/orders/*` — signed Mini App BFF
+
+The bot-facing Rack adapter is `TelegramBotHTTPApp`. The browser surface is a
+separate `TelegramMiniApp` and imports the shared WebApp engine from the core
+runtime. Legacy `HTTPApp` and `WebApp` constants remain aliases only.
+
+The bot username used by `GET /` is resolved once during Rack boot and passed to
+the bot HTTP app as immutable configuration. Request handling never calls
+Telegram `getMe`.
 
 The public Caddy route strips `/bot`, so
 `https://0xda-market.nilx.one/bot/telegram/webhook` reaches the internal
-`/telegram/webhook` route.
+`/telegram/webhook` route and `https://0xda-market.nilx.one/bot/webapp/` reaches
+`/webapp/`.
 
 Market API calls retry temporary `502`, `503`, `504`, transport failures and
 transient non-JSON responses with exponential backoff. Slow commands may send a
@@ -103,6 +115,34 @@ The initial catalog contains Telegram Premium 3/6/12 months, Telegram Stars
 500/1000/3000, TON, BTC and ETH. Currency rows are exposed separately by the core
 and are included in the administrator pricing catalog.
 
+## Telegram Mini App
+
+The Mini App uses the shared `/webapp-core/index.js` engine from core. Opening the
+Mini App makes exactly one catalog bootstrap request and stores the complete
+product array as an immutable snapshot.
+
+```text
+open Mini App
+  -> GET /webapp/bootstrap once
+  -> all products loaded
+  -> page/search/category/viewport changes in memory
+```
+
+Portrait displays six products. Landscape displays twelve, or eighteen on wide
+landscape screens. A catalog with 1,488 products therefore has 248 portrait pages,
+and moving to page two or page three does not issue another HTTP request.
+
+The BFF validates raw `Telegram.WebApp.initData` on every server action. The
+browser never receives the bot token or `MARKET_API_TOKEN`. Explicit quote,
+acceptance and order refresh requests reuse the existing `PurchaseFlow`, so core
+revalidates the current product, price, quote expiry and internal user ownership.
+
+The Mini App can be exposed through Telegram's private-chat menu button. Runtime
+registration is deliberately separate from deployment and gated by
+`REGISTER_TELEGRAM_WEBAPP=1`; the default `0` never mutates Telegram settings.
+
+See [`docs/architecture/telegram-mini-app.md`](docs/architecture/telegram-mini-app.md).
+
 ## Localization and pricing replies
 
 Supported interface locales are English, Ukrainian, Russian, French, Spanish and
@@ -147,15 +187,25 @@ The active bot runtime file contains:
 - `DEPLOY_ENV` — `development` or `production`, matching its directory
 - `PORT` — internal Puma port, normally `10000`
 - `TELEGRAM_BOT_TOKEN` — token for the exact environment bot
+- `TELEGRAM_BOT_USERNAME` — bot username without `@`; recommended for stable
+  runtimes so Rack boot does not depend on Telegram availability
+- `TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS` — maximum accepted age of signed Mini
+  App init data, default `3600`
 - `TELEGRAM_WEBHOOK_SECRET` — webhook request secret
 - `MARKET_API_URL` — matching core URL, normally
   `https://0xda-market.nilx.one`
 - `MARKET_API_TOKEN` — matching core `PUBLIC_API_TOKEN`
 - `PUBLIC_URL` — `https://0xda-market.nilx.one/bot`
 - `REGISTER_TELEGRAM_WEBHOOK` — explicit webhook registration gate
+- `REGISTER_TELEGRAM_WEBAPP` — explicit global Mini App menu-button registration
+  gate, default `0`
 
-Runtime values live only in protected VPS `.env` files. Production and
-development must use distinct Telegram, webhook and core API tokens.
+When `TELEGRAM_BOT_USERNAME` is absent, the process calls Telegram `getMe` once
+during boot, validates the returned username and then serves a static redirect.
+Production and development must use distinct Telegram, webhook and core API
+tokens.
+
+Runtime values live only in protected VPS `.env` files.
 
 ## Scheduled price digest
 
@@ -195,13 +245,19 @@ bundle exec rake
 
 DEPLOY_ENV=development \
 TELEGRAM_BOT_TOKEN=... \
+TELEGRAM_BOT_USERNAME=market_development_bot \
+TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS=3600 \
 TELEGRAM_WEBHOOK_SECRET=... \
 MARKET_API_URL=https://0xda-market.nilx.one \
 MARKET_API_TOKEN=... \
 PUBLIC_URL=http://localhost:9292 \
 REGISTER_TELEGRAM_WEBHOOK=0 \
+REGISTER_TELEGRAM_WEBAPP=0 \
 bundle exec rackup
 ```
+
+The Mini App shell expects `/webapp-core/index.js` on the same public origin. The
+project Caddy route provides that in deployed environments through core.
 
 Check health:
 
