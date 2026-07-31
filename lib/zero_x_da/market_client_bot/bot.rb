@@ -274,7 +274,7 @@ module ZeroXDA
         end
 
         assignment = @market_api.set_admin(
-          actor_telegram_user_id: message.fetch("from").fetch("id"),
+          actor_user_id: actor.fetch("id"),
           target: target
         )
         attributes = assignment.fetch("attributes")
@@ -301,7 +301,7 @@ module ZeroXDA
 
         locale = locale_for(message)
         proposal = @market_api.price_proposal(
-          actor_telegram_user_id: message.fetch("from").fetch("id"),
+          actor_user_id: user.fetch("id"),
           locale: locale
         )
         send_message(chat_id, PriceMessages.application_text(proposal, locale: locale))
@@ -330,7 +330,7 @@ module ZeroXDA
         if product && amount
           perform_price_application(
             chat_id: chat_id,
-            actor_telegram_user_id: user_id,
+            actor_user_id: user.fetch("id"),
             sku: product.fetch("id"),
             name: product.dig("attributes", "name"),
             amount: amount
@@ -384,7 +384,7 @@ module ZeroXDA
         end
 
         applied = @market_api.set_fx_rates(
-          actor_telegram_user_id: message.fetch("from").fetch("id"),
+          actor_user_id: user.fetch("id"),
           rates: [{ currency: currency.upcase, usdt_per_unit: value }]
         )
         rate = applied.first
@@ -448,7 +448,7 @@ module ZeroXDA
           if text.match?(PRICE_AMOUNT_PATTERN)
             perform_price_application(
               chat_id: chat_id,
-              actor_telegram_user_id: message.fetch("from").fetch("id"),
+              actor_user_id: user.fetch("id"),
               sku: dialog.fetch(:sku),
               name: dialog.fetch(:name),
               amount: text
@@ -459,9 +459,9 @@ module ZeroXDA
         end
       end
 
-      def perform_price_application(chat_id:, actor_telegram_user_id:, sku:, name:, amount:)
+      def perform_price_application(chat_id:, actor_user_id:, sku:, name:, amount:)
         applied = @market_api.apply_prices(
-          actor_telegram_user_id: actor_telegram_user_id,
+          actor_user_id: actor_user_id,
           prices: [{ sku: sku, amount_usdt: amount }]
         )
         clear_price_dialog(chat_id)
