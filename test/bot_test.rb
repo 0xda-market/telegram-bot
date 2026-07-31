@@ -203,7 +203,7 @@ class BotTest < Minitest::Test
       @market.applied_prices
     )
     text = @telegram.messages.last.fetch(:text)
-    assert_includes text, "price applied ✅"
+    assert_includes text, "Ціну застосовано ✅"
     assert_includes text, "Telegram Premium 6 міс. (premium_6m)"
     assert_includes text, "7.45 USDT"
   end
@@ -236,7 +236,7 @@ class BotTest < Minitest::Test
       [{ actor_user_id: ACTOR_USER_ID, prices: [{ sku: "premium_6m", amount_usdt: "7.45" }] }],
       @market.applied_prices
     )
-    assert_includes @telegram.messages.last.fetch(:text), "price applied ✅"
+    assert_includes @telegram.messages.last.fetch(:text), "Ціну застосовано ✅"
   end
 
   def test_apply_price_without_arguments_walks_through_product_and_amount
@@ -334,19 +334,19 @@ class BotTest < Minitest::Test
       @market.applied_fx_rates
     )
     text = @telegram.messages.last.fetch(:text)
-    assert_includes text, "rate applied ✅"
+    assert_includes text, "Курс застосовано ✅"
     assert_includes text, "1 EUR = 1.16 USDT"
   end
 
   def test_set_rate_with_malformed_arguments_shows_usage
     @bot.handle(update("/set_rate EUR abc", user_id: 99, chat_id: 990))
 
-    assert_includes @telegram.messages.last.fetch(:text), "format: /set_rate"
+    assert_includes @telegram.messages.last.fetch(:text), "формат: /set_rate"
     assert_empty @market.applied_fx_rates
 
     @bot.handle(update("/set_rate", user_id: 99, chat_id: 990))
 
-    assert_includes @telegram.messages.last.fetch(:text), "format: /set_rate"
+    assert_includes @telegram.messages.last.fetch(:text), "формат: /set_rate"
     assert_empty @market.applied_fx_rates
   end
 
