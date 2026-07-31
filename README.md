@@ -1,6 +1,6 @@
-# 0xda-market Bot
+# 0xda-market Telegram Bot
 
-Private Telegram client interface for the provider-agnostic `0xda-market` core.
+Private Telegram client interface for the provider-agnostic [`0xda-market/core`](https://github.com/0xda-market/core).
 
 The bot authenticates Telegram identities through the generic core API, renders
 the database-backed catalog and exposes role-gated administrator operations. It
@@ -105,7 +105,7 @@ by the current workflow. Enabling it requires a separate reviewed change paired
 with the core release path.
 
 See [`deploy/vps/README.md`](deploy/vps/README.md) and the core
-[`deploy/vps/OPERATIONS.md`](https://github.com/0xda-market/0xda-market/blob/master/deploy/vps/OPERATIONS.md).
+[`deploy/vps/OPERATIONS.md`](https://github.com/0xda-market/core/blob/master/deploy/vps/OPERATIONS.md).
 
 ## Environment variables
 
