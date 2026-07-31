@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
+require "fileutils"
 require "json"
 require "rack/mock"
 require "tmpdir"
@@ -76,7 +77,9 @@ class TelegramMiniAppTest < Minitest::Test
     assert_equal "no-store", index["cache-control"]
     assert_equal 200, asset.status
     assert_includes asset["cache-control"], "max-age=300"
-    assert_includes asset["content-security-policy"], "https://telegram.org"
+    assert_includes asset["content-security-policy"], "script-src 'self' https://telegram.org"
+    assert_includes asset["content-security-policy"], "style-src 'self'"
+    refute_includes asset["content-security-policy"], "unsafe-inline"
   end
 
   def test_serves_the_complete_catalog_bootstrap
