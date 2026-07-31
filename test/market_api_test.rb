@@ -46,6 +46,32 @@ class MarketAPITest < Minitest::Test
     assert_equal "locale=uk_UA", api.uris.first.query
   end
 
+  def test_preserves_the_core_currency_resource_without_an_fx_rate_adapter_type
+    payload = JSON.generate(
+      "data" => [
+        {
+          "type" => "currency",
+          "id" => "uah",
+          "attributes" => {
+            "code" => "UAH",
+            "usdt_per_unit" => "0.024"
+          }
+        }
+      ]
+    )
+    api = api_with(response("200", payload))
+
+    currency = api.currencies(locale: "uk_UA").first
+
+    assert_equal "currency", currency.fetch("type")
+    assert_equal "uah", currency.fetch("id")
+    assert_equal "UAH", currency.dig("attributes", "code")
+    assert_equal "/v1/currencies", api.uris.first.path
+    assert_equal "locale=uk_UA", api.uris.first.query
+    refute_respond_to api, :fx_rates
+    refute_respond_to api, :set_fx_rates
+  end
+
   def test_translates_telegram_authentication_to_external_identity_contract
     api = api_with(
       response(
