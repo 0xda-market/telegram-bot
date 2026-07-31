@@ -43,7 +43,7 @@ module ZeroXDA
 
       def call(environment)
         request = Rack::Request.new(environment)
-        return @mini_app.call(environment) if @mini_app && request.path_info.start_with?("/webapp")
+        return @mini_app.call(environment) if @mini_app && mini_app_request?(request.path_info)
         return telegram_redirect if request.get? && request.path_info == "/"
 
         if request.get? && request.path_info == "/health"
@@ -69,6 +69,10 @@ module ZeroXDA
       end
 
       private
+
+      def mini_app_request?(path)
+        path == "/webapp" || path.start_with?("/webapp/")
+      end
 
       def telegram_redirect
         [
