@@ -19,6 +19,8 @@ module ZeroXDA
         else
           super
         end
+      rescue PurchaseFlow::AccessDenied
+        answer_callback(callback, text: t(:access_denied, locale: locale_for(callback)))
       end
 
       def refresh_account_status(callback)
