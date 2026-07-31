@@ -14,19 +14,36 @@ class BotTest < Minitest::Test
     @bot.handle(update("/start"))
 
     assert_equal 1, @market.requests.length
-    assert_includes @telegram.messages.first.fetch(:text), "авторизація успішна"
+    card = @telegram.messages.first
+    assert_includes card.fetch(:text), "авторизація успішна"
+    assert_equal "s:a", card.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)
     commands = @telegram.command_sets.first
     assert_equal({ type: "chat", chat_id: 770 }, commands.fetch(:scope))
     assert_equal %w[buy status], commands.fetch(:commands).map { |item| item.fetch(:command) }
-    assert_equal [{ chat_id: 770, message_id: 1 }], @telegram.deleted_messages
+    assert_empty @telegram.deleted_messages
   end
 
-  def test_status_displays_the_current_user_without_loading_health
+  def test_status_displays_a_persistent_card_and_deletes_only_the_command
     @bot.handle(update("/status"))
 
-    assert_includes @telegram.messages.last.fetch(:text), "role: client"
-    assert_includes @telegram.messages.last.fetch(:text), "status: active ✅"
+    card = @telegram.messages.last
+    assert_includes card.fetch(:text), "role: client"
+    assert_includes card.fetch(:text), "status: active ✅"
+    assert_equal "s:a", card.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)
+    assert_equal [{ chat_id: 770, message_id: 10 }], @telegram.deleted_messages
     assert_equal 0, @market.health_requests
+  end
+
+  def test_account_status_refresh_survives_restart_and_edits_the_same_card
+    restarted = build_bot
+
+    restarted.handle(callback("s:a", message_id: 42))
+
+    card = @telegram.edited_messages.last
+    assert_equal 42, card.fetch("message_id")
+    assert_includes card.fetch(:text), "status: active ✅"
+    assert_equal "s:a", card.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)
+    assert_equal "callback-1", @telegram.answered_callbacks.last.fetch(:callback_query_id)
   end
 
   def test_buy_opens_grouped_catalog_and_never_truncates_to_nine_buttons
@@ -93,13 +110,35 @@ class BotTest < Minitest::Test
 
   def test_admin_servers_and_users_remain_role_scoped
     @bot.handle(update("/servers", user_id: 99, chat_id: 990))
-    assert_includes @telegram.messages.first.fetch(:text), "✅ Market core"
+    servers = @telegram.messages.first
+    assert_includes servers.fetch(:text), "✅ Market core"
+    assert_equal "s:s", servers.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)
+    assert_equal [{ chat_id: 990, message_id: 10 }], @telegram.deleted_messages
 
     @bot.handle(update("/users", user_id: 99, chat_id: 990))
     users = @telegram.messages.last.fetch(:text)
     assert_includes users, "👥 Активні користувачі: 1"
     assert_includes users, "@zero"
     refute_includes users, ACTOR_USER_ID
+  end
+
+  def test_server_status_refresh_is_stateless_and_edits_the_same_card
+    @bot.handle(callback("s:s", user_id: 99, chat_id: 990, message_id: 73))
+
+    assert_equal 1, @market.health_requests
+    card = @telegram.edited_messages.last
+    assert_equal 73, card.fetch("message_id")
+    assert_includes card.fetch(:text), "🖥️ Стан сервісів"
+    assert_includes card.fetch(:text), "✅ Client bot"
+    assert_equal "s:s", card.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)
+  end
+
+  def test_non_admin_cannot_refresh_server_status
+    @bot.handle(callback("s:s"))
+
+    assert_equal 0, @market.health_requests
+    assert_empty @telegram.edited_messages
+    assert_equal "Доступ заборонено.", @telegram.answered_callbacks.last.fetch(:text)
   end
 
   def test_non_admin_cannot_use_admin_commands
