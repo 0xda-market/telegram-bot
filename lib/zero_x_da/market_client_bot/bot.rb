@@ -5,12 +5,14 @@ require_relative "market_api"
 require_relative "telegram_api"
 require_relative "price_messages"
 require_relative "locale"
+require_relative "i18n"
 
 module ZeroXDA
   module MarketClientBot
     class Bot
+      include I18n::Helpers
+
       MESSAGE_LIMIT = 3_800
-      SERVER_START_NOTICE = "0xda-market запускається…"
       SERVER_START_NOTICE_DELAY = 3
       STATUS_MESSAGE_TTL = 3
       CATALOG_PAGE_SIZE = 9
@@ -20,23 +22,6 @@ module ZeroXDA
       PRICE_AMOUNT_PATTERN = /\A\d+(?:\.\d{1,6})?\z/
       CURRENCY_INPUT_PATTERN = /\A[A-Za-z][A-Za-z0-9]{2,9}\z/
       PRICE_DIALOG_TTL = 600
-      START_COMMANDS = [
-        { command: "start", description: "авторизація" }
-      ].freeze
-      CLIENT_COMMANDS = [
-        { command: "buy", description: "купити" },
-        { command: "status", description: "власний статус" }
-      ].freeze
-      ADMIN_COMMANDS = [
-        *CLIENT_COMMANDS,
-        { command: "servers", description: "стан серверів" },
-        { command: "users", description: "активні користувачі" },
-        { command: "set_admin", description: "призначити адміністратора" },
-        { command: "apply_prices", description: "price application form" },
-        { command: "apply_price", description: "set product price (USDT)" },
-        { command: "rates", description: "fx rates (USDT base)" },
-        { command: "set_rate", description: "set fx rate: CUR usdt_per_unit" }
-      ].freeze
       SUPPORTED_COMMANDS = %w[
         /start /status /buy /servers /users /set_admin /apply_prices /apply_price /rates /set_rate
       ].freeze
@@ -103,11 +88,12 @@ module ZeroXDA
         return yield unless supported_command?(message["text"])
 
         chat_id = message.fetch("chat").fetch("id")
+        locale = locale_for(message)
         completed = false
         lock = Mutex.new
         notifier = Thread.new do
           sleep @server_start_notice_delay
-          send_message(chat_id, SERVER_START_NOTICE) unless lock.synchronize { completed }
+          send_message(chat_id, t(:server_starting, locale: locale)) unless lock.synchronize { completed }
         rescue TelegramAPI::Error => error
           warn "server start notice failed: #{error.message}"
         end
@@ -154,7 +140,7 @@ module ZeroXDA
         products = @market_api.products(locale: locale_for(message))
         send_message(
           chat_id,
-          "обери продукт для купівлі:",
+          t(:choose_product_to_buy),
           reply_markup: catalog_keyboard(products, callback_prefix: "buy")
         )
       end
@@ -177,11 +163,11 @@ module ZeroXDA
         )
         sync_commands(chat_id, user)
         product = find_product_by_sku(sku, locale: locale_for(callback))
-        raise ArgumentError, "product is unavailable" unless product
+        raise ArgumentError, t(:product_unavailable) unless product
 
         @telegram_api.answer_callback_query(
           callback_query_id: callback.fetch("id"),
-          text: "обрано: #{product.dig("attributes", "name")}"
+          text: t(:selected_product, name: product.dig("attributes", "name"))
         )
       end
 
@@ -195,12 +181,12 @@ module ZeroXDA
         sync_commands(chat_id, user)
         unless admin?(user)
           @telegram_api.answer_callback_query(callback_query_id: callback.fetch("id"))
-          return send_message(chat_id, "доступ заборонено.")
+          return send_message(chat_id, t(:access_denied))
         end
 
         locale = locale_for(callback)
         product = find_product_by_sku(sku, locale: locale)
-        raise ArgumentError, "product is unavailable" unless product
+        raise ArgumentError, t(:product_unavailable, locale: locale) unless product
 
         request_price_amount(
           chat_id: chat_id,
@@ -210,7 +196,7 @@ module ZeroXDA
         )
         @telegram_api.answer_callback_query(
           callback_query_id: callback.fetch("id"),
-          text: "обрано: #{product.dig("attributes", "name")}"
+          text: t(:selected_product, locale: locale, name: product.dig("attributes", "name"))
         )
       end
 
@@ -230,83 +216,6 @@ module ZeroXDA
         { inline_keyboard: buttons.each_slice(CATALOG_COLUMNS).to_a }
       end
 
-      def show_servers(message)
-        chat_id = message.fetch("chat").fetch("id")
-        user = authenticate_user(message)
-        sync_commands(chat_id, user)
-        return send_message(chat_id, "доступ заборонено.") unless admin?(user)
-
-        health = @market_api.health
-        core_status = health.fetch("status", "unknown")
-        core_time = health.fetch("server_time", "—")
-        bot_time = timestamp(@clock.call)
-        text = <<~TEXT.strip
-          zeroxda-market / servers
-
-          market core: #{status_label(core_status)}
-          core time: #{core_time}
-
-          client bot: ok ✅
-          bot time: #{bot_time}
-        TEXT
-        send_message(chat_id, text)
-      end
-
-      def show_active_users(message)
-        chat_id = message.fetch("chat").fetch("id")
-        user = authenticate_user(message)
-        sync_commands(chat_id, user)
-        return send_message(chat_id, "доступ заборонено.") unless admin?(user)
-
-        users = @market_api.active_users
-        user_messages(users).each do |text|
-          send_message(chat_id, text)
-        end
-      end
-
-      def set_admin(message, target)
-        chat_id = message.fetch("chat").fetch("id")
-        actor = authenticate_user(message)
-        sync_commands(chat_id, actor)
-        return send_message(chat_id, "доступ заборонено.") unless admin?(actor)
-        if target.to_s.empty?
-          return send_message(chat_id, "формат: /set_admin @username або Telegram ID")
-        end
-
-        assignment = @market_api.set_admin(
-          actor_user_id: actor.fetch("id"),
-          target: target
-        )
-        attributes = assignment.fetch("attributes")
-        target_chat_id = attributes["telegram_chat_id"]
-        sync_admin_target(target_chat_id, chat_id)
-        text = <<~TEXT.strip
-          admin призначений ✅
-
-          telegram: #{attributes.fetch("telegram_user_id")}
-          uuid: #{assignment.fetch("id")}
-          role: #{attributes.fetch("role")}
-        TEXT
-        send_message(chat_id, text)
-      end
-
-      # /apply_prices — a new application over all prices. Sends the form:
-      # yesterday's and current amounts per product plus instructions. Until a
-      # new application is submitted, the last applied prices remain in effect.
-      def start_price_application(message)
-        chat_id = message.fetch("chat").fetch("id")
-        user = authenticate_user(message)
-        sync_commands(chat_id, user)
-        return send_message(chat_id, "доступ заборонено.") unless admin?(user)
-
-        locale = locale_for(message)
-        proposal = @market_api.price_proposal(
-          actor_user_id: user.fetch("id"),
-          locale: locale
-        )
-        send_message(chat_id, PriceMessages.application_text(proposal, locale: locale))
-      end
-
       # /apply_price <sku|position|short name> <amount in USDT>. Missing or
       # invalid parts fall back to a short dialog: first the product (typed or
       # picked from the catalog keyboard), then the amount.
@@ -314,7 +223,7 @@ module ZeroXDA
         chat_id = message.fetch("chat").fetch("id")
         user = authenticate_user(message)
         sync_commands(chat_id, user)
-        return send_message(chat_id, "доступ заборонено.") unless admin?(user)
+        return send_message(chat_id, t(:access_denied)) unless admin?(user)
 
         locale = locale_for(message)
         user_id = message.fetch("from").fetch("id")
@@ -333,7 +242,8 @@ module ZeroXDA
             actor_user_id: user.fetch("id"),
             sku: product.fetch("id"),
             name: product.dig("attributes", "name"),
-            amount: amount
+            amount: amount,
+            locale: locale
           )
         elsif product
           request_price_amount(chat_id: chat_id, user_id: user_id, product: product, locale: locale)
@@ -347,40 +257,17 @@ module ZeroXDA
         end
       end
 
-      # /rates — all fx rates in the USDT base with the buy-side semantics:
-      # how many USDT we pay for one unit of the currency.
-      def show_fx_rates(message)
-        chat_id = message.fetch("chat").fetch("id")
-        user = authenticate_user(message)
-        sync_commands(chat_id, user)
-        return send_message(chat_id, "доступ заборонено.") unless admin?(user)
-
-        rates = @market_api.fx_rates
-        lines = ["0xda-market / fx rates", "usdt paid per 1 unit (buy side)", ""]
-        rates.each do |rate|
-          attributes = rate.fetch("attributes")
-          lines << "#{attributes.fetch("currency")}: #{attributes.fetch("usdt_per_unit")}"
-        end
-        lines << ""
-        lines << "Set a rate: /set_rate <currency> <usdt per 1 unit>"
-        lines << "Example: /set_rate EUR 1.16"
-        send_message(chat_id, lines.join("\n"))
-      end
-
       # /set_rate <currency> <usdt per 1 unit>
       def set_fx_rate(message, argument)
         chat_id = message.fetch("chat").fetch("id")
         user = authenticate_user(message)
         sync_commands(chat_id, user)
-        return send_message(chat_id, "доступ заборонено.") unless admin?(user)
+        return send_message(chat_id, t(:access_denied)) unless admin?(user)
 
         currency, value = argument.to_s.split(/\s+/, 2)
         value = value&.strip
         unless currency&.match?(CURRENCY_INPUT_PATTERN) && value&.match?(PRICE_AMOUNT_PATTERN)
-          return send_message(
-            chat_id,
-            "format: /set_rate <currency> <usdt per 1 unit>\nexample: /set_rate EUR 1.16"
-          )
+          return send_message(chat_id, t(:rate_format))
         end
 
         applied = @market_api.set_fx_rates(
@@ -390,7 +277,11 @@ module ZeroXDA
         rate = applied.first
         send_message(
           chat_id,
-          "rate applied ✅\n1 #{rate.fetch("id")} = #{rate.dig("attributes", "usdt_per_unit")} USDT"
+          t(
+            :rate_applied,
+            currency: rate.fetch("id"),
+            amount: rate.dig("attributes", "usdt_per_unit")
+          )
         )
       end
 
@@ -426,7 +317,7 @@ module ZeroXDA
         user = authenticate_user(message)
         unless admin?(user)
           clear_price_dialog(chat_id)
-          return send_message(chat_id, "доступ заборонено.")
+          return send_message(chat_id, t(:access_denied))
         end
 
         locale = locale_for(message)
@@ -451,7 +342,8 @@ module ZeroXDA
               actor_user_id: user.fetch("id"),
               sku: dialog.fetch(:sku),
               name: dialog.fetch(:name),
-              amount: text
+              amount: text,
+              locale: locale
             )
           else
             send_message(chat_id, PriceMessages.invalid_amount(locale: locale))
@@ -459,7 +351,7 @@ module ZeroXDA
         end
       end
 
-      def perform_price_application(chat_id:, actor_user_id:, sku:, name:, amount:)
+      def perform_price_application(chat_id:, actor_user_id:, sku:, name:, amount:, locale:)
         applied = @market_api.apply_prices(
           actor_user_id: actor_user_id,
           prices: [{ sku: sku, amount_usdt: amount }]
@@ -468,9 +360,13 @@ module ZeroXDA
         price = applied.first
         send_message(
           chat_id,
-          "price applied ✅\n" \
-          "#{name} (#{sku})\n" \
-          "#{price.dig("attributes", "amount_usdt")} USDT"
+          t(
+            :price_applied,
+            locale: locale,
+            name: name,
+            sku: sku,
+            amount: price.dig("attributes", "amount_usdt")
+          )
         )
       end
 
@@ -541,51 +437,8 @@ module ZeroXDA
         Locale.resolve(update.fetch("from", {})["language_code"])
       end
 
-      def sync_commands(chat_id, user)
-        commands = admin?(user) ? ADMIN_COMMANDS : CLIENT_COMMANDS
-        @telegram_api.set_commands(
-          commands,
-          scope: { type: "chat", chat_id: chat_id }
-        )
-      rescue TelegramAPI::Error => error
-        warn "command menu sync failed: #{error.message}"
-      end
-
-      def sync_admin_target(target_chat_id, actor_chat_id)
-        return if target_chat_id.to_s.empty?
-
-        @telegram_api.set_commands(
-          ADMIN_COMMANDS,
-          scope: { type: "chat", chat_id: target_chat_id }
-        )
-        return if target_chat_id.to_s == actor_chat_id.to_s
-
-        send_message(target_chat_id, "вам призначено роль admin ✅")
-      rescue TelegramAPI::Error => error
-        warn "new admin menu sync failed: #{error.message}"
-      end
-
       def admin?(user)
         user.dig("attributes", "role") == "admin"
-      end
-
-      def user_messages(users)
-        messages = ["zeroxda-market / active users: #{users.length}"]
-        users.each do |user|
-          attributes = user.fetch("attributes")
-          block = <<~TEXT.strip
-            telegram: #{attributes.fetch("telegram_user_id")}
-            uuid: #{user.fetch("id")}
-            role: #{attributes.fetch("role")}
-          TEXT
-          candidate = "#{messages.last}\n\n#{block}"
-          if candidate.bytesize > MESSAGE_LIMIT
-            messages << block
-          else
-            messages[-1] = candidate
-          end
-        end
-        messages
       end
 
       def user_status_message(user)
@@ -593,7 +446,7 @@ module ZeroXDA
         status = user.dig("attributes", "status")
         indicator = status == "active" ? "✅" : "❌"
         <<~TEXT.strip
-          авторизація успішна ✅
+          #{t(:authorization_success)}
           role: #{role}
           status: #{status} #{indicator}
         TEXT
@@ -619,18 +472,8 @@ module ZeroXDA
         end.tap { |thread| thread.report_on_exception = false }
       end
 
-      def status_label(status)
-        status == "ok" ? "ok ✅" : "#{status} ❌"
-      end
-
       def client_role(user)
         admin?(user) ? "admin" : "client"
-      end
-
-      def timestamp(value)
-        raise ArgumentError, "clock must return a Time" unless value.is_a?(Time)
-
-        value.utc.iso8601(6)
       end
 
       def send_message(chat_id, text, reply_markup: nil)
@@ -645,7 +488,7 @@ module ZeroXDA
         chat_id = message&.dig("chat", "id")
         return unless chat_id
 
-        send_message(chat_id, "не вдалося виконати команду. спробуй ще раз.")
+        send_message(chat_id, t(:command_failed))
         warn "command failed: #{error.class}: #{error.message}"
       rescue TelegramAPI::Error
         nil
@@ -653,3 +496,5 @@ module ZeroXDA
     end
   end
 end
+
+require_relative "command_menu"
