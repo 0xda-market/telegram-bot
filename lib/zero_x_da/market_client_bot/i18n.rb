@@ -18,6 +18,7 @@ module ZeroXDA
           admin_format: "Format: /set_admin @username or Telegram ID",
           price_applied: "Price applied ✅\n%{name} (%{sku})\n%{amount} USDT",
           rate_applied: "Rate applied ✅\n1 %{currency} = %{amount} USDT",
+          rate_format: "format: /set_rate <currency> <USDT per unit>\nexample: /set_rate EUR 1.16",
           server_status_title: "🖥️ Service status",
           active_users_title: "👥 Active users: %{count}",
           prices_title: "📦 Price application",
@@ -31,15 +32,16 @@ module ZeroXDA
         "uk_UA" => {
           server_starting: "Сервер запускається…",
           access_denied: "Доступ заборонено.",
-          command_failed: "Не вдалося виконати команду. Спробуй ще раз.",
-          authorization_success: "Авторизація успішна ✅",
+          command_failed: "не вдалося виконати команду. спробуй ще раз.",
+          authorization_success: "авторизація успішна ✅",
           assigned_admin_notice: "Вам призначено роль admin ✅",
-          choose_product_to_buy: "Обери продукт для купівлі:",
-          selected_product: "Обрано: %{name}",
-          product_unavailable: "Продукт недоступний",
+          choose_product_to_buy: "обери продукт для купівлі:",
+          selected_product: "обрано: %{name}",
+          product_unavailable: "продукт недоступний",
           admin_format: "Формат: /set_admin @username або Telegram ID",
           price_applied: "Ціну застосовано ✅\n%{name} (%{sku})\n%{amount} USDT",
           rate_applied: "Курс застосовано ✅\n1 %{currency} = %{amount} USDT",
+          rate_format: "формат: /set_rate <валюта> <USDT за одиницю>\nприклад: /set_rate EUR 1.16",
           server_status_title: "🖥️ Стан сервісів",
           active_users_title: "👥 Активні користувачі: %{count}",
           prices_title: "📦 Застосування цін",
@@ -62,6 +64,7 @@ module ZeroXDA
           admin_format: "Формат: /set_admin @username или Telegram ID",
           price_applied: "Цена применена ✅\n%{name} (%{sku})\n%{amount} USDT",
           rate_applied: "Курс применён ✅\n1 %{currency} = %{amount} USDT",
+          rate_format: "формат: /set_rate <валюта> <USDT за единицу>\nпример: /set_rate EUR 1.16",
           server_status_title: "🖥️ Состояние сервисов",
           active_users_title: "👥 Активные пользователи: %{count}",
           prices_title: "📦 Применение цен",
@@ -84,6 +87,7 @@ module ZeroXDA
           admin_format: "Format : /set_admin @username ou ID Telegram",
           price_applied: "Prix appliqué ✅\n%{name} (%{sku})\n%{amount} USDT",
           rate_applied: "Taux appliqué ✅\n1 %{currency} = %{amount} USDT",
+          rate_format: "format : /set_rate <devise> <USDT par unité>\nexemple : /set_rate EUR 1.16",
           server_status_title: "🖥️ État des services",
           active_users_title: "👥 Utilisateurs actifs : %{count}",
           prices_title: "📦 Application des prix",
@@ -106,6 +110,7 @@ module ZeroXDA
           admin_format: "Formato: /set_admin @username o ID de Telegram",
           price_applied: "Precio aplicado ✅\n%{name} (%{sku})\n%{amount} USDT",
           rate_applied: "Tipo aplicado ✅\n1 %{currency} = %{amount} USDT",
+          rate_format: "formato: /set_rate <moneda> <USDT por unidad>\nejemplo: /set_rate EUR 1.16",
           server_status_title: "🖥️ Estado de los servicios",
           active_users_title: "👥 Usuarios activos: %{count}",
           prices_title: "📦 Aplicación de precios",
@@ -128,6 +133,7 @@ module ZeroXDA
           admin_format: "Format: /set_admin @username oder Telegram-ID",
           price_applied: "Preis übernommen ✅\n%{name} (%{sku})\n%{amount} USDT",
           rate_applied: "Kurs übernommen ✅\n1 %{currency} = %{amount} USDT",
+          rate_format: "Format: /set_rate <Währung> <USDT pro Einheit>\nBeispiel: /set_rate EUR 1.16",
           server_status_title: "🖥️ Dienststatus",
           active_users_title: "👥 Aktive Nutzer: %{count}",
           prices_title: "📦 Preisübernahme",
@@ -139,6 +145,15 @@ module ZeroXDA
           review_prices: "Erneut prüfen: /apply_prices"
         }
       }.freeze
+
+      DEFAULT_KEYS = TRANSLATIONS.fetch(Locale::DEFAULT).keys.freeze
+      TRANSLATIONS.each do |locale, copy|
+        missing = DEFAULT_KEYS - copy.keys
+        extra = copy.keys - DEFAULT_KEYS
+        next if missing.empty? && extra.empty?
+
+        raise KeyError, "translation contract mismatch for #{locale}: missing=#{missing.inspect}, extra=#{extra.inspect}"
+      end
 
       module_function
 
