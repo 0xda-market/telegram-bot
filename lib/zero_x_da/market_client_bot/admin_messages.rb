@@ -15,17 +15,27 @@ module ZeroXDA
         chat_id = message.fetch("chat").fetch("id")
         return unless authenticate_admin(message)
 
-        health = @market_api.health
-        text = <<~TEXT.strip
-          #{t(:server_status_title)}
+        locale = locale_for(message)
+        send_message(
+          chat_id,
+          server_status_message(locale: locale),
+          reply_markup: status_card_keyboard(StatusCards::SERVERS_CALLBACK, locale: locale)
+        )
+      end
 
-          #{status_icon(health.fetch("status", "unknown"))} Market core
-          🕒 #{TimestampFormatter.format(health["server_time"])}
+      def refresh_servers(callback)
+        locale = locale_for(callback)
+        user = authenticate_callback_user(callback)
+        chat_id = callback.fetch("message").fetch("chat").fetch("id")
+        sync_commands(chat_id, user)
+        raise PurchaseFlow::AccessDenied unless admin?(user)
 
-          ✅ Client bot
-          🕒 #{TimestampFormatter.format(@clock.call)}
-        TEXT
-        send_message(chat_id, text)
+        replace_callback_message(
+          callback,
+          server_status_message(locale: locale),
+          reply_markup: status_card_keyboard(StatusCards::SERVERS_CALLBACK, locale: locale)
+        )
+        answer_callback(callback)
       end
 
       def show_active_users(message)
@@ -97,6 +107,19 @@ module ZeroXDA
 
         send_message(chat_id, t(:access_denied))
         nil
+      end
+
+      def server_status_message(locale:)
+        health = @market_api.health
+        <<~TEXT.strip
+          #{t(:server_status_title, locale: locale)}
+
+          #{status_icon(health.fetch("status", "unknown"))} Market core
+          🕒 #{TimestampFormatter.format(health["server_time"])}
+
+          ✅ Client bot
+          🕒 #{TimestampFormatter.format(@clock.call)}
+        TEXT
       end
 
       def active_user_messages(users)
