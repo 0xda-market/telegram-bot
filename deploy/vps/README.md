@@ -74,6 +74,7 @@ TELEGRAM_WEBHOOK_SECRET=<development value>
 MARKET_API_URL=https://0xda-market.nilx.one
 MARKET_API_TOKEN=<development core API value>
 REGISTER_TELEGRAM_WEBHOOK=0
+REGISTER_TELEGRAM_WEBAPP=0
 PUBLIC_URL=https://0xda-market.nilx.one/bot
 ```
 
@@ -86,6 +87,10 @@ validated username in memory. Request handling never calls `getMe`.
 `Telegram.WebApp.initData` accepted by the Mini App BFF. The default is one hour.
 The browser never receives `TELEGRAM_BOT_TOKEN` or `MARKET_API_TOKEN`.
 
+`REGISTER_TELEGRAM_WEBAPP=1` configures the global private-chat menu button to
+open `${PUBLIC_URL}/webapp/`. Keep it `0` through deployment and smoke checks;
+enabling it mutates Telegram configuration and is a separate reviewed action.
+
 Protect the file:
 
 ```sh
@@ -93,8 +98,8 @@ chown deploy:deploy /opt/0xda-market-bot/environments/*/shared/.env
 chmod 0600 /opt/0xda-market-bot/environments/*/shared/.env
 ```
 
-Keep `REGISTER_TELEGRAM_WEBHOOK=0` until local and public smoke checks pass.
-Webhook and BotFather Mini App registration remain separate reviewed operations.
+Keep both registration gates at `0` until local and public smoke checks pass.
+Webhook and Mini App menu registration remain separate reviewed operations.
 
 ## Deployment behavior
 
@@ -105,7 +110,7 @@ After green CI, `master` stages or refreshes `development`.
 - a failed active refresh attempts to restart the previous release;
 - only the active bot joins the edge network with the `market-bot` alias;
 - deployment never changes DNS, Caddy routing, Telegram webhook state or
-  BotFather Mini App settings.
+  Telegram Mini App menu settings.
 
 The core WebApp snapshot/runtime change must be deployed before this bot change,
 because `/bot/webapp/` imports `/webapp-core/index.js` and its BFF loads
