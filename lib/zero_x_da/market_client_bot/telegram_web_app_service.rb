@@ -21,7 +21,6 @@ module ZeroXDA
           "meta" => document.fetch("meta").merge(
             "channel" => "telegram",
             "user" => {
-              "id" => user.fetch("id"),
               "role" => user.dig("attributes", "role"),
               "status" => user.dig("attributes", "status")
             },
