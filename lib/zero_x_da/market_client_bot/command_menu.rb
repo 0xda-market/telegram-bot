@@ -18,8 +18,8 @@ module ZeroXDA
           set_admin: "🔑 assign administrator",
           apply_prices: "📦 apply prices",
           apply_price: "💰 set product price",
-          rates: "💱 exchange rates (USDT base)",
-          set_rate: "⚙️ set exchange rate"
+          rates: "💱 currency prices (USDT base)",
+          set_rate: "⚙️ set currency price"
         },
         "uk_UA" => {
           start: "🔐 авторизація",
@@ -30,8 +30,8 @@ module ZeroXDA
           set_admin: "🔑 призначити адміністратора",
           apply_prices: "📦 застосувати ціни",
           apply_price: "💰 встановити ціну продукту",
-          rates: "💱 курси валют відносно USDT",
-          set_rate: "⚙️ встановити курс валюти"
+          rates: "💱 ціни валют відносно USDT",
+          set_rate: "⚙️ встановити ціну валюти"
         },
         "ru_RU" => {
           start: "🔐 авторизация",
@@ -42,8 +42,8 @@ module ZeroXDA
           set_admin: "🔑 назначить администратора",
           apply_prices: "📦 применить цены",
           apply_price: "💰 установить цену продукта",
-          rates: "💱 курсы валют относительно USDT",
-          set_rate: "⚙️ установить курс валюты"
+          rates: "💱 цены валют относительно USDT",
+          set_rate: "⚙️ установить цену валюты"
         },
         "fr_FR" => {
           start: "🔐 autorisation",
@@ -54,8 +54,8 @@ module ZeroXDA
           set_admin: "🔑 nommer un administrateur",
           apply_prices: "📦 appliquer les prix",
           apply_price: "💰 définir le prix du produit",
-          rates: "💱 taux de change (base USDT)",
-          set_rate: "⚙️ définir le taux de change"
+          rates: "💱 prix des devises (base USDT)",
+          set_rate: "⚙️ définir le prix d’une devise"
         },
         "es_ES" => {
           start: "🔐 autorización",
@@ -66,8 +66,8 @@ module ZeroXDA
           set_admin: "🔑 asignar administrador",
           apply_prices: "📦 aplicar precios",
           apply_price: "💰 establecer precio del producto",
-          rates: "💱 tipos de cambio (base USDT)",
-          set_rate: "⚙️ establecer tipo de cambio"
+          rates: "💱 precios de monedas (base USDT)",
+          set_rate: "⚙️ establecer precio de moneda"
         },
         "de_DE" => {
           start: "🔐 Autorisierung",
@@ -78,8 +78,8 @@ module ZeroXDA
           set_admin: "🔑 Administrator zuweisen",
           apply_prices: "📦 Preise übernehmen",
           apply_price: "💰 Produktpreis festlegen",
-          rates: "💱 Wechselkurse (USDT-Basis)",
-          set_rate: "⚙️ Wechselkurs festlegen"
+          rates: "💱 Währungspreise (USDT-Basis)",
+          set_rate: "⚙️ Währungspreis festlegen"
         }
       }.freeze
 
