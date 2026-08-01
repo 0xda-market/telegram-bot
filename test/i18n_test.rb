@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "zero_x_da/market_client_bot/i18n"
+require "zero_x_da/market/telegram_bot/i18n"
 
 class I18nTest < Minitest::Test
-  Locale = ZeroXDA::MarketClientBot::Locale
-  I18n = ZeroXDA::MarketClientBot::I18n
+  Locale = ZeroXDA::Market::TelegramBot::Locale
+  I18n = ZeroXDA::Market::TelegramBot::I18n
 
   def test_language_variants_resolve_to_supported_locales
     expectations = {

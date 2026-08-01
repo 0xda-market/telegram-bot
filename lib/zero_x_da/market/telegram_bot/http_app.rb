@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require "json"
 require "rack"
 require "time"
 require_relative "bot_identity"
 
-module ZeroXDA
-  module MarketClientBot
+module ZeroXDA::Market::TelegramBot
     class AsyncDispatcher
       def call(&task)
         Thread.new do
@@ -105,5 +106,4 @@ module ZeroXDA
     # Compatibility only. New code should name the bot runtime explicitly so
     # `WebApp` remains available for actual browser applications.
     HTTPApp = TelegramBotHTTPApp unless const_defined?(:HTTPApp, false)
-  end
 end

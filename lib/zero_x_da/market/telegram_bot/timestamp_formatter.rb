@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require "time"
 
-module ZeroXDA
-  module MarketClientBot
+module ZeroXDA::Market::TelegramBot
     module TimestampFormatter
       module_function
 
@@ -23,5 +24,4 @@ module ZeroXDA
         nil
       end
     end
-  end
 end

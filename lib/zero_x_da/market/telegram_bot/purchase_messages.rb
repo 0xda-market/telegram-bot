@@ -1,10 +1,11 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require_relative "locale"
 require_relative "timestamp_formatter"
 
-module ZeroXDA
-  module MarketClientBot
+module ZeroXDA::Market::TelegramBot
     module PurchaseMessages
       COPY = {
         "en_US" => {
@@ -202,5 +203,4 @@ module ZeroXDA
         }
       end
     end
-  end
 end

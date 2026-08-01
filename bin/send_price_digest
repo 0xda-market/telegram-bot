@@ -8,14 +8,14 @@
 # the time guard for manual runs.
 
 require "bundler/setup"
-require_relative "../lib/zero_x_da/market_client_bot/price_digest"
+require_relative "../lib/zero_x_da/market/telegram_bot/price_digest"
 
-digest = ZeroXDA::MarketClientBot::PriceDigest.new(
-  market_api: ZeroXDA::MarketClientBot::MarketAPI.new(
+digest = ZeroXDA::Market::TelegramBot::PriceDigest.new(
+  market_api: ZeroXDA::Market::TelegramBot::MarketAPI.new(
     base_url: ENV.fetch("MARKET_API_URL", "https://zeroxda-market.onrender.com"),
     token: ENV.fetch("MARKET_API_TOKEN")
   ),
-  telegram_api: ZeroXDA::MarketClientBot::TelegramAPI.new(
+  telegram_api: ZeroXDA::Market::TelegramBot::TelegramAPI.new(
     token: ENV.fetch("TELEGRAM_BOT_TOKEN")
   )
 )

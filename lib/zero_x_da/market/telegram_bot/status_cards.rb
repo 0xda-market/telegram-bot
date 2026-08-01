@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require_relative "i18n"
 
-module ZeroXDA
-  module MarketClientBot
+module ZeroXDA::Market::TelegramBot
     module StatusCards
       ACCOUNT_CALLBACK = "s:a"
       SERVERS_CALLBACK = "s:s"
@@ -59,5 +60,4 @@ module ZeroXDA
     end
 
     Bot.prepend(StatusCards)
-  end
 end

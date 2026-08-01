@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require_relative "locale"
 require_relative "market_api_webapp"
 require_relative "purchase_flow"
 require_relative "telegram_web_app_auth"
 
-module ZeroXDA
-  module MarketClientBot
+module ZeroXDA::Market::TelegramBot
     class TelegramWebAppService
       def initialize(market_api:, authentication:, purchase_flow: PurchaseFlow.new(market_api: market_api))
         @market_api = market_api
@@ -71,5 +72,4 @@ module ZeroXDA
         Locale.normalize(locale)
       end
     end
-  end
 end

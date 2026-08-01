@@ -1,8 +1,8 @@
 require_relative "test_helper"
-require "zero_x_da/market_client_bot/price_messages"
+require "zero_x_da/market/telegram_bot/price_messages"
 
 class PriceMessagesTest < Minitest::Test
-  PriceMessages = ZeroXDA::MarketClientBot::PriceMessages
+  PriceMessages = ZeroXDA::Market::TelegramBot::PriceMessages
 
   def test_renders_both_amounts_when_both_are_present
     text = PriceMessages.application_text([entry], locale: "uk_UA")

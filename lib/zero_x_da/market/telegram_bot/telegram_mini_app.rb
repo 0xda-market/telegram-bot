@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require "json"
 require "rack"
 require_relative "market_api"
 require_relative "purchase_flow"
 require_relative "telegram_web_app_auth"
 
-module ZeroXDA
-  module MarketClientBot
+module ZeroXDA::Market::TelegramBot
     class TelegramMiniApp
       JSON_HEADERS = {
         "content-type" => "application/json; charset=utf-8",
@@ -148,5 +149,4 @@ module ZeroXDA
         json_document(status, document)
       end
     end
-  end
 end

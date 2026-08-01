@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "zero_x_da/market_client_bot/catalog_menu"
+require "zero_x_da/market/telegram_bot/catalog_menu"
 
 class CatalogMenuTest < Minitest::Test
-  CatalogMenu = ZeroXDA::MarketClientBot::CatalogMenu
+  CatalogMenu = ZeroXDA::Market::TelegramBot::CatalogMenu
 
   def test_stateless_category_pages_cover_every_product_beyond_nine
     menu = CatalogMenu.new

@@ -1,9 +1,9 @@
 require_relative "test_helper"
 require "json"
 require "rack/mock"
-require "zero_x_da/market_client_bot/bot_identity"
-require "zero_x_da/market_client_bot/http_app"
-require "zero_x_da/market_client_bot/web_app"
+require "zero_x_da/market/telegram_bot/bot_identity"
+require "zero_x_da/market/telegram_bot/http_app"
+require "zero_x_da/market/telegram_bot/web_app"
 
 class TelegramBotHTTPAppTest < Minitest::Test
   class ImmediateDispatcher
@@ -78,7 +78,7 @@ class TelegramBotHTTPAppTest < Minitest::Test
   end
 
   def test_bot_identity_is_resolved_from_get_me_once_before_http_requests
-    username = ZeroXDA::MarketClientBot::TelegramBotIdentity.resolve(
+    username = ZeroXDA::Market::TelegramBot::TelegramBotIdentity.resolve(
       configured_username: nil,
       telegram_api: @telegram_identity
     )
@@ -90,7 +90,7 @@ class TelegramBotHTTPAppTest < Minitest::Test
   end
 
   def test_configured_bot_identity_skips_get_me_and_normalizes_the_at_prefix
-    username = ZeroXDA::MarketClientBot::TelegramBotIdentity.resolve(
+    username = ZeroXDA::Market::TelegramBot::TelegramBotIdentity.resolve(
       configured_username: "@market_development_bot",
       telegram_api: @telegram_identity
     )
@@ -101,7 +101,7 @@ class TelegramBotHTTPAppTest < Minitest::Test
 
   def test_invalid_bot_identity_fails_during_boot
     error = assert_raises(ArgumentError) do
-      ZeroXDA::MarketClientBot::TelegramBotIdentity.resolve(
+      ZeroXDA::Market::TelegramBot::TelegramBotIdentity.resolve(
         configured_username: "invalid username",
         telegram_api: @telegram_identity
       )
@@ -111,8 +111,8 @@ class TelegramBotHTTPAppTest < Minitest::Test
   end
 
   def test_legacy_constants_alias_the_explicit_bot_runtime
-    assert_equal ZeroXDA::MarketClientBot::TelegramBotHTTPApp, ZeroXDA::MarketClientBot::HTTPApp
-    assert_equal ZeroXDA::MarketClientBot::TelegramBotHTTPApp, ZeroXDA::MarketClientBot::WebApp
+    assert_equal ZeroXDA::Market::TelegramBot::TelegramBotHTTPApp, ZeroXDA::Market::TelegramBot::HTTPApp
+    assert_equal ZeroXDA::Market::TelegramBot::TelegramBotHTTPApp, ZeroXDA::Market::TelegramBot::WebApp
   end
 
   def test_delegates_the_browser_surface_to_the_mini_app
@@ -180,7 +180,7 @@ class TelegramBotHTTPAppTest < Minitest::Test
   private
 
   def build_app(username:, dispatcher: ImmediateDispatcher.new, mini_app: nil)
-    ZeroXDA::MarketClientBot::TelegramBotHTTPApp.new(
+    ZeroXDA::Market::TelegramBot::TelegramBotHTTPApp.new(
       bot: @handler,
       webhook_secret: "webhook-secret",
       telegram_username: username,

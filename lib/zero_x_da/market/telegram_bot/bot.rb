@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require "time"
 require_relative "market_api"
 require_relative "telegram_api"
@@ -10,8 +12,7 @@ require_relative "catalog_menu"
 require_relative "purchase_flow"
 require_relative "purchase_messages"
 
-module ZeroXDA
-  module MarketClientBot
+module ZeroXDA::Market::TelegramBot
     class Bot
       include I18n::Helpers
 
@@ -556,7 +557,6 @@ module ZeroXDA
         nil
       end
     end
-  end
 end
 
 require_relative "command_menu"

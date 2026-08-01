@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require_relative "locale"
 
-module ZeroXDA
-  module MarketClientBot
+module ZeroXDA::Market::TelegramBot
     class CatalogMenu
       PAGE_SIZE = 6
       COLUMNS = 3
@@ -129,5 +130,4 @@ module ZeroXDA
         [previous, home, next_button]
       end
     end
-  end
 end

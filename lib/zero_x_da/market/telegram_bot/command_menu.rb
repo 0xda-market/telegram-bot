@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require_relative "locale"
 require_relative "admin_messages"
 require_relative "i18n"
 require_relative "status_cards"
 
-module ZeroXDA
-  module MarketClientBot
+module ZeroXDA::Market::TelegramBot
     module CommandMenu
       COPY = {
         "en_US" => {
@@ -178,5 +179,4 @@ module ZeroXDA
     Bot.prepend(CommandMenuLocalization)
     Bot.prepend(TransientUserCommands)
     Bot.prepend(TelegramUpdateLocale)
-  end
 end

@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require "json"
 require "net/http"
 require "timeout"
 require "uri"
 
-module ZeroXDA
-  module MarketClientBot
+module ZeroXDA::Market::TelegramBot
     class TelegramAPI
       class Error < StandardError; end
 
@@ -103,5 +104,4 @@ module ZeroXDA
         raise Error, "Telegram API request failed: #{error.message}"
       end
     end
-  end
 end
