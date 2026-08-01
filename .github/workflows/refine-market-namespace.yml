@@ -74,3 +74,5 @@ jobs:
           git add -A
           git commit -m "Refine Telegram bot market namespace"
           git push origin HEAD:refactor/telegram-bot-namespace
+
+# trigger: market namespace correction
