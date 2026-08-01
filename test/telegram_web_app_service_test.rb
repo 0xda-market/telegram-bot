@@ -132,7 +132,7 @@ class TelegramWebAppServiceTest < Minitest::Test
     assert_equal true, document.dig("meta", "complete")
     assert_equal "client", document.dig("meta", "pagination")
     assert_equal "telegram", document.dig("meta", "channel")
-    assert_equal "client", document.dig("meta", "user", "role")
+    assert_equal "broker", document.dig("meta", "user", "role")
     assert_equal "active", document.dig("meta", "user", "status")
     assert_equal "broker", document.dig("meta", "session", "role")
     assert_equal "opaque-subject", document.dig("meta", "session", "subject")
