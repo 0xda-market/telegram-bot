@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "zero_x_da/telegram_bot/bot"
+require "zero_x_da/market/telegram_bot/bot"
 
 class HandlerArchitectureTest < Minitest::Test
-  Bot = ZeroXDA::TelegramBot::Bot
-  AdminMessages = ZeroXDA::TelegramBot::AdminMessages
-  StatusCards = ZeroXDA::TelegramBot::StatusCards
-  MarketAPI = ZeroXDA::TelegramBot::MarketAPI
+  Bot = ZeroXDA::Market::TelegramBot::Bot
+  AdminMessages = ZeroXDA::Market::TelegramBot::AdminMessages
+  StatusCards = ZeroXDA::Market::TelegramBot::StatusCards
+  MarketAPI = ZeroXDA::Market::TelegramBot::MarketAPI
   ADMIN_HANDLERS = %i[
     show_servers
     refresh_servers
@@ -41,8 +41,8 @@ class HandlerArchitectureTest < Minitest::Test
   end
 
   def test_legacy_shadowing_modules_are_not_loaded
-    refute ZeroXDA::TelegramBot.const_defined?(:TelegramUserLinks, false)
-    refute ZeroXDA::TelegramBot.const_defined?(:LocalizedLegacyCopy, false)
-    refute ZeroXDA::TelegramBot.const_defined?(:LocalizedServerStartNotice, false)
+    refute ZeroXDA::Market::TelegramBot.const_defined?(:TelegramUserLinks, false)
+    refute ZeroXDA::Market::TelegramBot.const_defined?(:LocalizedLegacyCopy, false)
+    refute ZeroXDA::Market::TelegramBot.const_defined?(:LocalizedServerStartNotice, false)
   end
 end

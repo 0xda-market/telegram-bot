@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-module ZeroXDA
-  module TelegramBot
+require_relative "namespace"
+
+module ZeroXDA::Market::TelegramBot
     # Runtime policy for the continuously running VPS workload.
     #
     # A slow upstream call is not a server cold start. Keep command execution
@@ -13,5 +14,4 @@ module ZeroXDA
         yield
       end
     end
-  end
 end

@@ -3,10 +3,10 @@
 require_relative "test_helper"
 require "json"
 require "net/http"
-require "zero_x_da/telegram_bot/market_api"
+require "zero_x_da/market/telegram_bot/market_api"
 
 class MarketAPIPurchaseTest < Minitest::Test
-  class StubbedMarketAPI < ZeroXDA::TelegramBot::MarketAPI
+  class StubbedMarketAPI < ZeroXDA::Market::TelegramBot::MarketAPI
     attr_reader :uris, :requests
 
     def initialize(outcomes:)

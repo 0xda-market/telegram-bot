@@ -5,7 +5,7 @@ require "fileutils"
 require "json"
 require "rack/mock"
 require "tmpdir"
-require "zero_x_da/telegram_bot/telegram_mini_app"
+require "zero_x_da/market/telegram_bot/telegram_mini_app"
 
 class TelegramMiniAppTest < Minitest::Test
   class Service
@@ -57,7 +57,7 @@ class TelegramMiniAppTest < Minitest::Test
     File.write(File.join(@directory, "app.js"), "export const ready = true;\n")
     @service = Service.new
     @client = Rack::MockRequest.new(
-      ZeroXDA::TelegramBot::TelegramMiniApp.new(service: @service, root: @directory)
+      ZeroXDA::Market::TelegramBot::TelegramMiniApp.new(service: @service, root: @directory)
     )
   end
 
@@ -127,7 +127,7 @@ class TelegramMiniAppTest < Minitest::Test
   end
 
   def test_maps_invalid_telegram_sessions_to_unauthorized
-    @service.failure = ZeroXDA::TelegramBot::TelegramWebAppAuth::Invalid.new("expired")
+    @service.failure = ZeroXDA::Market::TelegramBot::TelegramWebAppAuth::Invalid.new("expired")
 
     response = @client.get(
       "/webapp/bootstrap?locale=uk_UA",

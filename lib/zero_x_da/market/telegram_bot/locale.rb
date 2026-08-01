@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-module ZeroXDA
-  module TelegramBot
+require_relative "namespace"
+
+module ZeroXDA::Market::TelegramBot
     module Locale
       DEFAULT = "en_US"
       UKRAINIAN = "uk_UA"
@@ -37,5 +38,4 @@ module ZeroXDA
         value.to_s.strip.downcase.split(/[-_]/, 2).first
       end
     end
-  end
 end

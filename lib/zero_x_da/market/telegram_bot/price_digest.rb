@@ -1,13 +1,14 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require "date"
 require "time"
 require_relative "market_api"
 require_relative "telegram_api"
 require_relative "price_messages"
 
-module ZeroXDA
-  module TelegramBot
+module ZeroXDA::Market::TelegramBot
     # Daily price application digest for admins, due at 07:00 Central
     # European Time. Cron runs at 05:00 and 06:00 UTC; due? is true for
     # exactly one of them on any given day depending on CET/CEST.
@@ -81,5 +82,4 @@ module ZeroXDA
         Time.utc(year, month, last_sunday.day, 1)
       end
     end
-  end
 end

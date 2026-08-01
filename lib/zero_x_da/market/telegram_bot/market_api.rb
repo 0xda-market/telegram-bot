@@ -1,12 +1,13 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require "json"
 require "net/http"
 require "timeout"
 require "uri"
 
-module ZeroXDA
-  module TelegramBot
+module ZeroXDA::Market::TelegramBot
     class MarketAPI
       OPEN_TIMEOUT = 10
       READ_TIMEOUT = 75
@@ -282,5 +283,4 @@ module ZeroXDA
         end
       end
     end
-  end
 end

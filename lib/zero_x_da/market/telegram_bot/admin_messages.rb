@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require "cgi"
 require_relative "timestamp_formatter"
 require_relative "i18n"
 
-module ZeroXDA
-  module TelegramBot
+module ZeroXDA::Market::TelegramBot
     module AdminMessages
       include I18n::Helpers
 
@@ -222,5 +223,4 @@ module ZeroXDA
     end
 
     Bot.include(AdminMessages)
-  end
 end

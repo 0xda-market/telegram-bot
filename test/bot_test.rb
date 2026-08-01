@@ -1,5 +1,5 @@
 require_relative "test_helper"
-require "zero_x_da/telegram_bot/bot"
+require "zero_x_da/market/telegram_bot/bot"
 
 class BotTest < Minitest::Test
   ACTOR_USER_ID = FakeMarketAPI::ACTOR_USER_ID
@@ -267,7 +267,7 @@ class BotTest < Minitest::Test
         super
       end
     end.new
-    bot = ZeroXDA::TelegramBot::Bot.new(
+    bot = ZeroXDA::Market::TelegramBot::Bot.new(
       market_api: slow_market,
       telegram_api: @telegram,
       server_start_notice_delay: 0.005
@@ -282,7 +282,7 @@ class BotTest < Minitest::Test
   private
 
   def build_bot
-    ZeroXDA::TelegramBot::Bot.new(
+    ZeroXDA::Market::TelegramBot::Bot.new(
       market_api: @market,
       telegram_api: @telegram,
       clock: -> { Time.utc(2026, 7, 12, 0, 0, 1) },

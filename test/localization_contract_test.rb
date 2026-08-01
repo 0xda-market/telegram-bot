@@ -1,14 +1,14 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "zero_x_da/telegram_bot/bot"
-require "zero_x_da/telegram_bot/price_messages"
+require "zero_x_da/market/telegram_bot/bot"
+require "zero_x_da/market/telegram_bot/price_messages"
 
 class LocalizationContractTest < Minitest::Test
-  Locale = ZeroXDA::TelegramBot::Locale
-  I18n = ZeroXDA::TelegramBot::I18n
-  CommandMenu = ZeroXDA::TelegramBot::CommandMenu
-  PriceMessages = ZeroXDA::TelegramBot::PriceMessages
+  Locale = ZeroXDA::Market::TelegramBot::Locale
+  I18n = ZeroXDA::Market::TelegramBot::I18n
+  CommandMenu = ZeroXDA::Market::TelegramBot::CommandMenu
+  PriceMessages = ZeroXDA::Market::TelegramBot::PriceMessages
 
   def test_every_supported_locale_has_complete_interface_copy
     default_interface_keys = I18n::TRANSLATIONS.fetch(Locale::DEFAULT).keys.sort

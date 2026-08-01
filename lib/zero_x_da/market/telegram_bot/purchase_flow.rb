@@ -1,7 +1,8 @@
 # frozen_string_literal: true
 
-module ZeroXDA
-  module TelegramBot
+require_relative "namespace"
+
+module ZeroXDA::Market::TelegramBot
     class PurchaseFlow
       CAPABILITY = "manual.fulfillment"
 
@@ -80,5 +81,4 @@ module ZeroXDA
         attributes.fetch("status") == "failed" && attributes.dig("failure", "retryable")
       end
     end
-  end
 end

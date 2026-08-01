@@ -2,10 +2,10 @@
 
 require_relative "test_helper"
 require "time"
-require "zero_x_da/telegram_bot/telegram_web_app_service"
+require "zero_x_da/market/telegram_bot/telegram_web_app_service"
 
 class TelegramWebAppServiceTest < Minitest::Test
-  Session = ZeroXDA::TelegramBot::TelegramWebAppAuth::Session
+  Session = ZeroXDA::Market::TelegramBot::TelegramWebAppAuth::Session
 
   class Authentication
     attr_reader :requests
@@ -107,7 +107,7 @@ class TelegramWebAppServiceTest < Minitest::Test
     @authentication = Authentication.new
     @market = Market.new
     @purchase = Purchase.new
-    @service = ZeroXDA::TelegramBot::TelegramWebAppService.new(
+    @service = ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(
       market_api: @market,
       authentication: @authentication,
       purchase_flow: @purchase

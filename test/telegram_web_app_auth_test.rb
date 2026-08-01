@@ -4,14 +4,14 @@ require_relative "test_helper"
 require "json"
 require "openssl"
 require "uri"
-require "zero_x_da/telegram_bot/telegram_web_app_auth"
+require "zero_x_da/market/telegram_bot/telegram_web_app_auth"
 
 class TelegramWebAppAuthTest < Minitest::Test
   TOKEN = "123456:telegram-test-token"
   NOW = Time.utc(2026, 7, 31, 17, 0, 0)
 
   def setup
-    @auth = ZeroXDA::TelegramBot::TelegramWebAppAuth.new(
+    @auth = ZeroXDA::Market::TelegramBot::TelegramWebAppAuth.new(
       bot_token: TOKEN,
       max_age_seconds: 3600,
       clock: -> { NOW }
@@ -31,7 +31,7 @@ class TelegramWebAppAuthTest < Minitest::Test
   def test_rejects_tampered_user_data
     tampered = signed_init_data.sub("sasha", "attacker")
 
-    error = assert_raises(ZeroXDA::TelegramBot::TelegramWebAppAuth::Invalid) do
+    error = assert_raises(ZeroXDA::Market::TelegramBot::TelegramWebAppAuth::Invalid) do
       @auth.verify(tampered)
     end
 
@@ -41,7 +41,7 @@ class TelegramWebAppAuthTest < Minitest::Test
   def test_rejects_expired_init_data
     expired = signed_init_data(auth_date: NOW.to_i - 3601)
 
-    error = assert_raises(ZeroXDA::TelegramBot::TelegramWebAppAuth::Invalid) do
+    error = assert_raises(ZeroXDA::Market::TelegramBot::TelegramWebAppAuth::Invalid) do
       @auth.verify(expired)
     end
 
@@ -51,7 +51,7 @@ class TelegramWebAppAuthTest < Minitest::Test
   def test_rejects_duplicate_fields
     duplicated = "#{signed_init_data}&auth_date=#{NOW.to_i}"
 
-    error = assert_raises(ZeroXDA::TelegramBot::TelegramWebAppAuth::Invalid) do
+    error = assert_raises(ZeroXDA::Market::TelegramBot::TelegramWebAppAuth::Invalid) do
       @auth.verify(duplicated)
     end
 

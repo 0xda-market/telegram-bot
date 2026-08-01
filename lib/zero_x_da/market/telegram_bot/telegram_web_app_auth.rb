@@ -1,11 +1,12 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require "json"
 require "openssl"
 require "uri"
 
-module ZeroXDA
-  module TelegramBot
+module ZeroXDA::Market::TelegramBot
     class TelegramWebAppAuth
       Session = Struct.new(:user, :chat, :auth_date, :query_id, keyword_init: true)
 
@@ -84,5 +85,4 @@ module ZeroXDA
         left.bytes.zip(right.bytes).reduce(0) { |result, (a, b)| result | (a ^ b) }.zero?
       end
     end
-  end
 end

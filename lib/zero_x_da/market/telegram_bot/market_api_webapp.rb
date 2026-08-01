@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require_relative "market_api"
 
-module ZeroXDA
-  module TelegramBot
+module ZeroXDA::Market::TelegramBot
     class MarketAPI
       def webapp_bootstrap(locale: "en_US", currency: "USDT")
         get(
@@ -12,5 +13,4 @@ module ZeroXDA
         )
       end
     end
-  end
 end

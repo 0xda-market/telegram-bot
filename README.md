@@ -7,7 +7,7 @@ the database-backed catalog and exposes role-gated administrator operations. It
 does not connect to PostgreSQL directly and does not own users, roles, products,
 prices, orders or permissions.
 
-`client`, `broker` and `admin` are user roles and interaction flows inside one Telegram bot. They are not separate bot components or Ruby namespaces. The canonical Ruby namespace is `ZeroXDA::TelegramBot`, with source files under `lib/zero_x_da/telegram_bot/`.
+`client`, `broker` and `admin` are user roles and interaction flows inside one Telegram bot. They are not separate bot components or Ruby namespaces. The canonical Ruby namespace is `ZeroXDA::Market::TelegramBot`, with source files under `lib/zero_x_da/market/telegram_bot/`.
 
 ## Runtime
 

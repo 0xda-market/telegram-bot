@@ -1,9 +1,10 @@
 # frozen_string_literal: true
 
+require_relative "namespace"
+
 require_relative "locale"
 
-module ZeroXDA
-  module TelegramBot
+module ZeroXDA::Market::TelegramBot
     module I18n
       TRANSLATIONS = {
         "en_US" => {
@@ -207,5 +208,4 @@ module ZeroXDA
         end
       end
     end
-  end
 end

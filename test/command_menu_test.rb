@@ -1,12 +1,12 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "zero_x_da/telegram_bot/bot"
-require "zero_x_da/telegram_bot/command_menu"
+require "zero_x_da/market/telegram_bot/bot"
+require "zero_x_da/market/telegram_bot/command_menu"
 
 class CommandMenuTest < Minitest::Test
-  Bot = ZeroXDA::TelegramBot::Bot
-  CommandMenu = ZeroXDA::TelegramBot::CommandMenu
+  Bot = ZeroXDA::Market::TelegramBot::Bot
+  CommandMenu = ZeroXDA::Market::TelegramBot::CommandMenu
 
   def test_unauthorized_menu_uses_authorization_icon
     assert_equal [
@@ -79,7 +79,7 @@ class CommandMenuTest < Minitest::Test
   private
 
   def build_bot(market: FakeMarketAPI.new, telegram:, status_message_ttl: 0)
-    ZeroXDA::TelegramBot::Bot.new(
+    ZeroXDA::Market::TelegramBot::Bot.new(
       market_api: market,
       telegram_api: telegram,
       status_message_ttl: status_message_ttl

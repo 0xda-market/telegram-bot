@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "zero_x_da/telegram_bot/price_digest"
+require "zero_x_da/market/telegram_bot/price_digest"
 
 class PriceDigestTest < Minitest::Test
   def test_delivers_the_database_driven_form_in_the_admin_locale
@@ -13,7 +13,7 @@ class PriceDigestTest < Minitest::Test
       end
     end.new
     telegram = FakeTelegramAPI.new
-    digest = ZeroXDA::TelegramBot::PriceDigest.new(
+    digest = ZeroXDA::Market::TelegramBot::PriceDigest.new(
       market_api: market,
       telegram_api: telegram
     )
