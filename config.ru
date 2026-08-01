@@ -3,6 +3,7 @@
 require "bundler/setup"
 require "rack/common_logger"
 require_relative "lib/zero_x_da/market_client_bot/bot"
+require_relative "lib/zero_x_da/market_client_bot/persistent_runtime"
 require_relative "lib/zero_x_da/market_client_bot/bot_identity"
 require_relative "lib/zero_x_da/market_client_bot/command_menu"
 require_relative "lib/zero_x_da/market_client_bot/http_app"
@@ -26,6 +27,7 @@ bot = ZeroXDA::MarketClientBot::Bot.new(
   market_api: market_api,
   telegram_api: telegram_api
 )
+bot.extend(ZeroXDA::MarketClientBot::PersistentRuntime)
 web_app_auth = ZeroXDA::MarketClientBot::TelegramWebAppAuth.new(
   bot_token: bot_token,
   max_age_seconds: Integer(ENV.fetch("TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS", "3600"))
