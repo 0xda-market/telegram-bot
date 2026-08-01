@@ -1,84 +1,61 @@
-# Telegram Mini App
+# Telegram Web App Adapter
 
-The repository owns two separate runtimes:
-
-```text
-TelegramBotHTTPApp
-  -> bot landing redirect
-  -> health
-  -> Telegram webhook
-
-TelegramMiniApp
-  -> browser assets under /webapp/
-  -> signed session bootstrap
-  -> quote, accept and order refresh BFF routes
-```
-
-The Mini App is the Telegram-specific shell in the three-entity WebApp architecture:
+This repository owns the Telegram-specific host for the shared `0xda-market/web-app` package.
 
 ```text
-0xda-market/core /webapp-core/index.js
-  ├─ standalone WebApp
-  └─ telegram-bot/webapp
+telegram-bot/webapp
+  ├─ Telegram SDK host adapter
+  ├─ signed initData transport
+  ├─ Telegram browser shell
+  └─ Telegram BFF routes
+
+0xda-market/web-app
+  └─ host-agnostic catalog and checkout UI
+
+0xda-market/core
+  └─ provider-agnostic engine and market contracts
 ```
 
-The shell imports the shared `webapp-core` browser module. It owns Telegram SDK initialization, theme variables, viewport events, haptics and transmission of `Telegram.WebApp.initData`. It does not implement catalog pagination or copy the shared engine.
+The Telegram adapter owns:
 
-## Complete catalog bootstrap
+- `Telegram.WebApp` initialization;
+- locale and viewport extraction;
+- Telegram theme and haptics;
+- raw `initData` transmission;
+- `/webapp/bootstrap`, `/webapp/quotes/*` and `/webapp/orders/*` transport;
+- Telegram menu-button registration and deployment entry point.
 
-Opening `/webapp/` performs exactly one catalog request:
+The shared Web App does not import Telegram SDKs or know about Telegram endpoints. The adapter imports `mountMarketApp`, constructs `host` and `transport`, imports the shared core engine, and mounts the UI.
 
 ```text
-GET /webapp/bootstrap
-X-Telegram-Init-Data: <Telegram.WebApp.initData>
-
-telegram-bot
-  -> validate initData
-  -> authenticate Telegram identity with core
-  -> GET core /v1/webapp/bootstrap
-  -> return the complete snapshot
+Telegram host + Telegram transport
+  -> mountMarketApp(...)
+  -> shared Web App UI
+  -> core engine
 ```
 
-The browser stores the full array in `CatalogStore`. With 1,488 products and portrait page size six, page one, page two and page three are local array slices. Search, category filters, previous, categories/home, next and viewport page-size changes do not call the network.
+## Session validation
 
-Portrait shows six products. Landscape uses twelve, and wide landscape uses eighteen. Changing page size preserves the current visible region.
+Every BFF request carries raw `Telegram.WebApp.initData` in `X-Telegram-Init-Data`. `TelegramWebAppAuth` rejects malformed or stale payloads and verifies the Telegram HMAC before market operations.
 
-Bootstrap metadata exposes only browser-relevant role and account status. The internal market user UUID remains server-side for quote, order ownership and authorization checks.
+The browser never receives the Telegram bot token, `MARKET_API_TOKEN` or an internal market user UUID.
 
-## Checkout boundary
+## Runtime module routes
 
-Browsing is snapshot-based; settlement is not. Selecting a product is local. An explicit quote request sends only the stable SKU to the BFF. The server loads a current complete snapshot, verifies that the product still exists and has a price, then creates the existing manual-fulfillment intent and quote.
+The Telegram shell expects:
 
-```text
-local selection
-  -> POST /webapp/quotes
-  -> current quote
-  -> POST /webapp/quotes/:id/accept
-  -> order
-  -> GET /webapp/orders/:id
-```
+- shared Web App module: `/web-app/index.js`;
+- core browser engine: `/webapp-core/index.js`;
+- signed Telegram BFF: relative `/webapp/*` routes.
 
-The existing `PurchaseFlow` keeps internal-user ownership checks and quote expiry behavior. The browser never receives `MARKET_API_TOKEN`, the Telegram bot token or an internal market user UUID.
+These may be overridden before `webapp/app.js` loads with `window.__ZERO_X_DA_MARKET__`.
 
-## Telegram session validation
+## Activation order
 
-Every BFF request carries raw `Telegram.WebApp.initData`. `TelegramWebAppAuth`:
+1. merge and publish the host-agnostic `web-app` module;
+2. merge this Telegram adapter;
+3. expose `/web-app/index.js` through the development edge route;
+4. deploy and verify the development bot runtime;
+5. enable Telegram menu-button registration only after health checks pass.
 
-- rejects malformed or duplicate fields;
-- verifies the HMAC-SHA-256 `hash` using the bot token-derived `WebAppData` secret;
-- checks `auth_date` freshness;
-- parses the signed user and optional chat objects;
-- rejects requests before any market operation when validation fails.
-
-The default maximum session age is 3,600 seconds and is configurable with `TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS`.
-
-## Dependency order
-
-The Telegram Mini App depends on the core snapshot/runtime change. Merge and activation order is:
-
-1. merge the `0xda-market/core` WebApp snapshot/runtime PR;
-2. merge the `0xda-market/telegram-bot` Mini App PR;
-3. deploy and verify both development runtimes;
-4. enable the gated Telegram menu-button registration only after both deployments are healthy.
-
-Menu-button registration is controlled by `REGISTER_TELEGRAM_WEBAPP` and remains disabled by default.
+Menu-button registration remains gated by `REGISTER_TELEGRAM_WEBAPP`.
