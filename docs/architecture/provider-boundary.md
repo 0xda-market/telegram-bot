@@ -2,6 +2,12 @@
 
 The bot is a Telegram adapter around the provider-neutral 0xda Market API.
 
+## Naming boundary
+
+The adapter has one canonical Ruby namespace: `ZeroXDA::TelegramBot`. Source files live under `lib/zero_x_da/telegram_bot/`.
+
+`client`, `broker`, and `admin` describe user roles or interaction flows inside the bot. They must not be used as names for the repository, runtime component, source directory, or top-level Ruby namespace.
+
 ## Direction of dependencies
 
 ```text
