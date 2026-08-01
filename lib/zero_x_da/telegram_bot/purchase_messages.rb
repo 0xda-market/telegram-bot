@@ -4,7 +4,7 @@ require_relative "locale"
 require_relative "timestamp_formatter"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     module PurchaseMessages
       COPY = {
         "en_US" => {

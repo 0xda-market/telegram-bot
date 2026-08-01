@@ -5,7 +5,7 @@ require "openssl"
 require "uri"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     class TelegramWebAppAuth
       Session = Struct.new(:user, :chat, :auth_date, :query_id, keyword_init: true)
 

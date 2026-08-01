@@ -3,7 +3,7 @@
 require_relative "market_api"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     class MarketAPI
       def webapp_bootstrap(locale: "en_US", currency: "USDT")
         get(

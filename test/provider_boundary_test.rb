@@ -6,7 +6,7 @@ class ProviderBoundaryTest < Minitest::Test
   ROOT = File.expand_path("..", __dir__)
 
   def test_core_contract_translation_is_owned_by_market_api
-    source = File.read(File.join(ROOT, "lib/zero_x_da/market_client_bot/market_api.rb"))
+    source = File.read(File.join(ROOT, "lib/zero_x_da/telegram_bot/market_api.rb"))
 
     assert_includes source, '"v1/auth/external"'
     assert_includes source, 'provider: TELEGRAM_PROVIDER'

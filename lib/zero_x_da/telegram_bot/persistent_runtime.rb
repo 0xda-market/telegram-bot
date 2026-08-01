@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     # Runtime policy for the continuously running VPS workload.
     #
     # A slow upstream call is not a server cold start. Keep command execution

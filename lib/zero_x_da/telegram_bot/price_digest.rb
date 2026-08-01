@@ -7,7 +7,7 @@ require_relative "telegram_api"
 require_relative "price_messages"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     # Daily price application digest for admins, due at 07:00 Central
     # European Time. Cron runs at 05:00 and 06:00 UTC; due? is true for
     # exactly one of them on any given day depending on CET/CEST.

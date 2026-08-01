@@ -11,7 +11,7 @@ require_relative "purchase_flow"
 require_relative "purchase_messages"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     class Bot
       include I18n::Helpers
 

@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     class TelegramBotIdentity
       USERNAME_PATTERN = /\A[A-Za-z][A-Za-z0-9_]{4,31}\z/
 

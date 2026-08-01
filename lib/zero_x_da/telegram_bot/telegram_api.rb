@@ -6,7 +6,7 @@ require "timeout"
 require "uri"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     class TelegramAPI
       class Error < StandardError; end
 

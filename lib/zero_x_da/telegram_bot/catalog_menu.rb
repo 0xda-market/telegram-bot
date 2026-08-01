@@ -3,7 +3,7 @@
 require_relative "locale"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     class CatalogMenu
       PAGE_SIZE = 6
       COLUMNS = 3

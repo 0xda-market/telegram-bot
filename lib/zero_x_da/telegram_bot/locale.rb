@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     module Locale
       DEFAULT = "en_US"
       UKRAINIAN = "uk_UA"

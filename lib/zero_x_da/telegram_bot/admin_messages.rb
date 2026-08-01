@@ -5,7 +5,7 @@ require_relative "timestamp_formatter"
 require_relative "i18n"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     module AdminMessages
       include I18n::Helpers
 

@@ -2,10 +2,10 @@
 
 require_relative "test_helper"
 require "net/http"
-require "zero_x_da/market_client_bot/market_api_webapp"
+require "zero_x_da/telegram_bot/market_api_webapp"
 
 class MarketAPIWebAppTest < Minitest::Test
-  class StubbedAPI < ZeroXDA::MarketClientBot::MarketAPI
+  class StubbedAPI < ZeroXDA::TelegramBot::MarketAPI
     attr_reader :request, :uri
 
     private

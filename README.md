@@ -1,11 +1,13 @@
 # 0xda-market Telegram Bot
 
-Private Telegram client interface for the provider-agnostic [`0xda-market/core`](https://github.com/0xda-market/core).
+Telegram interface for the provider-agnostic [`0xda-market/core`](https://github.com/0xda-market/core).
 
 The bot authenticates Telegram identities through the generic core API, renders
 the database-backed catalog and exposes role-gated administrator operations. It
 does not connect to PostgreSQL directly and does not own users, roles, products,
 prices, orders or permissions.
+
+`client`, `broker` and `admin` are user roles and interaction flows inside one Telegram bot. They are not separate bot components or Ruby namespaces. The canonical Ruby namespace is `ZeroXDA::TelegramBot`, with source files under `lib/zero_x_da/telegram_bot/`.
 
 ## Runtime
 
@@ -45,7 +47,7 @@ localized server-starting notice while the core becomes available.
 
 ```text
 Telegram update
-  -> MarketClientBot
+  -> TelegramBot
   -> MarketAPI anti-corruption layer
   -> generic external-identity/core contract
   -> internal market user UUID
@@ -78,7 +80,7 @@ catalog product
 The default public scope contains `/start`. After authentication the bot syncs a
 private command scope for the current chat.
 
-Client commands:
+User commands:
 
 - `/start` — authenticate the Telegram identity
 - `/buy` — open the active product catalog

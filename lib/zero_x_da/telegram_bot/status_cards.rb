@@ -3,7 +3,7 @@
 require_relative "i18n"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     module StatusCards
       ACCOUNT_CALLBACK = "s:a"
       SERVERS_CALLBACK = "s:s"

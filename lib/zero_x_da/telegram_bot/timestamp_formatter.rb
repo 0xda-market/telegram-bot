@@ -3,7 +3,7 @@
 require "time"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     module TimestampFormatter
       module_function
 

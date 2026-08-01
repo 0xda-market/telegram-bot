@@ -6,7 +6,7 @@ require "time"
 require_relative "bot_identity"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     class AsyncDispatcher
       def call(&task)
         Thread.new do

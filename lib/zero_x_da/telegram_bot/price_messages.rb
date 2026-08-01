@@ -3,7 +3,7 @@
 require_relative "locale"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     # Bot-owned interface copy. Product names and ordering are deliberately
     # absent: those arrive from the localized database catalog via the API.
     module PriceMessages

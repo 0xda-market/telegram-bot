@@ -6,7 +6,7 @@ require_relative "i18n"
 require_relative "status_cards"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     module CommandMenu
       COPY = {
         "en_US" => {

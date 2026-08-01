@@ -6,7 +6,7 @@ The bot is a Telegram adapter around the provider-neutral 0xda Market API.
 
 ```text
 Telegram update
-  -> MarketClientBot
+  -> TelegramBot
   -> MarketAPI anti-corruption layer
   -> generic external identity HTTP contract
   -> internal market user UUID

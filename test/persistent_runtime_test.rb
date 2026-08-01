@@ -1,6 +1,6 @@
 require_relative "test_helper"
-require "zero_x_da/market_client_bot/bot"
-require "zero_x_da/market_client_bot/persistent_runtime"
+require "zero_x_da/telegram_bot/bot"
+require "zero_x_da/telegram_bot/persistent_runtime"
 
 class PersistentRuntimeTest < Minitest::Test
   def test_slow_command_does_not_claim_that_the_persistent_server_is_starting
@@ -11,13 +11,13 @@ class PersistentRuntimeTest < Minitest::Test
       end
     end.new
     telegram = FakeTelegramAPI.new
-    bot = ZeroXDA::MarketClientBot::Bot.new(
+    bot = ZeroXDA::TelegramBot::Bot.new(
       market_api: market,
       telegram_api: telegram,
       server_start_notice_delay: 0.005,
       status_message_ttl: 0
     )
-    bot.extend(ZeroXDA::MarketClientBot::PersistentRuntime)
+    bot.extend(ZeroXDA::TelegramBot::PersistentRuntime)
 
     bot.handle(update("/start"))
 

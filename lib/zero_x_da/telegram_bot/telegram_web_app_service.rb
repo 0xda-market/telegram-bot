@@ -6,7 +6,7 @@ require_relative "purchase_flow"
 require_relative "telegram_web_app_auth"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     class TelegramWebAppService
       def initialize(market_api:, authentication:, purchase_flow: PurchaseFlow.new(market_api: market_api))
         @market_api = market_api

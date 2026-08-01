@@ -7,7 +7,7 @@ require_relative "purchase_flow"
 require_relative "telegram_web_app_auth"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     class TelegramMiniApp
       JSON_HEADERS = {
         "content-type" => "application/json; charset=utf-8",

@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "zero_x_da/market_client_bot/market_api"
+require "zero_x_da/telegram_bot/market_api"
 
 class MarketAPITest < Minitest::Test
-  class StubbedMarketAPI < ZeroXDA::MarketClientBot::MarketAPI
+  class StubbedMarketAPI < ZeroXDA::TelegramBot::MarketAPI
     attr_reader :attempts, :backoffs, :uris, :requests
 
     def initialize(outcomes:, **options)
@@ -218,7 +218,7 @@ class MarketAPITest < Minitest::Test
   def test_wraps_the_error_after_retry_is_exhausted
     api = api_with(*Array.new(6) { Timeout::Error.new("cold start") })
 
-    error = assert_raises(ZeroXDA::MarketClientBot::MarketAPI::Error) { api.health }
+    error = assert_raises(ZeroXDA::TelegramBot::MarketAPI::Error) { api.health }
 
     assert_includes error.message, "cold start"
     assert_equal 6, api.attempts

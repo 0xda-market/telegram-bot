@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "zero_x_da/market_client_bot/purchase_flow"
+require "zero_x_da/telegram_bot/purchase_flow"
 
 class PurchaseFlowTest < Minitest::Test
-  PurchaseFlow = ZeroXDA::MarketClientBot::PurchaseFlow
+  PurchaseFlow = ZeroXDA::TelegramBot::PurchaseFlow
 
   def test_quote_snapshot_carries_customer_and_channel_context
     market = FakeMarketAPI.new

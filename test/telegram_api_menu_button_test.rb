@@ -1,10 +1,10 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
-require "zero_x_da/market_client_bot/telegram_api"
+require "zero_x_da/telegram_bot/telegram_api"
 
 class TelegramAPIMenuButtonTest < Minitest::Test
-  class RecordingAPI < ZeroXDA::MarketClientBot::TelegramAPI
+  class RecordingAPI < ZeroXDA::TelegramBot::TelegramAPI
     attr_reader :calls
 
     def initialize

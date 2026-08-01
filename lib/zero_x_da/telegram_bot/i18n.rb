@@ -3,7 +3,7 @@
 require_relative "locale"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     module I18n
       TRANSLATIONS = {
         "en_US" => {

@@ -6,7 +6,7 @@ require "timeout"
 require "uri"
 
 module ZeroXDA
-  module MarketClientBot
+  module TelegramBot
     class MarketAPI
       OPEN_TIMEOUT = 10
       READ_TIMEOUT = 75
