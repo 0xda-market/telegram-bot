@@ -40,8 +40,9 @@ The public Caddy route strips `/bot`, so
 `/webapp/`.
 
 Market API calls retry temporary `502`, `503`, `504`, transport failures and
-transient non-JSON responses with exponential backoff. Slow commands may send a
-localized server-starting notice while the core becomes available.
+transient non-JSON responses with exponential backoff. The VPS bot is a persistent
+runtime, so upstream latency is reported through the normal result or error path
+and is never described as the server starting.
 
 ## Architecture boundary
 
