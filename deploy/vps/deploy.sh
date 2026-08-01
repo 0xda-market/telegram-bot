@@ -91,14 +91,14 @@ docker compose exec -T bot bundle exec ruby -Ilib \
     puts "Core target: #{uri.scheme}://#{uri.host}#{uri.port && ![80, 443].include?(uri.port) ? ":#{uri.port}" : ""}"
     api = ZeroXDA::Market::TelegramBot::MarketAPI.new(
       base_url: base_url,
-      token: ENV.fetch("MARKET_OPERATOR_TOKEN")
+      token: ENV.fetch("MARKET_API_TOKEN")
     )
     health = api.health
     abort "Core health probe failed" unless health.is_a?(Hash)
     puts "Core health verified"
     products = api.products(locale: "en_US")
     abort "Core authenticated probe returned invalid data" unless products.is_a?(Array)
-    puts "Core operator credential verified"
+    puts "Core API credential verified"
   '
 
 echo "0xda-market bot $deploy_environment release $release_sha is healthy"
