@@ -69,16 +69,37 @@ expected_webhook="$(sed -n 's/^PUBLIC_URL=//p' .env | tail -n 1)"
 expected_webhook="${expected_webhook%/}/telegram/webhook"
 actual_webhook="$(docker compose exec -T bot bundle exec ruby -Ilib -rzero_x_da/market/telegram_bot/telegram_api -e '
   api = ZeroXDA::Market::TelegramBot::TelegramAPI.new(token: ENV.fetch("TELEGRAM_BOT_TOKEN"))
+  identity = api.get_me
+  abort "Telegram getMe returned no bot identity" unless identity["is_bot"]
+  puts "Telegram identity verified: @#{identity["username"]}"
   public_url = ENV.fetch("PUBLIC_URL").delete_suffix("/")
   webhook_url = "#{public_url}/telegram/webhook"
   api.set_webhook(url: webhook_url, secret_token: ENV.fetch("TELEGRAM_WEBHOOK_SECRET"))
   puts api.get_webhook_info.fetch("url")
-')"
+' | tail -n 1)"
 
 if [[ "$actual_webhook" != "$expected_webhook" ]]; then
   echo "Telegram webhook mismatch after reconciliation: expected $expected_webhook, got $actual_webhook" >&2
   exit 1
 fi
+
+docker compose exec -T bot bundle exec ruby -Ilib \
+  -rzero_x_da/market/telegram_bot/market_api \
+  -ruri -e '
+    base_url = ENV.fetch("MARKET_API_URL")
+    uri = URI(base_url)
+    puts "Core target: #{uri.scheme}://#{uri.host}#{uri.port && ![80, 443].include?(uri.port) ? ":#{uri.port}" : ""}"
+    api = ZeroXDA::Market::TelegramBot::MarketAPI.new(
+      base_url: base_url,
+      token: ENV.fetch("MARKET_OPERATOR_TOKEN")
+    )
+    health = api.health
+    abort "Core health probe failed" unless health.is_a?(Hash)
+    puts "Core health verified"
+    products = api.products(locale: "en_US")
+    abort "Core authenticated probe returned invalid data" unless products.is_a?(Array)
+    puts "Core operator credential verified"
+  '
 
 echo "0xda-market bot $deploy_environment release $release_sha is healthy"
 echo "Telegram webhook reconciled and verified: $actual_webhook"
