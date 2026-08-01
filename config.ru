@@ -34,7 +34,8 @@ web_app_auth = ZeroXDA::Market::TelegramBot::TelegramWebAppAuth.new(
 )
 web_app_service = ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(
   market_api: market_api,
-  authentication: web_app_auth
+  authentication: web_app_auth,
+  environment: ENV.fetch("DEPLOY_ENV", "development")
 )
 mini_app = ZeroXDA::Market::TelegramBot::TelegramMiniApp.new(
   service: web_app_service,
