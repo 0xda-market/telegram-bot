@@ -2,6 +2,8 @@ export function createTelegramTransport({
   telegram = globalThis.Telegram?.WebApp,
   apiBaseUrl = "."
 } = {}) {
+  let bootstrapPromise;
+
   async function request(path, options = {}) {
     const initData = telegram?.initData || "";
     if (!initData) throw new Error("Open this Web App inside Telegram.");
@@ -22,7 +24,8 @@ export function createTelegramTransport({
 
   return {
     bootstrap({ locale }) {
-      return request(`/bootstrap?${new URLSearchParams({ locale })}`);
+      bootstrapPromise ||= request(`/bootstrap?${new URLSearchParams({ locale })}`);
+      return bootstrapPromise;
     },
     quote({ sku, locale }) {
       return request("/quotes", {
