@@ -25,7 +25,14 @@ class TelegramWebAppAuthTest < Minitest::Test
     assert_equal "sasha", session.user.fetch("username")
     assert_equal 99, session.chat.fetch("id")
     assert_equal "private", session.chat.fetch("type")
+    assert_match(/\A[0-9a-f]{64}\z/, session.subject)
     assert_equal NOW.to_i - 30, session.auth_date.to_i
+  end
+
+  def test_validates_signature_bearing_init_data
+    session = @auth.verify(signed_init_data(signature: "telegram-ed25519-signature"))
+
+    assert_equal 99, session.user.fetch("id")
   end
 
   def test_rejects_tampered_user_data
@@ -60,7 +67,7 @@ class TelegramWebAppAuthTest < Minitest::Test
 
   private
 
-  def signed_init_data(auth_date: NOW.to_i - 30)
+  def signed_init_data(auth_date: NOW.to_i - 30, signature: nil)
     fields = {
       "auth_date" => auth_date.to_s,
       "query_id" => "AAH-test-query",
@@ -71,6 +78,7 @@ class TelegramWebAppAuthTest < Minitest::Test
         "language_code" => "uk"
       )
     }
+    fields["signature"] = signature if signature
     data_check_string = fields.sort.map { |key, value| "#{key}=#{value}" }.join("\n")
     secret_key = OpenSSL::HMAC.digest("SHA256", "WebAppData", TOKEN)
     fields["hash"] = OpenSSL::HMAC.hexdigest("SHA256", secret_key, data_check_string)

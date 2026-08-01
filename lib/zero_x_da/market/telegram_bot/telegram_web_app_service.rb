@@ -9,22 +9,29 @@ require_relative "telegram_web_app_auth"
 
 module ZeroXDA::Market::TelegramBot
     class TelegramWebAppService
-      def initialize(market_api:, authentication:, purchase_flow: PurchaseFlow.new(market_api: market_api))
+      def initialize(market_api:, authentication:, purchase_flow: PurchaseFlow.new(market_api: market_api), environment: "development")
         @market_api = market_api
         @authentication = authentication
         @purchase_flow = purchase_flow
+        @environment = environment.to_s
       end
 
       def bootstrap(init_data:, locale:)
         session, user = authenticate(init_data)
-        document = @market_api.webapp_bootstrap(locale: normalized_locale(locale), currency: "USDT")
+        selected_locale = normalized_locale(locale)
+        document = @market_api.webapp_bootstrap(locale: selected_locale, currency: "USDT")
+        public_session = {
+          "role" => user.dig("attributes", "role"),
+          "status" => user.dig("attributes", "status"),
+          "subject" => session.subject,
+          "environment" => @environment
+        }
         document.merge(
           "meta" => document.fetch("meta").merge(
             "channel" => "telegram",
-            "user" => {
-              "role" => user.dig("attributes", "role"),
-              "status" => user.dig("attributes", "status")
-            },
+            "session" => public_session,
+            "user" => public_session.slice("role", "status"),
+            "currencies" => @market_api.currencies(locale: selected_locale),
             "telegram_auth_date" => session.auth_date.iso8601(6)
           )
         )
@@ -44,10 +51,7 @@ module ZeroXDA::Market::TelegramBot
           chat: session.chat,
           locale: selected_locale
         )
-        {
-          "data" => quote,
-          "meta" => { "snapshot_id" => catalog.dig("meta", "snapshot_id") }
-        }
+        { "data" => quote, "meta" => { "snapshot_id" => catalog.dig("meta", "snapshot_id") } }
       end
 
       def accept(init_data:, quote_id:)

@@ -112,3 +112,34 @@ dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; p
 @media (orientation: landscape) and (min-width: 900px) {
   .products { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
+
+
+.broker-workspace {
+  margin: 8px 12px max(18px, env(safe-area-inset-bottom));
+  display: grid;
+  gap: 12px;
+}
+.broker-workspace form, .broker-offer {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--tg-theme-bg-color, #fff);
+}
+.broker-workspace label { display: grid; gap: 5px; font-size: 12px; }
+.broker-workspace input, .broker-workspace select {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 22%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+  color: inherit;
+  background: var(--tg-theme-secondary-bg-color, #f3f4f6);
+}
+.broker-workspace button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--tg-theme-button-text-color, #fff);
+  background: var(--tg-theme-button-color, #2481cc);
+}
+.broker-offer { grid-template-columns: 1fr auto auto; align-items: center; }

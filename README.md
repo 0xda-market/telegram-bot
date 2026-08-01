@@ -27,8 +27,8 @@ HTTP surface:
 - `/webapp/bootstrap`, `/webapp/quotes/*`, `/webapp/orders/*` — signed Mini App BFF
 
 The bot-facing Rack adapter is `TelegramBotHTTPApp`. The browser surface is a
-separate `TelegramMiniApp` and imports the shared WebApp engine from the core
-runtime. Legacy `HTTPApp` and `WebApp` constants remain aliases only.
+separate `TelegramMiniApp` and imports shared UI and browser behavior from an
+immutable `0xda-market/webapp-core` revision. Legacy `HTTPApp` and `WebApp` constants remain aliases only.
 
 The bot username used by `GET /` is resolved once during Rack boot and passed to
 the bot HTTP app as immutable configuration. Request handling never calls
@@ -120,8 +120,8 @@ and are included in the administrator pricing catalog.
 
 ## Telegram Mini App
 
-The Mini App uses the shared `/webapp-core/index.js` engine from core. Opening the
-Mini App makes exactly one catalog bootstrap request and stores the complete
+The Mini App imports `webapp-core` from an exact reviewed Git commit. Opening the
+Mini App makes exactly one complete catalog bootstrap request and stores the complete
 product array as an immutable snapshot.
 
 ```text
@@ -259,8 +259,8 @@ REGISTER_TELEGRAM_WEBAPP=0 \
 bundle exec rackup
 ```
 
-The Mini App shell expects `/webapp-core/index.js` on the same public origin. The
-project Caddy route provides that in deployed environments through core.
+The Mini App shell imports one exact `webapp-core` revision. Core serves only the
+backend bootstrap and lifecycle APIs; it does not serve browser assets.
 
 Check health:
 

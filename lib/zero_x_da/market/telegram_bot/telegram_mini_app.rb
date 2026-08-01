@@ -17,7 +17,7 @@ module ZeroXDA::Market::TelegramBot
       ASSET_CACHE = "public, max-age=300, stale-while-revalidate=3600"
       CONTENT_SECURITY_POLICY = [
         "default-src 'self'",
-        "script-src 'self' https://telegram.org",
+        "script-src 'self' https://telegram.org https://cdn.jsdelivr.net",
         "style-src 'self'",
         "connect-src 'self'",
         "img-src 'self' data: https:",

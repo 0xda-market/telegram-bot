@@ -20,6 +20,11 @@ jobs:
         with:
           ruby-version: 3.3.11
       - run: bundle install
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run WebApp transport tests
+        run: node --test test/webapp_transport.test.mjs
       - name: Run tests
         id: tests
         run: |

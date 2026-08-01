@@ -20,7 +20,8 @@ class TelegramWebAppServiceTest < Minitest::Test
         user: { "id" => 99, "username" => "sasha", "language_code" => "uk" },
         chat: { "id" => 990, "type" => "private" },
         auth_date: Time.utc(2026, 7, 31, 17, 0, 0),
-        query_id: "query-1"
+        query_id: "query-1",
+        subject: "opaque-subject"
       )
     end
   end
@@ -38,8 +39,18 @@ class TelegramWebAppServiceTest < Minitest::Test
       {
         "type" => "user",
         "id" => "internal-user-id",
-        "attributes" => { "role" => "client", "status" => "active" }
+        "attributes" => { "role" => "broker", "status" => "active" }
       }
+    end
+
+    def currencies(locale:)
+      [
+        {
+          "type" => "currency",
+          "id" => "USDT",
+          "attributes" => { "short_name" => "USDT", "name" => "Tether" }
+        }
+      ]
     end
 
     def webapp_bootstrap(locale:, currency:)
@@ -121,8 +132,12 @@ class TelegramWebAppServiceTest < Minitest::Test
     assert_equal true, document.dig("meta", "complete")
     assert_equal "client", document.dig("meta", "pagination")
     assert_equal "telegram", document.dig("meta", "channel")
-    assert_equal "client", document.dig("meta", "user", "role")
+    assert_equal "broker", document.dig("meta", "user", "role")
     assert_equal "active", document.dig("meta", "user", "status")
+    assert_equal "broker", document.dig("meta", "session", "role")
+    assert_equal "opaque-subject", document.dig("meta", "session", "subject")
+    assert_equal "development", document.dig("meta", "session", "environment")
+    assert_equal "USDT", document.dig("meta", "currencies", 0, "id")
     refute document.dig("meta", "user").key?("id")
     assert_equal [{ locale: "uk_UA", currency: "USDT" }], @market.bootstrap_requests
     assert_equal 1, @market.authentications.length
