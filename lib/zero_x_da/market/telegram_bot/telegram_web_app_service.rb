@@ -64,6 +64,43 @@ module ZeroXDA::Market::TelegramBot
         { "data" => @purchase_flow.refresh(order_id: order_id, user: user) }
       end
 
+      def broker_listings(init_data:)
+        _session, user = authenticate(init_data)
+        { "data" => @market_api.broker_listings(actor_user_id: user.fetch("id")) }
+      end
+
+      def create_broker_listing(init_data:, sku:, quantity:, price_amount:, currency:)
+        _session, user = authenticate(init_data)
+        { "data" => @market_api.create_broker_listing(
+          actor_user_id: user.fetch("id"),
+          sku: sku,
+          quantity: quantity,
+          price_amount: price_amount,
+          currency: currency
+        ) }
+      end
+
+      def update_broker_listing(init_data:, listing_id:, quantity:, price_amount:, currency:, version:)
+        _session, user = authenticate(init_data)
+        { "data" => @market_api.update_broker_listing(
+          actor_user_id: user.fetch("id"),
+          listing_id: listing_id,
+          quantity: quantity,
+          price_amount: price_amount,
+          currency: currency,
+          version: version
+        ) }
+      end
+
+      def withdraw_broker_listing(init_data:, listing_id:, version:)
+        _session, user = authenticate(init_data)
+        { "data" => @market_api.withdraw_broker_listing(
+          actor_user_id: user.fetch("id"),
+          listing_id: listing_id,
+          version: version
+        ) }
+      end
+
       private
 
       def authenticate(init_data)

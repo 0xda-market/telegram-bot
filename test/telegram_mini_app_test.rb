@@ -49,6 +49,30 @@ class TelegramMiniAppTest < Minitest::Test
       @requests << [:refresh, init_data, order_id]
       { "data" => { "type" => "order", "id" => order_id, "attributes" => { "status" => "succeeded" } } }
     end
+
+    def broker_listings(init_data:)
+      @requests << [:broker_listings, init_data]
+      { "data" => [] }
+    end
+
+    def create_broker_listing(init_data:, sku:, quantity:, price_amount:, currency:)
+      @requests << [:create_broker_listing, init_data, sku, quantity, price_amount, currency]
+      listing
+    end
+
+    def update_broker_listing(init_data:, listing_id:, quantity:, price_amount:, currency:, version:)
+      @requests << [:update_broker_listing, init_data, listing_id, quantity, price_amount, currency, version]
+      listing
+    end
+
+    def withdraw_broker_listing(init_data:, listing_id:, version:)
+      @requests << [:withdraw_broker_listing, init_data, listing_id, version]
+      listing
+    end
+
+    def listing
+      { "data" => { "type" => "broker_listing", "id" => "listing-1", "attributes" => { "status" => "active" } } }
+    end
   end
 
   def setup
@@ -136,5 +160,42 @@ class TelegramMiniAppTest < Minitest::Test
 
     assert_equal 401, response.status
     assert_equal "invalid_telegram_session", JSON.parse(response.body).fetch("error")
+  end
+
+  def test_routes_broker_listing_lifecycle
+    listed = @client.get(
+      "/webapp/broker/listings",
+      "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data"
+    )
+    created = @client.post(
+      "/webapp/broker/listings",
+      "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data",
+      "CONTENT_TYPE" => "application/json",
+      input: JSON.generate(sku: "btc", quantity: "0.25", price_amount: "65000", currency: "USDT")
+    )
+    updated = @client.patch(
+      "/webapp/broker/listings/listing-1",
+      "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data",
+      "CONTENT_TYPE" => "application/json",
+      input: JSON.generate(quantity: "0.5", price_amount: "64000", currency: "USDT", version: 0)
+    )
+    withdrawn = @client.delete(
+      "/webapp/broker/listings/listing-1",
+      "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data",
+      "CONTENT_TYPE" => "application/json",
+      input: JSON.generate(version: 1)
+    )
+
+    assert_equal 200, listed.status
+    assert_equal 201, created.status
+    assert_equal 200, updated.status
+    assert_equal 200, withdrawn.status
+    assert_equal [:broker_listings, "signed-init-data"], @service.requests[0]
+    assert_equal [:create_broker_listing, "signed-init-data", "btc", "0.25", "65000", "USDT"], @service.requests[1]
+    assert_equal(
+      [:update_broker_listing, "signed-init-data", "listing-1", "0.5", "64000", "USDT", 0],
+      @service.requests[2]
+    )
+    assert_equal [:withdraw_broker_listing, "signed-init-data", "listing-1", 1], @service.requests[3]
   end
 end

@@ -1,7 +1,7 @@
 import { createTelegramHost } from "./adapter/telegram-host.js";
 import { createTelegramTransport } from "./adapter/telegram-transport.js";
 
-const WEBAPP_CORE_REVISION = "fbcdd408cb26903bb641740e7e1b82d802351422";
+const WEBAPP_CORE_REVISION = "9f485b58e0b8ddf7ee979585502adbaa7b88fc70";
 const runtime = globalThis.__ZERO_X_DA_MARKET__ || {};
 const webappCoreModuleUrl = runtime.webappCoreModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js`;
@@ -15,7 +15,7 @@ async function start() {
 
   host.initialize();
   const app = await webappCore.mountMarketApp({ host, transport, document });
-  webappCore.mountBrokerWorkspace({ document, ...app.context() });
+  await webappCore.mountBrokerWorkspace({ document, transport, ...app.context() });
 }
 
 start().catch((error) => {

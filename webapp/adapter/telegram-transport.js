@@ -49,6 +49,27 @@ export function createTelegramTransport({
     },
     refreshOrder({ orderId }) {
       return requestResource(`/orders/${encodeURIComponent(orderId)}`);
+    },
+    listBrokerListings() {
+      return requestResource("/broker/listings");
+    },
+    createBrokerListing({ sku, quantity, priceAmount, currency }) {
+      return requestResource("/broker/listings", {
+        method: "POST",
+        body: JSON.stringify({ sku, quantity, price_amount: priceAmount, currency })
+      });
+    },
+    updateBrokerListing({ listingId, quantity, priceAmount, currency, version }) {
+      return requestResource(`/broker/listings/${encodeURIComponent(listingId)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ quantity, price_amount: priceAmount, currency, version })
+      });
+    },
+    withdrawBrokerListing({ listingId, version }) {
+      return requestResource(`/broker/listings/${encodeURIComponent(listingId)}`, {
+        method: "DELETE",
+        body: JSON.stringify({ version })
+      });
     }
   };
 }
