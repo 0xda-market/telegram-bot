@@ -10,7 +10,7 @@ register_webhook = ENV.fetch("REGISTER_TELEGRAM_WEBHOOK", "1") == "1"
 register_web_app = ENV.fetch("REGISTER_TELEGRAM_WEBAPP", "0") == "1"
 
 if register_webhook || register_web_app
-  public_url = ENV.fetch("RENDER_EXTERNAL_URL") { ENV.fetch("PUBLIC_URL") }.delete_suffix("/")
+  public_url = ENV.fetch("PUBLIC_URL").delete_suffix("/")
   telegram = ZeroXDA::Market::TelegramBot::TelegramAPI.new(
     token: ENV.fetch("TELEGRAM_BOT_TOKEN")
   )
