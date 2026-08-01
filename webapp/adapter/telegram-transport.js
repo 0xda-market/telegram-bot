@@ -1,14 +1,16 @@
 export function createTelegramTransport({
   telegram = globalThis.Telegram?.WebApp,
-  apiBaseUrl = "."
+  apiBaseUrl = ".",
+  fetchImpl = globalThis.fetch
 } = {}) {
   let bootstrapPromise;
 
-  async function request(path, options = {}) {
+  async function requestDocument(path, options = {}) {
     const initData = telegram?.initData || "";
     if (!initData) throw new Error("Open this Web App inside Telegram.");
+    if (typeof fetchImpl !== "function") throw new Error("Web App transport is unavailable.");
 
-    const response = await fetch(`${apiBaseUrl}${path}`, {
+    const response = await fetchImpl(`${apiBaseUrl}${path}`, {
       ...options,
       headers: {
         accept: "application/json",
@@ -19,28 +21,34 @@ export function createTelegramTransport({
     });
     const document = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(document.message || document.error || `HTTP ${response.status}`);
-    return document.data ?? document;
+    return document;
+  }
+
+  async function requestResource(path, options = {}) {
+    const document = await requestDocument(path, options);
+    if (!("data" in document)) throw new Error("Web App resource response is missing data.");
+    return document.data;
   }
 
   return {
     bootstrap({ locale }) {
-      bootstrapPromise ||= request(`/bootstrap?${new URLSearchParams({ locale })}`);
+      bootstrapPromise ||= requestDocument(`/bootstrap?${new URLSearchParams({ locale })}`);
       return bootstrapPromise;
     },
     quote({ sku, locale }) {
-      return request("/quotes", {
+      return requestResource("/quotes", {
         method: "POST",
         body: JSON.stringify({ sku, locale })
       });
     },
     acceptQuote({ quoteId }) {
-      return request(`/quotes/${encodeURIComponent(quoteId)}/accept`, {
+      return requestResource(`/quotes/${encodeURIComponent(quoteId)}/accept`, {
         method: "POST",
         body: "{}"
       });
     },
     refreshOrder({ orderId }) {
-      return request(`/orders/${encodeURIComponent(orderId)}`);
+      return requestResource(`/orders/${encodeURIComponent(orderId)}`);
     }
   };
 }
