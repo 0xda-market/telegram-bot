@@ -132,6 +132,48 @@ class MarketAPITest < Minitest::Test
     refute body.key?("actor_telegram_user_id")
   end
 
+  def test_maps_broker_listing_lifecycle_to_core_routes
+    listing = '{"data":{"type":"broker_listing","id":"listing-1","attributes":{"version":0}}}'
+    api = api_with(
+      response("200", '{"data":[]}'),
+      response("201", listing),
+      response("200", listing),
+      response("200", listing)
+    )
+
+    api.broker_listings(actor_user_id: "user-1")
+    api.create_broker_listing(
+      actor_user_id: "user-1", sku: "btc", quantity: "0.25", price_amount: "65000", currency: "USDT"
+    )
+    api.update_broker_listing(
+      actor_user_id: "user-1", listing_id: "listing-1", quantity: "0.5", price_amount: "64000",
+      currency: "USDT", version: 0
+    )
+    api.withdraw_broker_listing(actor_user_id: "user-1", listing_id: "listing-1", version: 1)
+
+    assert_equal %w[GET POST PATCH DELETE], api.requests.map(&:method)
+    assert_equal [
+      "/v1/broker/listings", "/v1/broker/listings", "/v1/broker/listings/listing-1", "/v1/broker/listings/listing-1"
+    ], api.uris.map(&:path)
+    assert_equal "user-1", URI.decode_www_form(api.uris.first.query).to_h.fetch("actor_user_id")
+    assert_equal "0.25", JSON.parse(api.requests[1].body).fetch("quantity")
+    assert_equal 0, JSON.parse(api.requests[2].body).fetch("version")
+    assert_equal 1, JSON.parse(api.requests[3].body).fetch("version")
+  end
+
+  def test_preserves_core_validation_status_for_the_signed_webapp_bff
+    api = api_with(response("409", '{"errors":[{"code":"duplicate_active_listing","message":"duplicate"}]}'))
+
+    error = assert_raises(ZeroXDA::Market::TelegramBot::MarketAPI::Error) do
+      api.create_broker_listing(
+        actor_user_id: "user-1", sku: "btc", quantity: "1", price_amount: "1", currency: "USDT"
+      )
+    end
+
+    assert_equal 409, error.status
+    assert_equal "duplicate_active_listing", error.code
+  end
+
   def test_resolves_a_telegram_username_without_loading_active_users
     target = generic_user(id: "target-1", telegram_id: "78", username: "Target_User")
     api = api_with(
@@ -271,6 +313,7 @@ class MarketAPITest < Minitest::Test
     response_class = {
       "200" => Net::HTTPOK,
       "201" => Net::HTTPCreated,
+      "409" => Net::HTTPConflict,
       "502" => Net::HTTPBadGateway,
       "503" => Net::HTTPServiceUnavailable,
       "504" => Net::HTTPGatewayTimeout

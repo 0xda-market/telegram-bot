@@ -21,10 +21,14 @@ The archived `0xda-market/telegram-broker-bot` repository is legacy history only
 
 `webapp-core` owns shared client catalog, checkout, broker and administrator interfaces plus host-independent state, validation and responsive behavior.
 
-`core` owns durable users, roles, products, currencies, offers, inventory, prices and orders. Browser-local offer drafts are provisional and are not durable market offers.
+`core` owns durable users, roles, products, currencies, broker listings,
+inventory, prices and orders. The browser owns only transient form state.
 
 ## Current broker slice
 
 A signed session with role `broker` or `admin` mounts the broker workspace after the shared catalog. Product choices come from the complete catalog; quote currencies come from the canonical core currency catalog. Drafts are isolated in browser storage by an HMAC-derived opaque subject and deployment environment.
 
-Durable offer persistence requires an explicit core API contract and must replace this storage adapter without moving business authority into Telegram or the browser.
+The broker workspace publishes durable asset listings through the signed Telegram
+BFF. Core owns role authorization, listing ownership, exact quantity and unit
+price validation, canonical currencies and optimistic concurrency. `admin`
+uses this same broker flow; no separate administrator listing workspace exists.

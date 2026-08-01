@@ -27,11 +27,12 @@ class TelegramWebAppServiceTest < Minitest::Test
   end
 
   class Market
-    attr_reader :authentications, :bootstrap_requests
+    attr_reader :authentications, :bootstrap_requests, :listing_requests
 
     def initialize
       @authentications = []
       @bootstrap_requests = []
+      @listing_requests = []
     end
 
     def authenticate_telegram(user:, chat:)
@@ -75,6 +76,37 @@ class TelegramWebAppServiceTest < Minitest::Test
           "pagination" => "client",
           "currency" => currency,
           "locale" => locale
+        }
+      }
+    end
+
+    def broker_listings(actor_user_id:)
+      @listing_requests << [:list, actor_user_id]
+      [listing]
+    end
+
+    def create_broker_listing(**attributes)
+      @listing_requests << [:create, attributes]
+      listing
+    end
+
+    def update_broker_listing(**attributes)
+      @listing_requests << [:update, attributes]
+      listing.merge("attributes" => listing.fetch("attributes").merge("version" => 1))
+    end
+
+    def withdraw_broker_listing(**attributes)
+      @listing_requests << [:withdraw, attributes]
+      listing.merge("attributes" => listing.fetch("attributes").merge("status" => "withdrawn", "version" => 2))
+    end
+
+    def listing
+      {
+        "type" => "broker_listing",
+        "id" => "listing-1",
+        "attributes" => {
+          "sku" => "btc", "quantity" => "0.25", "price_amount" => "65000",
+          "currency" => "USDT", "status" => "active", "version" => 0
         }
       }
     end
@@ -169,5 +201,28 @@ class TelegramWebAppServiceTest < Minitest::Test
     assert_equal "succeeded", refreshed.dig("data", "attributes", "status")
     assert_equal "internal-user-id", @purchase.accepts.first.dig(:user, "id")
     assert_equal "internal-user-id", @purchase.refreshes.first.dig(:user, "id")
+  end
+
+  def test_broker_listing_operations_use_the_verified_internal_user
+    listed = @service.broker_listings(init_data: "signed")
+    created = @service.create_broker_listing(
+      init_data: "signed", sku: "btc", quantity: "0.25", price_amount: "65000", currency: "USDT"
+    )
+    updated = @service.update_broker_listing(
+      init_data: "signed", listing_id: "listing-1", quantity: "0.5", price_amount: "64000",
+      currency: "USDT", version: 0
+    )
+    withdrawn = @service.withdraw_broker_listing(
+      init_data: "signed", listing_id: "listing-1", version: 1
+    )
+
+    assert_equal "listing-1", listed.dig("data", 0, "id")
+    assert_equal "listing-1", created.dig("data", "id")
+    assert_equal 1, updated.dig("data", "attributes", "version")
+    assert_equal "withdrawn", withdrawn.dig("data", "attributes", "status")
+    assert_equal [:list, "internal-user-id"], @market.listing_requests[0]
+    assert_equal "internal-user-id", @market.listing_requests[1][1].fetch(:actor_user_id)
+    assert_equal "internal-user-id", @market.listing_requests[2][1].fetch(:actor_user_id)
+    assert_equal "internal-user-id", @market.listing_requests[3][1].fetch(:actor_user_id)
   end
 end

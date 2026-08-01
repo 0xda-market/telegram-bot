@@ -22,9 +22,9 @@ The Telegram adapter owns Telegram SDK initialization, locale, viewport, theme, 
 
 ## Bootstrap contract
 
-The bootstrap transport preserves the complete `{ data, meta }` document. `webapp-core` converts it into an explicit `{ catalog, session, currencies }` context. Quote and order transports unwrap only their single `data` resource.
+The bootstrap transport preserves the complete `{ data, meta }` document. `webapp-core` converts it into an explicit `{ catalog, session, currencies }` context. Quote, order and broker-listing transports unwrap their `data` resources. Broker listing writes always pass through verified Telegram authentication and the core API; no durable market state is stored in the browser.
 
-Every BFF request carries raw `Telegram.WebApp.initData` in `X-Telegram-Init-Data`. The server validates the HMAC, age and verified Telegram user before market operations. The public session exposes an opaque subject for local-draft isolation; it never exposes the internal market UUID or bot token.
+Every BFF request carries raw `Telegram.WebApp.initData` in `X-Telegram-Init-Data`. The server validates the HMAC, age and verified Telegram user before market operations. The public session never exposes the internal market UUID or bot token.
 
 ## Immutable module dependency
 

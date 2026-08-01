@@ -22,10 +22,11 @@ module ZeroXDA::Market::TelegramBot
       class RetryableResponseError < StandardError; end
 
       class Error < StandardError
-        attr_reader :code
+        attr_reader :code, :status
 
-        def initialize(message, code: "market_api_error")
+        def initialize(message, code: "market_api_error", status: 502)
           @code = code
+          @status = status
           super(message)
         end
       end
@@ -113,6 +114,43 @@ module ZeroXDA::Market::TelegramBot
 
       def execute_order(id)
         post("v1/orders/#{resource_id(id)}/execute", {}).fetch("data")
+      end
+
+      def broker_listings(actor_user_id:)
+        get(
+          "v1/broker/listings?#{URI.encode_www_form(actor_user_id: actor_user_id)}",
+          authenticated: true
+        ).fetch("data")
+      end
+
+      def create_broker_listing(actor_user_id:, sku:, quantity:, price_amount:, currency:)
+        post(
+          "v1/broker/listings",
+          actor_user_id: actor_user_id,
+          sku: sku,
+          quantity: quantity,
+          price_amount: price_amount,
+          currency: currency
+        ).fetch("data")
+      end
+
+      def update_broker_listing(actor_user_id:, listing_id:, quantity:, price_amount:, currency:, version:)
+        patch(
+          "v1/broker/listings/#{resource_id(listing_id)}",
+          actor_user_id: actor_user_id,
+          quantity: quantity,
+          price_amount: price_amount,
+          currency: currency,
+          version: version
+        ).fetch("data")
+      end
+
+      def withdraw_broker_listing(actor_user_id:, listing_id:, version:)
+        delete(
+          "v1/broker/listings/#{resource_id(listing_id)}",
+          actor_user_id: actor_user_id,
+          version: version
+        ).fetch("data")
       end
 
       def price_proposal(actor_user_id:, locale: "en_US")
@@ -220,8 +258,20 @@ module ZeroXDA::Market::TelegramBot
       end
 
       def post(path, payload)
+        write_request(Net::HTTP::Post, path, payload)
+      end
+
+      def patch(path, payload)
+        write_request(Net::HTTP::Patch, path, payload)
+      end
+
+      def delete(path, payload)
+        write_request(Net::HTTP::Delete, path, payload)
+      end
+
+      def write_request(request_class, path, payload)
         uri = URI.join(@base_url, path)
-        request = Net::HTTP::Post.new(uri)
+        request = request_class.new(uri)
         request["authorization"] = "Bearer #{@token}"
         request["content-type"] = "application/json"
         request.body = JSON.generate(payload)
@@ -235,7 +285,8 @@ module ZeroXDA::Market::TelegramBot
         failure = document.fetch("errors", [{}]).first
         raise Error.new(
           failure["message"] || "Market API request failed",
-          code: failure["code"] || response.code
+          code: failure["code"] || response.code,
+          status: response.code.to_i
         )
       rescue RetryableResponseError, JSON::ParserError, IOError, SystemCallError, Timeout::Error => error
         raise Error, "Market API request failed: #{error.message}"

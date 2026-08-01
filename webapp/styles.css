@@ -119,7 +119,7 @@ dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; p
   display: grid;
   gap: 12px;
 }
-.broker-workspace form, .broker-offer {
+.broker-workspace form, .broker-listing {
   display: grid;
   gap: 10px;
   padding: 14px;
@@ -142,4 +142,4 @@ dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; p
   color: var(--tg-theme-button-text-color, #fff);
   background: var(--tg-theme-button-color, #2481cc);
 }
-.broker-offer { grid-template-columns: 1fr auto auto; align-items: center; }
+.broker-listing { grid-template-columns: 1fr auto auto; align-items: center; }

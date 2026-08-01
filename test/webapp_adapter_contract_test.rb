@@ -11,7 +11,7 @@ class WebAppAdapterContractTest < Minitest::Test
     assert_match(/WEBAPP_CORE_REVISION = "[0-9a-f]{40}"/, source)
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js"
     assert_includes source, "mountMarketApp({ host, transport, document })"
-    assert_includes source, "mountBrokerWorkspace({ document, ...app.context() })"
+    assert_includes source, "await webappCore.mountBrokerWorkspace({ document, transport, ...app.context() })"
     refute_includes source, "/web-app/index.js"
     refute_includes source, "new CheckoutController"
     refute_includes source, "new CatalogStore"

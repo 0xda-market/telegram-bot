@@ -35,12 +35,20 @@ module ZeroXDA::Market::TelegramBot
         return redirect_to_index if request.get? && request.path_info == "/webapp"
         return bootstrap(request) if request.get? && request.path_info == "/webapp/bootstrap"
         return quote(request) if request.post? && request.path_info == "/webapp/quotes"
+        return broker_listings(request) if request.get? && request.path_info == "/webapp/broker/listings"
+        return create_broker_listing(request) if request.post? && request.path_info == "/webapp/broker/listings"
 
         if request.post? && (match = request.path_info.match(%r{\A/webapp/quotes/([^/]+)/accept\z}))
           return accept(request, resource_id(match[1]))
         end
         if request.get? && (match = request.path_info.match(%r{\A/webapp/orders/([^/]+)\z}))
           return refresh(request, resource_id(match[1]))
+        end
+        if request.patch? && (match = request.path_info.match(%r{\A/webapp/broker/listings/([^/]+)\z}))
+          return update_broker_listing(request, resource_id(match[1]))
+        end
+        if request.delete? && (match = request.path_info.match(%r{\A/webapp/broker/listings/([^/]+)\z}))
+          return withdraw_broker_listing(request, resource_id(match[1]))
         end
 
         return static_asset(request, environment) if request.get? || request.head?
@@ -53,7 +61,7 @@ module ZeroXDA::Market::TelegramBot
       rescue PurchaseFlow::UnpricedProduct, ArgumentError => error
         json_response(422, error: "invalid_request", message: error.message)
       rescue MarketAPI::Error => error
-        json_response(502, error: error.code, message: error.message)
+        json_response(error.status, error: error.code, message: error.message)
       rescue JSON::ParserError
         json_response(400, error: "invalid_json")
       end
@@ -86,6 +94,45 @@ module ZeroXDA::Market::TelegramBot
 
       def refresh(request, order_id)
         document = @service.refresh(init_data: init_data(request), order_id: order_id)
+        json_document(200, document)
+      end
+
+      def broker_listings(request)
+        json_document(200, @service.broker_listings(init_data: init_data(request)))
+      end
+
+      def create_broker_listing(request)
+        body = request_document(request)
+        document = @service.create_broker_listing(
+          init_data: init_data(request),
+          sku: body.fetch("sku"),
+          quantity: body.fetch("quantity"),
+          price_amount: body.fetch("price_amount"),
+          currency: body.fetch("currency")
+        )
+        json_document(201, document)
+      end
+
+      def update_broker_listing(request, listing_id)
+        body = request_document(request)
+        document = @service.update_broker_listing(
+          init_data: init_data(request),
+          listing_id: listing_id,
+          quantity: body.fetch("quantity"),
+          price_amount: body.fetch("price_amount"),
+          currency: body.fetch("currency"),
+          version: body.fetch("version")
+        )
+        json_document(200, document)
+      end
+
+      def withdraw_broker_listing(request, listing_id)
+        body = request_document(request)
+        document = @service.withdraw_broker_listing(
+          init_data: init_data(request),
+          listing_id: listing_id,
+          version: body.fetch("version")
+        )
         json_document(200, document)
       end
 
