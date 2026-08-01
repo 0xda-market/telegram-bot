@@ -1,20 +1,21 @@
 name: Refactor Telegram bot namespace
 
 on:
-  push:
+  pull_request:
     branches:
-      - refactor/telegram-bot-namespace
+      - master
 
 permissions:
   contents: write
 
 jobs:
   refactor:
-    if: github.actor != 'github-actions[bot]'
+    if: github.head_ref == 'refactor/telegram-bot-namespace'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: refactor/telegram-bot-namespace
           fetch-depth: 0
 
       - name: Rename source namespace and paths
