@@ -40,6 +40,8 @@ jobs:
           path: test.log
           retention-days: 3
       - name: Validate VPS deployment configuration
+        env:
+          RELEASE_SHA: 0000000000000000000000000000000000000000
         run: |
           bash -n bin/check_documented_repositories
           bash -n deploy/vps/deploy.sh
