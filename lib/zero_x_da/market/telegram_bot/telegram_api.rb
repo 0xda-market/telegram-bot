@@ -8,100 +8,104 @@ require "timeout"
 require "uri"
 
 module ZeroXDA::Market::TelegramBot
-    class TelegramAPI
-      class Error < StandardError; end
+  class TelegramAPI
+    class Error < StandardError; end
 
-      def initialize(token:)
-        raise ArgumentError, "Telegram token must not be empty" if token.to_s.empty?
+    def initialize(token:)
+      raise ArgumentError, "Telegram token must not be empty" if token.to_s.empty?
 
-        @base_url = URI("https://api.telegram.org/bot#{token}/")
-      end
-
-      def get_me
-        post("getMe", {})
-      end
-
-      def send_message(chat_id:, text:, reply_markup: nil, parse_mode: nil)
-        payload = { chat_id: chat_id, text: text }
-        payload[:reply_markup] = reply_markup if reply_markup
-        payload[:parse_mode] = parse_mode if parse_mode
-        post("sendMessage", payload)
-      end
-
-      def edit_message_text(chat_id:, message_id:, text:, reply_markup: nil, parse_mode: nil)
-        payload = { chat_id: chat_id, message_id: message_id, text: text }
-        payload[:reply_markup] = reply_markup if reply_markup
-        payload[:parse_mode] = parse_mode if parse_mode
-        post("editMessageText", payload)
-      rescue Error => error
-        return nil if error.message.include?("message is not modified")
-
-        raise
-      end
-
-      def answer_callback_query(callback_query_id:, text: nil)
-        payload = { callback_query_id: callback_query_id }
-        payload[:text] = text if text
-        post("answerCallbackQuery", payload)
-      end
-
-      def delete_message(chat_id:, message_id:)
-        post("deleteMessage", chat_id: chat_id, message_id: message_id)
-      end
-
-      def set_webhook(url:, secret_token:)
-        post(
-          "setWebhook",
-          url: url,
-          secret_token: secret_token,
-          allowed_updates: %w[message callback_query],
-          drop_pending_updates: false
-        )
-      end
-
-      def set_commands(commands, scope: nil)
-        payload = { commands: commands }
-        payload[:scope] = scope if scope
-        post("setMyCommands", payload)
-      end
-
-      def set_chat_menu_web_app(text:, url:)
-        raise ArgumentError, "Telegram menu button text must not be empty" if text.to_s.strip.empty?
-        uri = URI(url.to_s)
-        raise ArgumentError, "Telegram WebApp URL must use HTTPS" unless uri.is_a?(URI::HTTPS) && uri.host
-
-        post(
-          "setChatMenuButton",
-          menu_button: {
-            type: "web_app",
-            text: text.to_s.strip,
-            web_app: { url: uri.to_s }
-          }
-        )
-      rescue URI::InvalidURIError
-        raise ArgumentError, "Telegram WebApp URL is invalid"
-      end
-
-      private
-
-      def post(method, payload)
-        uri = URI.join(@base_url, method)
-        request = Net::HTTP::Post.new(uri)
-        request["content-type"] = "application/json"
-        request.body = JSON.generate(payload)
-        response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
-          http.open_timeout = 5
-          http.read_timeout = 10
-          http.request(request)
-        end
-        document = JSON.parse(response.body)
-        unless response.is_a?(Net::HTTPSuccess) && document["ok"]
-          raise Error, document["description"] || "Telegram API request failed"
-        end
-
-        document["result"]
-      rescue JSON::ParserError, IOError, SystemCallError, Timeout::Error => error
-        raise Error, "Telegram API request failed: #{error.message}"
-      end
+      @base_url = URI("https://api.telegram.org/bot#{token}/")
     end
+
+    def get_me
+      post("getMe", {})
+    end
+
+    def get_webhook_info
+      post("getWebhookInfo", {})
+    end
+
+    def send_message(chat_id:, text:, reply_markup: nil, parse_mode: nil)
+      payload = { chat_id: chat_id, text: text }
+      payload[:reply_markup] = reply_markup if reply_markup
+      payload[:parse_mode] = parse_mode if parse_mode
+      post("sendMessage", payload)
+    end
+
+    def edit_message_text(chat_id:, message_id:, text:, reply_markup: nil, parse_mode: nil)
+      payload = { chat_id: chat_id, message_id: message_id, text: text }
+      payload[:reply_markup] = reply_markup if reply_markup
+      payload[:parse_mode] = parse_mode if parse_mode
+      post("editMessageText", payload)
+    rescue Error => error
+      return nil if error.message.include?("message is not modified")
+
+      raise
+    end
+
+    def answer_callback_query(callback_query_id:, text: nil)
+      payload = { callback_query_id: callback_query_id }
+      payload[:text] = text if text
+      post("answerCallbackQuery", payload)
+    end
+
+    def delete_message(chat_id:, message_id:)
+      post("deleteMessage", chat_id: chat_id, message_id: message_id)
+    end
+
+    def set_webhook(url:, secret_token:)
+      post(
+        "setWebhook",
+        url: url,
+        secret_token: secret_token,
+        allowed_updates: %w[message callback_query],
+        drop_pending_updates: false
+      )
+    end
+
+    def set_commands(commands, scope: nil)
+      payload = { commands: commands }
+      payload[:scope] = scope if scope
+      post("setMyCommands", payload)
+    end
+
+    def set_chat_menu_web_app(text:, url:)
+      raise ArgumentError, "Telegram menu button text must not be empty" if text.to_s.strip.empty?
+      uri = URI(url.to_s)
+      raise ArgumentError, "Telegram WebApp URL must use HTTPS" unless uri.is_a?(URI::HTTPS) && uri.host
+
+      post(
+        "setChatMenuButton",
+        menu_button: {
+          type: "web_app",
+          text: text.to_s.strip,
+          web_app: { url: uri.to_s }
+        }
+      )
+    rescue URI::InvalidURIError
+      raise ArgumentError, "Telegram WebApp URL is invalid"
+    end
+
+    private
+
+    def post(method, payload)
+      uri = URI.join(@base_url, method)
+      request = Net::HTTP::Post.new(uri)
+      request["content-type"] = "application/json"
+      request.body = JSON.generate(payload)
+      response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
+        http.open_timeout = 5
+        http.read_timeout = 10
+        http.request(request)
+      end
+      document = JSON.parse(response.body)
+      unless response.is_a?(Net::HTTPSuccess) && document["ok"]
+        raise Error, document["description"] || "Telegram API request failed"
+      end
+
+      document["result"]
+    rescue JSON::ParserError, IOError, SystemCallError, Timeout::Error => error
+      raise Error, "Telegram API request failed: #{error.message}"
+    end
+  end
 end

@@ -11,9 +11,15 @@ fi
 deploy_mode="${DEPLOY_MODE:-activate}"
 deploy_environment="$(sed -n 's/^DEPLOY_ENV=//p' .env | tail -n 1)"
 edge_network="${MARKET_EDGE_NETWORK:-nilx-edge}"
+release_sha="${RELEASE_SHA:-}"
 
 if [[ "$edge_network" != "nilx-edge" ]]; then
   echo "MARKET_EDGE_NETWORK must be nilx-edge" >&2
+  exit 1
+fi
+
+if [[ -z "$release_sha" ]]; then
+  echo "RELEASE_SHA is required" >&2
   exit 1
 fi
 
@@ -37,11 +43,12 @@ if ! docker network inspect "$edge_network" >/dev/null 2>&1; then
   docker network create "$edge_network" >/dev/null
 fi
 
+export RELEASE_SHA="$release_sha"
 docker compose config --quiet
 docker compose build --pull bot
 
 if [[ "$deploy_mode" == "stage" ]]; then
-  echo "0xda-market bot $deploy_environment release staged"
+  echo "0xda-market bot $deploy_environment release $release_sha staged"
   exit 0
 fi
 
@@ -51,4 +58,23 @@ curl --fail --silent --show-error \
   --retry 10 --retry-delay 3 --retry-connrefused \
   http://127.0.0.1:10001/health >/dev/null
 
-echo "0xda-market bot $deploy_environment is healthy on 127.0.0.1:10001"
+container_id="$(docker compose ps -q bot)"
+active_sha="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$container_id")"
+if [[ "$active_sha" != "$release_sha" ]]; then
+  echo "Active bot release mismatch: expected $release_sha, got $active_sha" >&2
+  exit 1
+fi
+
+expected_webhook="$(sed -n 's/^PUBLIC_URL=//p' .env | tail -n 1)/telegram/webhook"
+actual_webhook="$(docker compose exec -T bot bundle exec ruby -Ilib -rzero_x_da/market/telegram_bot/telegram_api -e '
+  api = ZeroXDA::Market::TelegramBot::TelegramAPI.new(token: ENV.fetch("TELEGRAM_BOT_TOKEN"))
+  puts api.get_webhook_info.fetch("url")
+')"
+
+if [[ "$actual_webhook" != "$expected_webhook" ]]; then
+  echo "Telegram webhook mismatch: expected $expected_webhook, got $actual_webhook" >&2
+  exit 1
+fi
+
+echo "0xda-market bot $deploy_environment release $release_sha is healthy"
+echo "Telegram webhook verified: $actual_webhook"

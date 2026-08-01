@@ -9,6 +9,9 @@ services:
     init: true
     env_file:
       - .env
+    labels:
+      org.opencontainers.image.revision: ${RELEASE_SHA:?RELEASE_SHA is required}
+      one.nilx.market.environment: ${DEPLOY_ENV}
     ports:
       - "127.0.0.1:10001:10000"
     networks:
