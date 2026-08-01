@@ -18,6 +18,11 @@ jobs:
           ref: refactor/telegram-bot-namespace
           fetch-depth: 0
 
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.11'
+          bundler-cache: true
+
       - name: Rename source namespace and paths
         shell: bash
         run: |
@@ -58,9 +63,7 @@ jobs:
           fi
 
       - name: Verify refactor
-        run: |
-          bundle install
-          bundle exec rake
+        run: bundle exec rake
 
       - name: Commit refactor
         shell: bash
