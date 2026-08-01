@@ -1,0 +1,72 @@
+name: Refactor Telegram bot namespace
+
+on:
+  push:
+    branches:
+      - refactor/telegram-bot-namespace
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rename source namespace and paths
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git mv lib/zero_x_da/market_client_bot lib/zero_x_da/telegram_bot
+
+          mapfile -d '' files < <(git grep -Ilz -e 'market_client_bot' -e 'MarketClientBot' || true)
+          if ((${#files[@]})); then
+            perl -pi -e 's/market_client_bot/telegram_bot/g; s/MarketClientBot/TelegramBot/g' "${files[@]}"
+          fi
+
+          perl -0pi -e 's/Private Telegram client interface for the provider-agnostic/Telegram interface for the provider-agnostic/' README.md
+          perl -0pi -e 's/Client commands:/User commands:/' README.md
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('README.md')
+          text = path.read_text()
+          anchor = "It\ndoes not connect to PostgreSQL directly and does not own users, roles, products,\nprices, orders or permissions.\n"
+          addition = (
+              "\n`client`, `broker` and `admin` are user roles and interaction flows inside one "
+              "Telegram bot. They are not separate bot components or Ruby namespaces. The "
+              "canonical Ruby namespace is `ZeroXDA::TelegramBot`, with source files under "
+              "`lib/zero_x_da/telegram_bot/`.\n"
+          )
+          if addition.strip() not in text:
+              text = text.replace(anchor, anchor + addition)
+          path.write_text(text)
+          PY
+
+          rm .github/workflows/refactor-telegram-bot-namespace.yml
+
+          if git grep -n -e 'market_client_bot' -e 'MarketClientBot' -- ':!CHANGELOG.md' ':!RELEASING.md'; then
+            echo 'Legacy namespace references remain.' >&2
+            exit 1
+          fi
+
+      - name: Verify refactor
+        run: |
+          bundle install
+          bundle exec rake
+
+      - name: Commit refactor
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Refactor client bot namespace to TelegramBot"
+          git push origin HEAD:refactor/telegram-bot-namespace
