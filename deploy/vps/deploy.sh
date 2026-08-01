@@ -65,16 +65,20 @@ if [[ "$active_sha" != "$release_sha" ]]; then
   exit 1
 fi
 
-expected_webhook="$(sed -n 's/^PUBLIC_URL=//p' .env | tail -n 1)/telegram/webhook"
+expected_webhook="$(sed -n 's/^PUBLIC_URL=//p' .env | tail -n 1)"
+expected_webhook="${expected_webhook%/}/telegram/webhook"
 actual_webhook="$(docker compose exec -T bot bundle exec ruby -Ilib -rzero_x_da/market/telegram_bot/telegram_api -e '
   api = ZeroXDA::Market::TelegramBot::TelegramAPI.new(token: ENV.fetch("TELEGRAM_BOT_TOKEN"))
+  public_url = ENV.fetch("PUBLIC_URL").delete_suffix("/")
+  webhook_url = "#{public_url}/telegram/webhook"
+  api.set_webhook(url: webhook_url, secret_token: ENV.fetch("TELEGRAM_WEBHOOK_SECRET"))
   puts api.get_webhook_info.fetch("url")
 ')"
 
 if [[ "$actual_webhook" != "$expected_webhook" ]]; then
-  echo "Telegram webhook mismatch: expected $expected_webhook, got $actual_webhook" >&2
+  echo "Telegram webhook mismatch after reconciliation: expected $expected_webhook, got $actual_webhook" >&2
   exit 1
 fi
 
 echo "0xda-market bot $deploy_environment release $release_sha is healthy"
-echo "Telegram webhook verified: $actual_webhook"
+echo "Telegram webhook reconciled and verified: $actual_webhook"
