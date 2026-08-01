@@ -8,7 +8,7 @@ require "uri"
 
 module ZeroXDA::Market::TelegramBot
     class TelegramWebAppAuth
-      Session = Struct.new(:user, :chat, :auth_date, :query_id, keyword_init: true)
+      Session = Struct.new(:user, :chat, :auth_date, :query_id, :subject, keyword_init: true)
 
       class Invalid < StandardError; end
 
@@ -25,7 +25,6 @@ module ZeroXDA::Market::TelegramBot
       def verify(init_data)
         fields = parse(init_data)
         received_hash = fields.delete("hash").to_s
-        fields.delete("signature")
         raise Invalid, "Telegram WebApp hash is missing" unless received_hash.match?(/\A[0-9a-f]{64}\z/i)
 
         data_check_string = fields.sort.map { |key, value| "#{key}=#{value}" }.join("\n")
@@ -48,7 +47,8 @@ module ZeroXDA::Market::TelegramBot
           user: user,
           chat: chat,
           auth_date: Time.at(auth_date).utc,
-          query_id: fields["query_id"]
+          query_id: fields["query_id"],
+          subject: OpenSSL::HMAC.hexdigest("SHA256", @bot_token, "telegram-webapp-subject\0#{user.fetch("id")}")
         )
       rescue ArgumentError, KeyError, TypeError, JSON::ParserError => error
         raise Invalid, error.message
@@ -64,7 +64,6 @@ module ZeroXDA::Market::TelegramBot
         fields = {}
         pairs.each do |key, field_value|
           raise Invalid, "Telegram WebApp field is duplicated: #{key}" if fields.key?(key)
-
           fields[key] = field_value
         end
         fields
@@ -75,13 +74,11 @@ module ZeroXDA::Market::TelegramBot
       def parse_object(value, field:)
         document = JSON.parse(value)
         raise Invalid, "Telegram WebApp #{field} must be an object" unless document.is_a?(Hash)
-
         document
       end
 
       def secure_compare(left, right)
         return false unless left.bytesize == right.bytesize
-
         left.bytes.zip(right.bytes).reduce(0) { |result, (a, b)| result | (a ^ b) }.zero?
       end
     end
