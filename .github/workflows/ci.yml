@@ -38,17 +38,40 @@ jobs:
             perl -pi -e 's#zero_x_da/telegram_bot#zero_x_da/market/telegram_bot#g; s/ZeroXDA::TelegramBot/ZeroXDA::Market::TelegramBot/g' "${files[@]}"
           fi
 
+          cat >lib/zero_x_da/market/telegram_bot/namespace.rb <<'RUBY'
+          # frozen_string_literal: true
+
+          module ZeroXDA
+            module Market
+              module TelegramBot
+              end
+            end
+          end
+          RUBY
+
           python3 - <<'PY'
           from pathlib import Path
 
-          for path in Path('lib/zero_x_da/market/telegram_bot').glob('*.rb'):
+          root = Path('lib/zero_x_da/market/telegram_bot')
+          for path in root.glob('*.rb'):
+              if path.name == 'namespace.rb':
+                  continue
+
               text = path.read_text()
               old = 'module ZeroXDA\n  module TelegramBot\n'
-              new = 'module ZeroXDA\n  module Market\n    module TelegramBot\n'
               if old not in text:
                   raise SystemExit(f'expected namespace declaration missing: {path}')
-              text = text.replace(old, new, 1)
-              text = text.rstrip() + '\n  end\nend\n'
+
+              text = text.replace(old, 'module ZeroXDA::Market::TelegramBot\n', 1)
+              closing = '\n  end\nend'
+              index = text.rfind(closing)
+              if index == -1:
+                  raise SystemExit(f'expected namespace closing missing: {path}')
+              text = text[:index] + '\nend' + text[index + len(closing):]
+
+              marker = '# frozen_string_literal: true\n'
+              if 'require_relative "namespace"' not in text:
+                  text = text.replace(marker, marker + '\nrequire_relative "namespace"\n', 1)
               path.write_text(text)
 
           readme = Path('README.md')
