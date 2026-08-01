@@ -12,6 +12,7 @@ deploy_mode="${DEPLOY_MODE:-activate}"
 deploy_environment="$(sed -n 's/^DEPLOY_ENV=//p' .env | tail -n 1)"
 edge_network="${MARKET_EDGE_NETWORK:-nilx-edge}"
 release_sha="${RELEASE_SHA:-}"
+core_env="/opt/0xda-market/environments/${deploy_environment}/shared/.env"
 
 if [[ "$edge_network" != "nilx-edge" ]]; then
   echo "MARKET_EDGE_NETWORK must be nilx-edge" >&2
@@ -38,6 +39,51 @@ case "$deploy_environment" in
     exit 1
     ;;
 esac
+
+if [[ ! -f "$core_env" ]]; then
+  echo "Core runtime file is missing: $core_env" >&2
+  exit 1
+fi
+
+core_api_token="$(sed -n 's/^PUBLIC_API_TOKEN=//p' "$core_env" | tail -n 1)"
+if [[ -z "$core_api_token" ]]; then
+  echo "PUBLIC_API_TOKEN is missing from the core runtime" >&2
+  exit 1
+fi
+
+python3 - "$core_api_token" <<'PY'
+from pathlib import Path
+import os
+import sys
+import tempfile
+
+path = Path('.env')
+token = sys.argv[1]
+lines = path.read_text().splitlines()
+updated = []
+replaced = False
+for line in lines:
+    if line.startswith('MARKET_API_TOKEN='):
+        updated.append(f'MARKET_API_TOKEN={token}')
+        replaced = True
+    else:
+        updated.append(line)
+if not replaced:
+    updated.append(f'MARKET_API_TOKEN={token}')
+
+fd, temporary = tempfile.mkstemp(dir=path.parent, prefix='.env.', text=True)
+try:
+    with os.fdopen(fd, 'w') as handle:
+        handle.write('\n'.join(updated) + '\n')
+    os.chmod(temporary, 0o600)
+    os.replace(temporary, path)
+finally:
+    if os.path.exists(temporary):
+        os.unlink(temporary)
+PY
+unset core_api_token
+
+echo "Core API credential synchronized for $deploy_environment"
 
 if ! docker network inspect "$edge_network" >/dev/null 2>&1; then
   docker network create "$edge_network" >/dev/null
