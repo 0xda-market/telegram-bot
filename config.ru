@@ -6,6 +6,7 @@ require_relative "lib/zero_x_da/market/telegram_bot/bot"
 require_relative "lib/zero_x_da/market/telegram_bot/persistent_runtime"
 require_relative "lib/zero_x_da/market/telegram_bot/bot_identity"
 require_relative "lib/zero_x_da/market/telegram_bot/command_menu"
+require_relative "lib/zero_x_da/market/telegram_bot/mini_app_entry_point"
 require_relative "lib/zero_x_da/market/telegram_bot/http_app"
 require_relative "lib/zero_x_da/market/telegram_bot/market_api"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_api"
@@ -14,6 +15,7 @@ require_relative "lib/zero_x_da/market/telegram_bot/telegram_web_app_auth"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_web_app_service"
 
 bot_token = ENV.fetch("TELEGRAM_BOT_TOKEN")
+public_url = ENV.fetch("PUBLIC_URL").delete_suffix("/")
 telegram_api = ZeroXDA::Market::TelegramBot::TelegramAPI.new(token: bot_token)
 telegram_username = ZeroXDA::Market::TelegramBot::TelegramBotIdentity.resolve(
   configured_username: ENV["TELEGRAM_BOT_USERNAME"],
@@ -25,7 +27,8 @@ market_api = ZeroXDA::Market::TelegramBot::MarketAPI.new(
 )
 bot = ZeroXDA::Market::TelegramBot::Bot.new(
   market_api: market_api,
-  telegram_api: telegram_api
+  telegram_api: telegram_api,
+  web_app_url: "#{public_url}/webapp/"
 )
 bot.extend(ZeroXDA::Market::TelegramBot::PersistentRuntime)
 web_app_auth = ZeroXDA::Market::TelegramBot::TelegramWebAppAuth.new(
