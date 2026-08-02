@@ -48,12 +48,12 @@ port `10000` as `market-bot` on the shared edge network.
 
 Configure `development` with:
 
-- secret `VPS_HOST`;
-- secret `VPS_USER=deploy`;
-- secret `VPS_SSH_PRIVATE_KEY`;
+- variable `SSH_HOST`;
+- variable `SSH_USER=deploy`;
+- secret `SSH_PRIVATE_KEY`;
 - variable `VPS_BOT_DEPLOY_PATH=/opt/0xda-market-bot`.
 
-The workflow uses fixed SSH port `22022`. Do not add `VPS_PORT`.
+The workflow uses fixed SSH port `22022`. Do not add `SSH_PORT`.
 
 ## Runtime file
 
