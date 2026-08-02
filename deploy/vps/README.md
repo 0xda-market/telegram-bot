@@ -48,8 +48,8 @@ port `10000` as `market-bot` on the shared edge network.
 
 Configure `development` with:
 
-- variable `SSH_HOST`;
-- variable `SSH_USER=deploy`;
+- secret `SSH_HOST`;
+- secret `SSH_USER` (`deploy`);
 - secret `SSH_PRIVATE_KEY`;
 - variable `VPS_BOT_DEPLOY_PATH=/opt/0xda-market-bot`.
 
