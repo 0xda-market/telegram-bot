@@ -47,11 +47,52 @@ test("unwraps quote, order and broker listing resources", async () => {
   assert.equal(calls[4][1].method, "DELETE");
 });
 
-test("pins and mounts the role workspace package contract", () => {
+test("adapts administrator catalog operations without exposing the actor UUID", async () => {
+  const calls = [];
+  const resource = { type: "product", id: "premium_3m", attributes: { version: 2 } };
+  const transport = createTelegramTransport({
+    telegram: { initData: "signed" },
+    fetchImpl: async (url, options = {}) => {
+      calls.push([url, options]);
+      return response({ data: url.includes("?locale=") ? [resource] : resource });
+    }
+  });
+
+  assert.deepEqual(await transport.listAdminProducts({ locale: "uk_UA" }), [resource]);
+  await transport.updateAdminProduct({
+    sku: "premium_3m",
+    version: 2,
+    attributes: { short_name: "Premium · 3m" }
+  });
+  await transport.saveAdminProductLocalization({
+    sku: "premium_3m",
+    locale: "uk_UA",
+    fullName: "Telegram Premium на 3 місяці",
+    buttonLabel: "Premium · 3 міс.",
+    version: 1
+  });
+
+  assert.match(calls[0][0], /admin\/products\?locale=uk_UA$/);
+  assert.equal(calls[1][1].method, "PATCH");
+  assert.deepEqual(JSON.parse(calls[1][1].body), {
+    version: 2,
+    attributes: { short_name: "Premium · 3m" }
+  });
+  assert.equal(calls[2][1].method, "PUT");
+  assert.deepEqual(JSON.parse(calls[2][1].body), {
+    full_name: "Telegram Premium на 3 місяці",
+    button_label: "Premium · 3 міс.",
+    version: 1
+  });
+  assert.equal(calls.some(([, options]) => String(options.body || "").includes("actor_user_id")), false);
+});
+
+test("pins and mounts the administrator catalog package contract", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /ad42eaefbb1b8ce5bf27e65404f64f3ce0317840/);
+  assert.match(source, /daa8fa85fd1af05e988cc0154966df0da7aa1a4d/);
   assert.match(source, /mountBrokerWorkspace/);
   assert.match(source, /mountAdminWorkspace/);
   assert.match(source, /mountWorkspaceNavigation/);
+  assert.match(source, /await admin\?\.ready/);
   assert.doesNotMatch(source, /webapp-core@master/);
 });
