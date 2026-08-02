@@ -1,0 +1,85 @@
+.admin-products {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+.admin-products > select,
+.admin-product-form,
+.admin-localization-form {
+  width: 100%;
+}
+.admin-products > select,
+.admin-product-form input,
+.admin-product-form select,
+.admin-product-form textarea,
+.admin-localization-form input {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 22%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+  color: inherit;
+  background: var(--tg-theme-secondary-bg-color, #f3f4f6);
+}
+.admin-product-form,
+.admin-localization-form {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--tg-theme-bg-color, #fff);
+}
+.admin-product-form label,
+.admin-localization-form label {
+  display: grid;
+  gap: 5px;
+  font-size: 12px;
+}
+.admin-product-form label:has(input[type="checkbox"]) {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.admin-product-form textarea {
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.admin-product-form button,
+.admin-localization-form button,
+.admin-localization-list button {
+  min-height: 40px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 12px;
+  color: var(--tg-theme-button-text-color, #fff);
+  background: var(--tg-theme-button-color, #2481cc);
+}
+.admin-products-status {
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--tg-theme-hint-color, #74777f);
+}
+.admin-localization-list {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+}
+.admin-localization-list button {
+  min-height: 34px;
+  white-space: nowrap;
+  color: var(--tg-theme-text-color, #111318);
+  background: var(--tg-theme-bg-color, #fff);
+}
+
+@media (orientation: landscape) {
+  .admin-products {
+    grid-template-columns: minmax(170px, 0.7fr) minmax(260px, 1.3fr);
+    align-items: start;
+  }
+  .admin-products > h3,
+  .admin-products > p,
+  .admin-products-status,
+  .admin-products > select,
+  .admin-localization-list {
+    grid-column: 1 / -1;
+  }
+}
