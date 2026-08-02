@@ -7,8 +7,10 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; background: inherit; }
+body.has-workspace-navigation { padding-bottom: calc(74px + env(safe-area-inset-bottom)); }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
+[hidden] { display: none !important; }
 
 .shell {
   min-height: 100vh;
@@ -113,13 +115,12 @@ dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; p
   .products { grid-template-columns: repeat(6, minmax(0, 1fr)); }
 }
 
-
-.broker-workspace {
-  margin: 8px 12px max(18px, env(safe-area-inset-bottom));
+.broker-workspace, .admin-workspace {
+  margin: max(14px, env(safe-area-inset-top)) 12px 18px;
   display: grid;
   gap: 12px;
 }
-.broker-workspace form, .broker-listing {
+.broker-workspace form, .broker-listing, .admin-capability {
   display: grid;
   gap: 10px;
   padding: 14px;
@@ -143,3 +144,52 @@ dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; p
   background: var(--tg-theme-button-color, #2481cc);
 }
 .broker-listing { grid-template-columns: 1fr auto auto; align-items: center; }
+
+.admin-workspace-description, .admin-capability p {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--tg-theme-hint-color, #74777f);
+}
+.admin-capability-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.admin-capability { align-content: start; }
+.admin-capability strong { font-size: 14px; }
+.admin-capability-metric { font-size: 12px; font-weight: 700; }
+
+.workspace-navigation {
+  position: fixed;
+  z-index: 20;
+  left: 12px;
+  right: 12px;
+  bottom: max(8px, env(safe-area-inset-bottom));
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 16%, transparent);
+  border-radius: 17px;
+  background: color-mix(in srgb, var(--tg-theme-bg-color, #fff) 92%, transparent);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(18px);
+}
+.workspace-tab {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--tg-theme-hint-color, #74777f);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 700;
+}
+.workspace-tab[aria-selected="true"] {
+  color: var(--tg-theme-button-text-color, #fff);
+  background: var(--tg-theme-button-color, #2481cc);
+}
+
+@media (orientation: landscape) {
+  .admin-capability-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

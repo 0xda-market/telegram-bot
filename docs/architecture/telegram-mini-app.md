@@ -32,6 +32,18 @@ Every authenticated private-chat user receives a `web_app` launch action in the 
 
 This in-chat entry point is the baseline access path and does not depend on global Telegram menu-button registration. `REGISTER_TELEGRAM_WEBAPP=1` may still install the same URL as the global chat menu button, but that registration remains an optional deployment concern rather than a prerequisite for opening the Mini App.
 
+## Role workspace contract
+
+The Telegram host passes only the verified bootstrap context into the shared workspace package:
+
+- `client` mounts the Market surface;
+- `broker` mounts Market and Listings;
+- `admin` mounts Market, Listings and the read-only Administration overview.
+
+The host moves the broker workspace out of the market shell before mounting navigation so every section remains an independent surface. The navigation cannot grant capabilities: unavailable sections are filtered by the verified role inside `webapp-core`.
+
+Administration is intentionally expanded one capability at a time: products and localizations, prices, users, orders, all listings, then manual fulfillment. Wallet and automated settlement remain outside this sequence.
+
 ## Immutable module dependency
 
 `webapp/app.js` imports one `webapp-core` module from an exact Git commit revision. Relative imports resolve to the same immutable revision. Production does not load a mutable default-branch URL.
