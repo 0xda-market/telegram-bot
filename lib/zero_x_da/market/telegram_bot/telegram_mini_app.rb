@@ -37,6 +37,7 @@ module ZeroXDA::Market::TelegramBot
         return quote(request) if request.post? && request.path_info == "/webapp/quotes"
         return broker_listings(request) if request.get? && request.path_info == "/webapp/broker/listings"
         return create_broker_listing(request) if request.post? && request.path_info == "/webapp/broker/listings"
+        return admin_products(request) if request.get? && request.path_info == "/webapp/admin/products"
 
         if request.post? && (match = request.path_info.match(%r{\A/webapp/quotes/([^/]+)/accept\z}))
           return accept(request, resource_id(match[1]))
@@ -49,6 +50,19 @@ module ZeroXDA::Market::TelegramBot
         end
         if request.delete? && (match = request.path_info.match(%r{\A/webapp/broker/listings/([^/]+)\z}))
           return withdraw_broker_listing(request, resource_id(match[1]))
+        end
+        if request.patch? && (match = request.path_info.match(%r{\A/webapp/admin/products/([^/]+)\z}))
+          return update_admin_product(request, resource_id(match[1]))
+        end
+        localization_match = request.path_info.match(
+          %r{\A/webapp/admin/products/([^/]+)/localizations/([^/]+)\z}
+        )
+        if request.put? && localization_match
+          return save_admin_product_localization(
+            request,
+            resource_id(localization_match[1]),
+            resource_id(localization_match[2])
+          )
         end
 
         return static_asset(request, environment) if request.get? || request.head?
@@ -134,6 +148,38 @@ module ZeroXDA::Market::TelegramBot
           version: body.fetch("version")
         )
         json_document(200, document)
+      end
+
+      def admin_products(request)
+        document = @service.admin_products(
+          init_data: init_data(request),
+          locale: request.params["locale"]
+        )
+        json_document(200, document)
+      end
+
+      def update_admin_product(request, sku)
+        body = request_document(request)
+        document = @service.update_admin_product(
+          init_data: init_data(request),
+          sku: sku,
+          version: body.fetch("version"),
+          attributes: body.fetch("attributes")
+        )
+        json_document(200, document)
+      end
+
+      def save_admin_product_localization(request, sku, locale)
+        body = request_document(request)
+        document = @service.save_admin_product_localization(
+          init_data: init_data(request),
+          sku: sku,
+          locale: locale,
+          full_name: body.fetch("full_name"),
+          button_label: body.fetch("button_label"),
+          version: body["version"]
+        )
+        json_document(body.key?("version") ? 200 : 201, document)
       end
 
       def init_data(request)
