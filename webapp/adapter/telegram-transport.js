@@ -70,6 +70,28 @@ export function createTelegramTransport({
         method: "DELETE",
         body: JSON.stringify({ version })
       });
+    },
+    listAdminProducts({ locale }) {
+      return requestResource(`/admin/products?${new URLSearchParams({ locale })}`);
+    },
+    updateAdminProduct({ sku, version, attributes }) {
+      return requestResource(`/admin/products/${encodeURIComponent(sku)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ version, attributes })
+      });
+    },
+    saveAdminProductLocalization({ sku, locale, fullName, buttonLabel, version }) {
+      return requestResource(
+        `/admin/products/${encodeURIComponent(sku)}/localizations/${encodeURIComponent(locale)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify({
+            full_name: fullName,
+            button_label: buttonLabel,
+            ...(version === undefined ? {} : { version })
+          })
+        }
+      );
     }
   };
 }

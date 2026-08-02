@@ -101,6 +101,49 @@ module ZeroXDA::Market::TelegramBot
         ) }
       end
 
+      def admin_products(init_data:, locale:)
+        _session, user = authenticate(init_data)
+        {
+          "data" => @market_api.admin_products(
+            actor_user_id: user.fetch("id"),
+            locale: normalized_locale(locale)
+          )
+        }
+      end
+
+      def update_admin_product(init_data:, sku:, version:, attributes:)
+        _session, user = authenticate(init_data)
+        {
+          "data" => @market_api.update_admin_product(
+            actor_user_id: user.fetch("id"),
+            sku: sku,
+            version: version,
+            attributes: attributes
+          )
+        }
+      end
+
+      def save_admin_product_localization(
+        init_data:,
+        sku:,
+        locale:,
+        full_name:,
+        button_label:,
+        version: nil
+      )
+        _session, user = authenticate(init_data)
+        {
+          "data" => @market_api.save_admin_product_localization(
+            actor_user_id: user.fetch("id"),
+            sku: sku,
+            locale: locale,
+            full_name: full_name,
+            button_label: button_label,
+            version: version
+          )
+        }
+      end
+
       private
 
       def authenticate(init_data)
