@@ -28,8 +28,8 @@ jobs:
     env:
       TARGET_ENV: ${{ inputs.target_environment }}
       CONFIRM_PRODUCTION: ${{ inputs.target_environment == 'production' && '1' || '0' }}
-      SSH_HOST: ${{ vars.SSH_HOST }}
-      SSH_USER: ${{ vars.SSH_USER }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SSH_PORT: 22022
       CORE_DEPLOY_PATH: /opt/0xda-market
