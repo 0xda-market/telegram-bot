@@ -1,0 +1,75 @@
+.admin-prices {
+  display: grid;
+  gap: 12px;
+  padding-top: 6px;
+}
+
+.admin-prices > p,
+.admin-prices-status {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--tg-theme-hint-color, #74777f);
+}
+
+.admin-price-form,
+.admin-price-rows,
+.admin-price-history {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-price-row,
+.admin-price-history-row {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--tg-theme-bg-color, #fff);
+}
+
+.admin-price-row span,
+.admin-price-history-row time {
+  font-size: 11px;
+  color: var(--tg-theme-hint-color, #74777f);
+}
+
+.admin-price-row input {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 22%, transparent);
+  border-radius: 10px;
+  padding: 10px;
+  color: inherit;
+  background: var(--tg-theme-secondary-bg-color, #f3f4f6);
+}
+
+.admin-price-form > button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  color: var(--tg-theme-button-text-color, #fff);
+  background: var(--tg-theme-button-color, #2481cc);
+  font-weight: 700;
+}
+
+.admin-price-form > button:disabled {
+  opacity: 0.45;
+}
+
+.admin-price-history-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.admin-price-history-row time {
+  grid-column: 1 / -1;
+}
+
+@media (orientation: landscape) {
+  .admin-price-rows {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-price-history {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
