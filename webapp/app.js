@@ -17,7 +17,7 @@ async function start() {
   const app = await webappCore.mountMarketApp({ host, transport, document });
   const context = app.context();
   const marketRoot = document.querySelector("main");
-  const broker = await webappCore.mountBrokerWorkspace({ document, transport, ...context });
+  const broker = await webappCore.mountBrokerWorkspace({ document, transport, ...app.context() });
   if (broker?.root) document.body.append(broker.root);
   const admin = webappCore.mountAdminWorkspace({ document, container: document.body, ...context });
   const sections = [
