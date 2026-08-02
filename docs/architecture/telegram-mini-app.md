@@ -26,6 +26,12 @@ The bootstrap transport preserves the complete `{ data, meta }` document. `webap
 
 Every BFF request carries raw `Telegram.WebApp.initData` in `X-Telegram-Init-Data`. The server validates the HMAC, age and verified Telegram user before market operations. The public session never exposes the internal market UUID or bot token.
 
+## Entry-point contract
+
+Every authenticated private-chat user receives a `web_app` launch action in the `/start` and `/status` account card. The action opens the adapter-owned `/webapp/` URL derived from `PUBLIC_URL`; the verified session then selects the client, broker or admin workspace.
+
+This in-chat entry point is the baseline access path and does not depend on global Telegram menu-button registration. `REGISTER_TELEGRAM_WEBAPP=1` may still install the same URL as the global chat menu button, but that registration remains an optional deployment concern rather than a prerequisite for opening the Mini App.
+
 ## Immutable module dependency
 
 `webapp/app.js` imports one `webapp-core` module from an exact Git commit revision. Relative imports resolve to the same immutable revision. Production does not load a mutable default-branch URL.
