@@ -51,9 +51,8 @@ Configure `development` with:
 - secret `SSH_HOST`;
 - secret `SSH_USER` (`deploy`);
 - secret `SSH_PRIVATE_KEY`;
-- variable `VPS_BOT_DEPLOY_PATH=/opt/0xda-market-bot`.
-
-The workflow uses fixed SSH port `22022`. Do not add `SSH_PORT`.
+- variable `SSH_DEPLOYMENT_PATH=/opt/0xda-market-bot`;
+- variable `SSH_PORT=22022`.
 
 ## Runtime file
 
