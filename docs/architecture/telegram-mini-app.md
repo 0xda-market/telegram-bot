@@ -22,7 +22,7 @@ The Telegram adapter owns Telegram SDK initialization, locale, viewport, theme, 
 
 ## Bootstrap contract
 
-The bootstrap transport preserves the complete `{ data, meta }` document. `webapp-core` converts it into an explicit `{ catalog, session, currencies }` context. Quote, order and broker-listing transports unwrap their `data` resources. Broker listing writes always pass through verified Telegram authentication and the core API; no durable market state is stored in the browser.
+The bootstrap transport preserves the complete `{ data, meta }` document. `webapp-core` converts it into an explicit `{ catalog, session, currencies }` context. Resource transports unwrap their `data` resources. Durable writes always pass through verified Telegram authentication and the core API; no market state is authoritative in the browser.
 
 Every BFF request carries raw `Telegram.WebApp.initData` in `X-Telegram-Init-Data`. The server validates the HMAC, age and verified Telegram user before market operations. The public session never exposes the internal market UUID or bot token.
 
@@ -38,11 +38,21 @@ The Telegram host passes only the verified bootstrap context into the shared wor
 
 - `client` mounts the Market surface;
 - `broker` mounts Market and Listings;
-- `admin` mounts Market, Listings and the read-only Administration overview.
+- `admin` mounts Market, Listings and Administration.
 
 The host moves the broker workspace out of the market shell before mounting navigation so every section remains an independent surface. The navigation cannot grant capabilities: unavailable sections are filtered by the verified role inside `webapp-core`.
 
-Administration is intentionally expanded one capability at a time: products and localizations, prices, users, orders, all listings, then manual fulfillment. Wallet and automated settlement remain outside this sequence.
+## Administrator catalog contract
+
+The Products capability uses three signed BFF operations:
+
+- `GET /webapp/admin/products`;
+- `PATCH /webapp/admin/products/:sku`;
+- `PUT /webapp/admin/products/:sku/localizations/:locale`.
+
+The browser submits product or localization versions, but never an actor UUID or role. `TelegramWebAppService` verifies `initData`, resolves the Telegram identity to the internal core user and supplies that UUID server-side. Core performs the definitive administrator check and optimistic-concurrency enforcement.
+
+Product writes cannot alter SKU or price state. Localization writes are independent from product versions. Wallet and automated settlement remain outside the pre-wallet administration sequence.
 
 ## Immutable module dependency
 
