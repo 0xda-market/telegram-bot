@@ -144,6 +144,31 @@ module ZeroXDA::Market::TelegramBot
         }
       end
 
+      def admin_price_proposal(init_data:, locale:)
+        _session, user = authenticate(init_data)
+        @market_api.admin_price_proposal(
+          actor_user_id: user.fetch("id"),
+          locale: normalized_locale(locale)
+        )
+      end
+
+      def admin_price_history(init_data:, limit:)
+        _session, user = authenticate(init_data)
+        @market_api.admin_price_history(
+          actor_user_id: user.fetch("id"),
+          limit: limit
+        )
+      end
+
+      def apply_admin_prices(init_data:, revision:, prices:)
+        _session, user = authenticate(init_data)
+        @market_api.apply_admin_prices(
+          actor_user_id: user.fetch("id"),
+          revision: revision,
+          prices: prices
+        )
+      end
+
       private
 
       def authenticate(init_data)
