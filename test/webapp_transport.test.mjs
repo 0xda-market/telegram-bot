@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { createTelegramTransport } from "../webapp/adapter/telegram-transport.js";
 
 function response(document, { ok = true, status = 200 } = {}) {
@@ -44,4 +45,13 @@ test("unwraps quote, order and broker listing resources", async () => {
   });
   assert.equal(calls[3][1].method, "PATCH");
   assert.equal(calls[4][1].method, "DELETE");
+});
+
+test("pins and mounts the role workspace package contract", () => {
+  const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
+  assert.match(source, /ad42eaefbb1b8ce5bf27e65404f64f3ce0317840/);
+  assert.match(source, /mountBrokerWorkspace/);
+  assert.match(source, /mountAdminWorkspace/);
+  assert.match(source, /mountWorkspaceNavigation/);
+  assert.doesNotMatch(source, /webapp-core@master/);
 });
