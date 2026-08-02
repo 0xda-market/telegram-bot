@@ -31,8 +31,8 @@ jobs:
       name: development
     env:
       DEPLOY_ENV: development
-      SSH_HOST: ${{ vars.SSH_HOST }}
-      SSH_USER: ${{ vars.SSH_USER }}
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_USER: ${{ secrets.SSH_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SSH_PORT: 22022
       VPS_DEPLOY_PATH: ${{ vars.VPS_BOT_DEPLOY_PATH || '/opt/0xda-market-bot' }}
