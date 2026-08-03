@@ -125,12 +125,14 @@ test("preserves price proposal metadata and submits its exact revision", async (
   assert.equal(calls.some(([, options]) => String(options.body || "").includes("actor_user_id")), false);
 });
 
-test("pins and mounts the administrator pricing package contract", () => {
+test("pins and mounts the localized administrator package contract", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /92655b8985cfe39015d1db9b38f04304d15c979e/);
+  assert.match(source, /13fc73578d572f93d0c8b4ef2f7f0f3693009e9c/);
+  assert.match(source, /localizeTelegramShell/);
   assert.match(source, /mountBrokerWorkspace/);
   assert.match(source, /mountAdminWorkspace/);
   assert.match(source, /mountWorkspaceNavigation/);
+  assert.match(source, /locale: context\.locale/);
   assert.match(source, /await admin\?\.ready/);
   assert.doesNotMatch(source, /webapp-core@master/);
 });
