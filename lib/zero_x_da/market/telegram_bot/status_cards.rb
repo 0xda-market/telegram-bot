@@ -45,6 +45,10 @@ module ZeroXDA::Market::TelegramBot
         )
       end
 
+      def client_role(user)
+        user.fetch("attributes").fetch("role")
+      end
+
       def status_card_keyboard(callback_data, locale:)
         {
           inline_keyboard: [
