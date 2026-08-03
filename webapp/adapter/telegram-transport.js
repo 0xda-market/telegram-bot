@@ -92,6 +92,18 @@ export function createTelegramTransport({
           })
         }
       );
+    },
+    getAdminPriceProposal({ locale }) {
+      return requestDocument(`/admin/prices/proposal?${new URLSearchParams({ locale })}`);
+    },
+    listAdminPriceHistory({ limit = 20 } = {}) {
+      return requestDocument(`/admin/prices/history?${new URLSearchParams({ limit: String(limit) })}`);
+    },
+    applyAdminPrices({ revision, prices }) {
+      return requestDocument("/admin/prices", {
+        method: "POST",
+        body: JSON.stringify({ revision, prices })
+      });
     }
   };
 }

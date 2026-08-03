@@ -87,9 +87,47 @@ test("adapts administrator catalog operations without exposing the actor UUID", 
   assert.equal(calls.some(([, options]) => String(options.body || "").includes("actor_user_id")), false);
 });
 
-test("pins and mounts the administrator catalog package contract", () => {
+test("preserves price proposal metadata and submits its exact revision", async () => {
+  const calls = [];
+  const proposal = { data: [{ id: "premium_3m" }], meta: { revision: 7 } };
+  const history = { data: [{ id: "6" }], meta: { revision: 7 } };
+  const transport = createTelegramTransport({
+    telegram: { initData: "signed" },
+    fetchImpl: async (url, options = {}) => {
+      calls.push([url, options]);
+      if (url.includes("/proposal")) return response(proposal);
+      if (url.includes("/history")) return response(history);
+      return response({ data: [], meta: { revision: 9 } }, { status: 201 });
+    }
+  });
+
+  assert.equal(await transport.getAdminPriceProposal({ locale: "uk_UA" }), proposal);
+  assert.equal(await transport.listAdminPriceHistory({ limit: 12 }), history);
+  const applied = await transport.applyAdminPrices({
+    revision: 7,
+    prices: [
+      { sku: "premium_3m", amount_usdt: "12.75" },
+      { sku: "uah", amount_usdt: "0.024" }
+    ]
+  });
+
+  assert.equal(applied.meta.revision, 9);
+  assert.match(calls[0][0], /admin\/prices\/proposal\?locale=uk_UA$/);
+  assert.match(calls[1][0], /admin\/prices\/history\?limit=12$/);
+  assert.equal(calls[2][1].method, "POST");
+  assert.deepEqual(JSON.parse(calls[2][1].body), {
+    revision: 7,
+    prices: [
+      { sku: "premium_3m", amount_usdt: "12.75" },
+      { sku: "uah", amount_usdt: "0.024" }
+    ]
+  });
+  assert.equal(calls.some(([, options]) => String(options.body || "").includes("actor_user_id")), false);
+});
+
+test("pins and mounts the administrator pricing package contract", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /daa8fa85fd1af05e988cc0154966df0da7aa1a4d/);
+  assert.match(source, /92655b8985cfe39015d1db9b38f04304d15c979e/);
   assert.match(source, /mountBrokerWorkspace/);
   assert.match(source, /mountAdminWorkspace/);
   assert.match(source, /mountWorkspaceNavigation/);

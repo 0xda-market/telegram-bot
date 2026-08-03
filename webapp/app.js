@@ -1,7 +1,7 @@
 import { createTelegramHost } from "./adapter/telegram-host.js";
 import { createTelegramTransport } from "./adapter/telegram-transport.js";
 
-const WEBAPP_CORE_REVISION = "daa8fa85fd1af05e988cc0154966df0da7aa1a4d";
+const WEBAPP_CORE_REVISION = "92655b8985cfe39015d1db9b38f04304d15c979e";
 const runtime = globalThis.__ZERO_X_DA_MARKET__ || {};
 const webappCoreModuleUrl = runtime.webappCoreModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js`;

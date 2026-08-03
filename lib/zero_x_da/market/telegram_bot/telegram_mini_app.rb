@@ -38,6 +38,9 @@ module ZeroXDA::Market::TelegramBot
         return broker_listings(request) if request.get? && request.path_info == "/webapp/broker/listings"
         return create_broker_listing(request) if request.post? && request.path_info == "/webapp/broker/listings"
         return admin_products(request) if request.get? && request.path_info == "/webapp/admin/products"
+        return admin_price_proposal(request) if request.get? && request.path_info == "/webapp/admin/prices/proposal"
+        return admin_price_history(request) if request.get? && request.path_info == "/webapp/admin/prices/history"
+        return apply_admin_prices(request) if request.post? && request.path_info == "/webapp/admin/prices"
 
         if request.post? && (match = request.path_info.match(%r{\A/webapp/quotes/([^/]+)/accept\z}))
           return accept(request, resource_id(match[1]))
@@ -180,6 +183,32 @@ module ZeroXDA::Market::TelegramBot
           version: body["version"]
         )
         json_document(body.key?("version") ? 200 : 201, document)
+      end
+
+      def admin_price_proposal(request)
+        document = @service.admin_price_proposal(
+          init_data: init_data(request),
+          locale: request.params["locale"]
+        )
+        json_document(200, document)
+      end
+
+      def admin_price_history(request)
+        document = @service.admin_price_history(
+          init_data: init_data(request),
+          limit: request.params.fetch("limit", 20)
+        )
+        json_document(200, document)
+      end
+
+      def apply_admin_prices(request)
+        body = request_document(request)
+        document = @service.apply_admin_prices(
+          init_data: init_data(request),
+          revision: body.fetch("revision"),
+          prices: body.fetch("prices")
+        )
+        json_document(201, document)
       end
 
       def init_data(request)

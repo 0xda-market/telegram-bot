@@ -49,5 +49,28 @@ module ZeroXDA::Market::TelegramBot
           payload
         ).fetch("data")
       end
+
+      def admin_price_proposal(actor_user_id:, locale: "en_US")
+        get(
+          "v1/admin/prices/proposal?#{URI.encode_www_form(actor_user_id: actor_user_id, locale: locale)}",
+          authenticated: true
+        )
+      end
+
+      def admin_price_history(actor_user_id:, limit: 20)
+        get(
+          "v1/admin/prices/history?#{URI.encode_www_form(actor_user_id: actor_user_id, limit: limit)}",
+          authenticated: true
+        )
+      end
+
+      def apply_admin_prices(actor_user_id:, revision:, prices:)
+        post(
+          "v1/admin/prices",
+          actor_user_id: actor_user_id,
+          revision: revision,
+          prices: prices
+        )
+      end
     end
 end

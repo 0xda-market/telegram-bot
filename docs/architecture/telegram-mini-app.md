@@ -52,7 +52,21 @@ The Products capability uses three signed BFF operations:
 
 The browser submits product or localization versions, but never an actor UUID or role. `TelegramWebAppService` verifies `initData`, resolves the Telegram identity to the internal core user and supplies that UUID server-side. Core performs the definitive administrator check and optimistic-concurrency enforcement.
 
-Product writes cannot alter SKU or price state. Localization writes are independent from product versions. Wallet and automated settlement remain outside the pre-wallet administration sequence.
+Product writes cannot alter SKU or price state. Localization writes are independent from product versions.
+
+## Administrator pricing contract
+
+The Prices capability uses complete documents so proposal metadata is never discarded:
+
+- `GET /webapp/admin/prices/proposal`;
+- `POST /webapp/admin/prices`;
+- `GET /webapp/admin/prices/history`.
+
+The proposal returns one monotonic revision for the current append-only price ledger. The browser submits that exact revision with one complete application covering active products and currencies. Core rejects a stale revision before appending any row. The BFF resolves the administrator UUID only after signed Telegram authentication; the browser sends neither an actor UUID nor a trusted role.
+
+Existing `/apply_price`, `/apply_prices`, `/rates` and `/set_rate` commands remain Telegram compatibility surfaces over the same core pricing model. They do not own a separate price store or currency-rate contract.
+
+Wallet and automated settlement remain outside the pre-wallet administration sequence.
 
 ## Immutable module dependency
 
