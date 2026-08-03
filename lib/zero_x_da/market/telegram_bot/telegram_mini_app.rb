@@ -38,6 +38,7 @@ module ZeroXDA::Market::TelegramBot
         return broker_listings(request) if request.get? && request.path_info == "/webapp/broker/listings"
         return create_broker_listing(request) if request.post? && request.path_info == "/webapp/broker/listings"
         return admin_products(request) if request.get? && request.path_info == "/webapp/admin/products"
+        return create_admin_product(request) if request.post? && request.path_info == "/webapp/admin/products"
         return admin_price_proposal(request) if request.get? && request.path_info == "/webapp/admin/prices/proposal"
         return admin_price_history(request) if request.get? && request.path_info == "/webapp/admin/prices/history"
         return apply_admin_prices(request) if request.post? && request.path_info == "/webapp/admin/prices"
@@ -98,6 +99,7 @@ module ZeroXDA::Market::TelegramBot
         document = @service.quote(
           init_data: init_data(request),
           sku: body.fetch("sku"),
+          quantity: body.fetch("quantity", 1),
           locale: body["locale"]
         )
         json_document(201, document)
@@ -159,6 +161,17 @@ module ZeroXDA::Market::TelegramBot
           locale: request.params["locale"]
         )
         json_document(200, document)
+      end
+
+      def create_admin_product(request)
+        body = request_document(request)
+        document = @service.create_admin_product(
+          init_data: init_data(request),
+          sku: body.fetch("sku"),
+          attributes: body.fetch("attributes"),
+          localization: body.fetch("localization")
+        )
+        json_document(201, document)
       end
 
       def update_admin_product(request, sku)
