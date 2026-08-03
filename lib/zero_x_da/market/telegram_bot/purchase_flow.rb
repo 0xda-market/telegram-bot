@@ -57,6 +57,8 @@ module ZeroXDA::Market::TelegramBot
           actor_user_id: user.fetch("id"),
           quote_id: quote_id
         )
+        return order if payment_pending?(order)
+
         @market_api.execute_marketplace_order(
           actor_user_id: user.fetch("id"),
           order_id: order.fetch("id")
@@ -148,6 +150,10 @@ module ZeroXDA::Market::TelegramBot
       def require_owner!(context, user)
         owner = context&.fetch("customer_user_id", nil).to_s
         raise AccessDenied, "purchase belongs to another user" unless owner == user.fetch("id").to_s
+      end
+
+      def payment_pending?(order)
+        order.dig("attributes", "status") == "payment_pending"
       end
 
       def executable?(order)
