@@ -13,10 +13,51 @@ module ZeroXDA::Market::TelegramBot
         )
       end
 
+      def create_marketplace_quote(actor_user_id:, sku:, quantity:, context:)
+        post(
+          "v1/market/quotes",
+          actor_user_id: actor_user_id,
+          sku: sku,
+          quantity: quantity,
+          context: context
+        ).fetch("data")
+      end
+
+      def accept_marketplace_quote(actor_user_id:, quote_id:)
+        post(
+          "v1/market/quotes/#{resource_id(quote_id)}/accept",
+          actor_user_id: actor_user_id
+        ).fetch("data")
+      end
+
+      def marketplace_order(actor_user_id:, order_id:)
+        get(
+          "v1/market/orders/#{resource_id(order_id)}?#{URI.encode_www_form(actor_user_id: actor_user_id)}",
+          authenticated: true
+        ).fetch("data")
+      end
+
+      def execute_marketplace_order(actor_user_id:, order_id:)
+        post(
+          "v1/market/orders/#{resource_id(order_id)}/execute",
+          actor_user_id: actor_user_id
+        ).fetch("data")
+      end
+
       def admin_products(actor_user_id:, locale: "en_US")
         get(
           "v1/admin/products?#{URI.encode_www_form(actor_user_id: actor_user_id, locale: locale)}",
           authenticated: true
+        ).fetch("data")
+      end
+
+      def create_admin_product(actor_user_id:, sku:, attributes:, localization:)
+        post(
+          "v1/admin/products",
+          actor_user_id: actor_user_id,
+          sku: sku,
+          attributes: attributes,
+          localization: localization
         ).fetch("data")
       end
 
