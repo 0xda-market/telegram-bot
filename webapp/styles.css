@@ -100,6 +100,22 @@ dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; p
 .dialog-close { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border: 0; border-radius: 50%; color: inherit; background: var(--tg-theme-secondary-bg-color, #f3f4f6); font-size: 22px; }
 .dialog-price { font-size: 21px; font-weight: 800; }
 .dialog-status { min-height: 38px; font-size: 13px; color: var(--tg-theme-hint-color, #74777f); }
+.checkout-quantity-field {
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--tg-theme-hint-color, #74777f);
+}
+.checkout-quantity-field input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 22%, transparent);
+  border-radius: 12px;
+  padding: 11px 12px;
+  color: var(--tg-theme-text-color, #111318);
+  background: var(--tg-theme-secondary-bg-color, #f3f4f6);
+}
+.checkout-quantity-field input:disabled { opacity: 0.55; }
 .primary-action { width: 100%; font-weight: 700; }
 
 @media (orientation: landscape) {
@@ -143,7 +159,16 @@ dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; p
   color: var(--tg-theme-button-text-color, #fff);
   background: var(--tg-theme-button-color, #2481cc);
 }
-.broker-listing { grid-template-columns: 1fr auto auto; align-items: center; }
+.broker-listing {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+}
+.broker-listing > span,
+.broker-listing-inventory {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--tg-theme-hint-color, #74777f);
+}
 
 .admin-workspace-description, .admin-capability p {
   font-size: 13px;
