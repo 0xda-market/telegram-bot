@@ -35,9 +35,15 @@ class TelegramMiniAppTest < Minitest::Test
       }
     end
 
-    def quote(init_data:, sku:, locale:)
-      @requests << [:quote, init_data, sku, locale]
-      { "data" => { "type" => "quote", "id" => "quote-1", "attributes" => {} } }
+    def quote(init_data:, sku:, quantity:, locale:)
+      @requests << [:quote, init_data, sku, quantity, locale]
+      {
+        "data" => {
+          "type" => "quote",
+          "id" => "quote-1",
+          "attributes" => { "quantity" => quantity }
+        }
+      }
     end
 
     def accept(init_data:, quote_id:)
@@ -68,6 +74,17 @@ class TelegramMiniAppTest < Minitest::Test
     def withdraw_broker_listing(init_data:, listing_id:, version:)
       @requests << [:withdraw_broker_listing, init_data, listing_id, version]
       listing
+    end
+
+    def create_admin_product(init_data:, sku:, attributes:, localization:)
+      @requests << [:create_admin_product, init_data, sku, attributes, localization]
+      {
+        "data" => {
+          "type" => "product",
+          "id" => sku,
+          "attributes" => attributes.merge("version" => 0)
+        }
+      }
     end
 
     def listing
@@ -119,12 +136,12 @@ class TelegramMiniAppTest < Minitest::Test
     assert_equal [[:bootstrap, "signed-init-data", "uk_UA"]], @service.requests
   end
 
-  def test_routes_quote_acceptance_and_order_refresh
+  def test_routes_quantity_quote_acceptance_and_order_refresh
     quote = @client.post(
       "/webapp/quotes",
       "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data",
       "CONTENT_TYPE" => "application/json",
-      input: JSON.generate(sku: "premium_3m", locale: "uk_UA")
+      input: JSON.generate(sku: "premium_3m", quantity: "2", locale: "uk_UA")
     )
     accepted = @client.post(
       "/webapp/quotes/quote-1/accept",
@@ -138,16 +155,48 @@ class TelegramMiniAppTest < Minitest::Test
     )
 
     assert_equal 201, quote.status
+    assert_equal "2", JSON.parse(quote.body).dig("data", "attributes", "quantity")
     assert_equal 201, accepted.status
     assert_equal 200, refreshed.status
     assert_equal(
       [
-        [:quote, "signed-init-data", "premium_3m", "uk_UA"],
+        [:quote, "signed-init-data", "premium_3m", "2", "uk_UA"],
         [:accept, "signed-init-data", "quote-1"],
         [:refresh, "signed-init-data", "order-1"]
       ],
       @service.requests
     )
+  end
+
+  def test_routes_administrator_product_creation
+    response = @client.post(
+      "/webapp/admin/products",
+      "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data",
+      "CONTENT_TYPE" => "application/json",
+      input: JSON.generate(
+        sku: "premium_12m",
+        attributes: {
+          short_name: "Premium · 12m",
+          status: "inactive",
+          position: 3,
+          marketable: true,
+          metadata: { family: "telegram_premium", duration_months: 12 }
+        },
+        localization: {
+          locale: "uk_UA",
+          full_name: "Telegram Premium на 12 місяців",
+          button_label: "Premium · 12 міс."
+        }
+      )
+    )
+
+    assert_equal 201, response.status, response.body
+    request = @service.requests.fetch(0)
+    assert_equal :create_admin_product, request.fetch(0)
+    assert_equal "signed-init-data", request.fetch(1)
+    assert_equal "premium_12m", request.fetch(2)
+    assert_equal "inactive", request.fetch(3).fetch("status")
+    assert_equal "uk_UA", request.fetch(4).fetch("locale")
   end
 
   def test_maps_invalid_telegram_sessions_to_unauthorized

@@ -35,10 +35,10 @@ export function createTelegramTransport({
       bootstrapPromise ||= requestDocument(`/bootstrap?${new URLSearchParams({ locale })}`);
       return bootstrapPromise;
     },
-    quote({ sku, locale }) {
+    quote({ sku, quantity, locale }) {
       return requestResource("/quotes", {
         method: "POST",
-        body: JSON.stringify({ sku, locale })
+        body: JSON.stringify({ sku, quantity, locale })
       });
     },
     acceptQuote({ quoteId }) {
@@ -73,6 +73,20 @@ export function createTelegramTransport({
     },
     listAdminProducts({ locale }) {
       return requestResource(`/admin/products?${new URLSearchParams({ locale })}`);
+    },
+    createAdminProduct({ sku, attributes, localization }) {
+      return requestResource("/admin/products", {
+        method: "POST",
+        body: JSON.stringify({
+          sku,
+          attributes,
+          localization: {
+            locale: localization.locale,
+            full_name: localization.fullName,
+            button_label: localization.buttonLabel
+          }
+        })
+      });
     },
     updateAdminProduct({ sku, version, attributes }) {
       return requestResource(`/admin/products/${encodeURIComponent(sku)}`, {

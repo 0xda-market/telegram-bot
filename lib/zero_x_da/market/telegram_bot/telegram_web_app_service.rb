@@ -37,21 +37,17 @@ module ZeroXDA::Market::TelegramBot
         )
       end
 
-      def quote(init_data:, sku:, locale:)
+      def quote(init_data:, sku:, quantity:, locale:)
         session, user = authenticate(init_data)
-        selected_locale = normalized_locale(locale)
-        catalog = @market_api.webapp_bootstrap(locale: selected_locale, currency: "USDT")
-        product = catalog.fetch("data").find { |entry| entry.fetch("id") == sku.to_s }
-        raise ArgumentError, "product is unavailable" unless product
-
-        _intent, quote = @purchase_flow.quote(
-          product: product,
+        quote = @purchase_flow.quote(
+          sku: sku,
+          quantity: quantity,
           user: user,
           telegram_user: session.user,
           chat: session.chat,
-          locale: selected_locale
+          locale: normalized_locale(locale)
         )
-        { "data" => quote, "meta" => { "snapshot_id" => catalog.dig("meta", "snapshot_id") } }
+        { "data" => quote }
       end
 
       def accept(init_data:, quote_id:)
@@ -107,6 +103,18 @@ module ZeroXDA::Market::TelegramBot
           "data" => @market_api.admin_products(
             actor_user_id: user.fetch("id"),
             locale: normalized_locale(locale)
+          )
+        }
+      end
+
+      def create_admin_product(init_data:, sku:, attributes:, localization:)
+        _session, user = authenticate(init_data)
+        {
+          "data" => @market_api.create_admin_product(
+            actor_user_id: user.fetch("id"),
+            sku: sku,
+            attributes: attributes,
+            localization: localization
           )
         }
       end
