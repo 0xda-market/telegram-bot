@@ -30,7 +30,7 @@ Every BFF request carries raw `Telegram.WebApp.initData` in `X-Telegram-Init-Dat
 
 Telegram supplies the raw user language through `initDataUnsafe.user.language_code`. The host passes that value to `webapp-core`, where `uk`, `uk-UA` and `uk_UA` resolve to `uk_UA`; unsupported locales fall back to `en_US`.
 
-The shared package owns reusable interface translations for Market, quantity-aware checkout, Listings, role navigation, Administration, Products and Prices. Product names remain core-owned localized data. Stable category identifiers remain unchanged, while the shared i18n layer renders human-readable labels such as `Криптоактиви` instead of `crypto_asset`.
+The shared package owns reusable interface translations for Market, quantity-aware checkout, payment-pending state, Listings, role navigation, Administration, Products and Prices. Product names remain core-owned localized data. Stable category identifiers remain unchanged, while the shared presentation layer renders human-readable labels such as `Криптоактиви` instead of `crypto_asset`.
 
 The adapter owns only the first frame before the immutable shared module has loaded. `shell-localization.js` applies the same Ukrainian or English loading copy immediately, preventing an English flash for Ukrainian users. After module import, the shared package becomes authoritative for all visible copy.
 
@@ -40,7 +40,7 @@ Every authenticated private-chat user receives a `web_app` launch action in the 
 
 This in-chat entry point is the baseline access path and does not depend on global Telegram menu-button registration. `REGISTER_TELEGRAM_WEBAPP=1` may still install the same URL as the global chat menu button, but that registration remains an optional deployment concern rather than a prerequisite for opening the Mini App.
 
-The legacy inline `/buy` callback remains compatible during migration. When connected to the new core contract it also uses the marketplace quote and order APIs, with quantity `1`.
+The legacy inline `/buy` callback remains compatible during migration. When connected to the payment-aware core contract it also uses the marketplace quote and order APIs, with quantity `1`, and stops at `payment_pending` rather than attempting fulfillment before payment.
 
 ## Role workspace contract
 
@@ -67,11 +67,17 @@ The BFF maps those operations to the liquidity-backed core endpoints:
 - `POST /v1/market/quotes`;
 - `POST /v1/market/quotes/:quote_id/accept`;
 - `GET /v1/market/orders/:order_id`;
-- `POST /v1/market/orders/:order_id/execute`.
+- `POST /v1/market/orders/:order_id/execute` only for eligible post-payment retries.
 
-Core owns product availability, listing allocation, inventory reservation, quote expiration, client pricing, order ownership and fulfillment state. The Telegram adapter does not select a broker, inspect supply economics, or calculate inventory balances.
+Quote acceptance now returns a `payment_pending` order. The Telegram adapter returns that resource unchanged and does not call execute. The shared UI renders the authoritative amount, currency and expiration from the core payment document, while inventory remains reserved.
 
-The shared UI keeps quantity editable only before a quote is created. Once core reserves inventory, the displayed total, currency and expiration are authoritative for that quote.
+Payment confirmation is not a Telegram browser operation. There is no `confirmPayment` transport method and no browser route that can assert success. A trusted payment-provider or operator adapter confirms payment directly against core. After confirmation, core commits inventory and starts provider-neutral fulfillment; the Mini App only refreshes the resulting order state.
+
+`PurchaseFlow#refresh` also returns a payment-pending order without execution. It may invoke the existing execute endpoint only after core reports an executable `accepted`, `pending` or retryable `failed` state.
+
+Core owns product availability, listing allocation, inventory reservation, quote expiration, client pricing, payment state, order ownership and fulfillment state. The Telegram adapter does not select a broker, inspect supply economics, calculate inventory balances or trust a browser payment claim.
+
+The shared UI keeps quantity editable only before a quote is created. Once core reserves inventory, the displayed total, payment terms and expiration are authoritative.
 
 ## Broker inventory contract
 
@@ -82,7 +88,9 @@ The signed listing lifecycle remains:
 - `PATCH /webapp/broker/listings/:listing_id`;
 - `DELETE /webapp/broker/listings/:listing_id`.
 
-Listing responses now include total, available, reserved and sold quantities. The browser renders those balances but never mutates them directly. Core enforces the inventory equation and rejects a total-quantity reduction below already reserved or sold inventory.
+Listing responses include total, available, reserved and sold quantities. The browser renders those balances but never mutates them directly. Core enforces the inventory equation and rejects a total-quantity reduction below already reserved or sold inventory.
+
+Unpaid accepted orders remain in `reserved_quantity`. They move to `sold_quantity` only after trusted payment confirmation.
 
 ## Administrator catalog contract
 
@@ -111,7 +119,7 @@ The proposal returns one monotonic revision for the current append-only price le
 
 Existing `/apply_price`, `/apply_prices`, `/rates` and `/set_rate` commands remain Telegram compatibility surfaces over the same core pricing model. They do not own a separate price store or currency-rate contract.
 
-Wallet, payout execution and automated settlement remain outside this purchase-cycle change.
+A real payment rail, payment instructions, wallet addresses, acquiring or blockchain callbacks, refunds, disputes, payout execution and automated settlement remain outside this adapter change.
 
 ## Immutable module dependency
 

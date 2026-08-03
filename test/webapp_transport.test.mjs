@@ -159,7 +159,7 @@ test("preserves price proposal metadata and submits its exact revision", async (
 
 test("pins and mounts the green marketplace package contract", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /0ebe26fa0e85cd9822a303f6e2043e372fb75b0e/);
+  assert.match(source, /5ae139977ad524ece1ef236ac6e17eb44bceea77/);
   assert.match(source, /localizeTelegramShell/);
   assert.match(source, /mountBrokerWorkspace/);
   assert.match(source, /mountAdminWorkspace/);
