@@ -5,10 +5,10 @@ require "minitest/autorun"
 class WebAppAdapterContractTest < Minitest::Test
   ROOT = File.expand_path("..", __dir__)
 
-  def test_entrypoint_delegates_to_one_pinned_localized_webapp_core_module
+  def test_entrypoint_delegates_to_one_pinned_marketplace_webapp_core_module
     source = File.read(File.join(ROOT, "webapp/app.js"))
 
-    assert_includes source, 'WEBAPP_CORE_REVISION = "13fc73578d572f93d0c8b4ef2f7f0f3693009e9c"'
+    assert_includes source, 'WEBAPP_CORE_REVISION = "0ebe26fa0e85cd9822a303f6e2043e372fb75b0e"'
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js"
     assert_includes source, "localizeTelegramShell(document, locale)"
     assert_includes source, "mountMarketApp({ host, transport, document })"
@@ -31,6 +31,9 @@ class WebAppAdapterContractTest < Minitest::Test
     assert_includes host, "Telegram"
     assert_includes transport, '"x-telegram-init-data"'
     assert_includes transport, "telegram?.initData"
+    assert_includes transport, "JSON.stringify({ sku, quantity, locale })"
+    assert_includes transport, "createAdminProduct"
+    refute_includes transport, "actor_user_id"
     assert_includes shell_localization, "Завантаження товарів…"
     assert_includes shell_localization, "Отримати ціну"
   end
