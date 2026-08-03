@@ -1,7 +1,19 @@
-.admin-products {
+.admin-products,
+.admin-create-product {
   display: grid;
   gap: 10px;
   padding-top: 4px;
+}
+.admin-create-product {
+  padding: 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--tg-theme-bg-color, #fff) 82%, transparent);
+}
+.admin-create-product > p,
+.admin-products > p {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--tg-theme-hint-color, #74777f);
 }
 .admin-products > select,
 .admin-product-form,
@@ -74,6 +86,13 @@
   .admin-products {
     grid-template-columns: minmax(170px, 0.7fr) minmax(260px, 1.3fr);
     align-items: start;
+  }
+  .admin-create-product .admin-product-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-create-product .admin-product-form > button,
+  .admin-create-product .admin-product-form > label:has(textarea) {
+    grid-column: 1 / -1;
   }
   .admin-products > h3,
   .admin-products > p,
