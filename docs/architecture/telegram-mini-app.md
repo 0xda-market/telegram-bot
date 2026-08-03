@@ -22,9 +22,17 @@ The Telegram adapter owns Telegram SDK initialization, locale, viewport, theme, 
 
 ## Bootstrap contract
 
-The bootstrap transport preserves the complete `{ data, meta }` document. `webapp-core` converts it into an explicit `{ catalog, session, currencies }` context. Resource transports unwrap their `data` resources. Durable writes always pass through verified Telegram authentication and the core API; no market state is authoritative in the browser.
+The bootstrap transport preserves the complete `{ data, meta }` document. `webapp-core` converts it into an explicit `{ catalog, locale, session, currencies }` context. Resource transports unwrap their `data` resources. Durable writes always pass through verified Telegram authentication and the core API; no market state is authoritative in the browser.
 
 Every BFF request carries raw `Telegram.WebApp.initData` in `X-Telegram-Init-Data`. The server validates the HMAC, age and verified Telegram user before market operations. The public session never exposes the internal market UUID or bot token.
+
+## Localization contract
+
+Telegram supplies the raw user language through `initDataUnsafe.user.language_code`. The host passes that value to `webapp-core`, where `uk`, `uk-UA` and `uk_UA` resolve to `uk_UA`; unsupported locales fall back to `en_US`.
+
+The shared package owns reusable interface translations for Market, checkout, Listings, role navigation, Administration, Products and Prices. Product names remain core-owned localized data. Stable category identifiers remain unchanged, while the shared i18n layer renders human-readable labels such as `Криптоактиви` instead of `crypto_asset`.
+
+The adapter owns only the first frame before the immutable shared module has loaded. `shell-localization.js` applies the same Ukrainian or English loading copy immediately, preventing an English flash for Ukrainian users. After module import, the shared package becomes authoritative for all visible copy.
 
 ## Entry-point contract
 
