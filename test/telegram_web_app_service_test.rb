@@ -27,12 +27,13 @@ class TelegramWebAppServiceTest < Minitest::Test
   end
 
   class Market
-    attr_reader :authentications, :bootstrap_requests, :listing_requests
+    attr_reader :authentications, :bootstrap_requests, :listing_requests, :admin_requests
 
     def initialize
       @authentications = []
       @bootstrap_requests = []
       @listing_requests = []
+      @admin_requests = []
     end
 
     def authenticate_telegram(user:, chat:)
@@ -100,13 +101,29 @@ class TelegramWebAppServiceTest < Minitest::Test
       listing.merge("attributes" => listing.fetch("attributes").merge("status" => "withdrawn", "version" => 2))
     end
 
+    def create_admin_product(**attributes)
+      @admin_requests << [:create_product, attributes]
+      {
+        "type" => "product",
+        "id" => attributes.fetch(:sku),
+        "attributes" => attributes.fetch(:attributes).merge("version" => 0)
+      }
+    end
+
     def listing
       {
         "type" => "broker_listing",
         "id" => "listing-1",
         "attributes" => {
-          "sku" => "btc", "quantity" => "0.25", "price_amount" => "65000",
-          "currency" => "USDT", "status" => "active", "version" => 0
+          "sku" => "btc",
+          "quantity" => "0.25",
+          "available_quantity" => "0.25",
+          "reserved_quantity" => "0",
+          "sold_quantity" => "0",
+          "price_amount" => "65000",
+          "currency" => "USDT",
+          "status" => "active",
+          "version" => 0
         }
       }
     end
@@ -121,18 +138,25 @@ class TelegramWebAppServiceTest < Minitest::Test
       @refreshes = []
     end
 
-    def quote(product:, user:, telegram_user:, chat:, locale:)
+    def quote(sku:, quantity:, user:, telegram_user:, chat:, locale:)
       @quotes << {
-        product: product,
+        sku: sku,
+        quantity: quantity,
         user: user,
         telegram_user: telegram_user,
         chat: chat,
         locale: locale
       }
-      [
-        { "id" => "intent-1" },
-        { "type" => "quote", "id" => "quote-1", "attributes" => { "expires_at" => "2026-07-31T18:00:00Z" } }
-      ]
+      {
+        "type" => "quote",
+        "id" => "quote-1",
+        "attributes" => {
+          "quantity" => quantity,
+          "total_price_usdt" => "26.50",
+          "currency" => "USDT",
+          "expires_at" => "2026-07-31T18:00:00Z"
+        }
+      }
     end
 
     def accept(quote_id:, user:)
@@ -175,25 +199,23 @@ class TelegramWebAppServiceTest < Minitest::Test
     assert_equal 1, @market.authentications.length
   end
 
-  def test_quote_revalidates_the_selected_product_against_a_fresh_complete_snapshot
-    document = @service.quote(init_data: "signed", sku: "premium_3m", locale: "uk_UA")
+  def test_quote_passes_exact_quantity_and_verified_identity_without_an_extra_catalog_read
+    document = @service.quote(
+      init_data: "signed",
+      sku: "premium_3m",
+      quantity: "2",
+      locale: "uk_UA"
+    )
 
     assert_equal "quote-1", document.dig("data", "id")
-    assert_equal "snapshot-1", document.dig("meta", "snapshot_id")
-    assert_equal "premium_3m", @purchase.quotes.first.dig(:product, "id")
+    assert_equal "2", document.dig("data", "attributes", "quantity")
+    assert_equal "premium_3m", @purchase.quotes.first.fetch(:sku)
+    assert_equal "2", @purchase.quotes.first.fetch(:quantity)
     assert_equal "internal-user-id", @purchase.quotes.first.dig(:user, "id")
-    assert_equal 1, @market.bootstrap_requests.length
+    assert_empty @market.bootstrap_requests
   end
 
-  def test_unknown_product_fails_before_creating_an_intent
-    assert_raises(ArgumentError) do
-      @service.quote(init_data: "signed", sku: "missing", locale: "uk_UA")
-    end
-
-    assert_empty @purchase.quotes
-  end
-
-  def test_accept_and_refresh_keep_purchase_ownership_checks_in_the_purchase_flow
+  def test_accept_and_refresh_use_the_verified_internal_user
     accepted = @service.accept(init_data: "signed", quote_id: "quote-1")
     refreshed = @service.refresh(init_data: "signed", order_id: "order-1")
 
@@ -224,5 +246,30 @@ class TelegramWebAppServiceTest < Minitest::Test
     assert_equal "internal-user-id", @market.listing_requests[1][1].fetch(:actor_user_id)
     assert_equal "internal-user-id", @market.listing_requests[2][1].fetch(:actor_user_id)
     assert_equal "internal-user-id", @market.listing_requests[3][1].fetch(:actor_user_id)
+  end
+
+  def test_product_creation_uses_the_verified_internal_administrator
+    document = @service.create_admin_product(
+      init_data: "signed",
+      sku: "premium_12m",
+      attributes: {
+        "short_name" => "Premium · 12m",
+        "status" => "inactive",
+        "position" => 3,
+        "marketable" => true,
+        "metadata" => { "family" => "telegram_premium", "duration_months" => 12 }
+      },
+      localization: {
+        "locale" => "uk_UA",
+        "full_name" => "Telegram Premium на 12 місяців",
+        "button_label" => "Premium · 12 міс."
+      }
+    )
+
+    assert_equal "premium_12m", document.dig("data", "id")
+    request = @market.admin_requests.first.fetch(1)
+    assert_equal "internal-user-id", request.fetch(:actor_user_id)
+    assert_equal "inactive", request.dig(:attributes, "status")
+    assert_equal "uk_UA", request.dig(:localization, "locale")
   end
 end
