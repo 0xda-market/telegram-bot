@@ -30,7 +30,7 @@ Every BFF request carries raw `Telegram.WebApp.initData` in `X-Telegram-Init-Dat
 
 Telegram supplies the raw user language through `initDataUnsafe.user.language_code`. The host passes that value to `webapp-core`, where `uk`, `uk-UA` and `uk_UA` resolve to `uk_UA`; unsupported locales fall back to `en_US`.
 
-The shared package owns reusable interface translations for Market, checkout, Listings, role navigation, Administration, Products and Prices. Product names remain core-owned localized data. Stable category identifiers remain unchanged, while the shared i18n layer renders human-readable labels such as `Криптоактиви` instead of `crypto_asset`.
+The shared package owns reusable interface translations for Market, quantity-aware checkout, Listings, role navigation, Administration, Products and Prices. Product names remain core-owned localized data. Stable category identifiers remain unchanged, while the shared i18n layer renders human-readable labels such as `Криптоактиви` instead of `crypto_asset`.
 
 The adapter owns only the first frame before the immutable shared module has loaded. `shell-localization.js` applies the same Ukrainian or English loading copy immediately, preventing an English flash for Ukrainian users. After module import, the shared package becomes authoritative for all visible copy.
 
@@ -39,6 +39,8 @@ The adapter owns only the first frame before the immutable shared module has loa
 Every authenticated private-chat user receives a `web_app` launch action in the `/start` and `/status` account card. The action opens the adapter-owned `/webapp/` URL derived from `PUBLIC_URL`; the verified session then selects the client, broker or admin workspace.
 
 This in-chat entry point is the baseline access path and does not depend on global Telegram menu-button registration. `REGISTER_TELEGRAM_WEBAPP=1` may still install the same URL as the global chat menu button, but that registration remains an optional deployment concern rather than a prerequisite for opening the Mini App.
+
+The legacy inline `/buy` callback remains compatible during migration. When connected to the new core contract it also uses the marketplace quote and order APIs, with quantity `1`.
 
 ## Role workspace contract
 
@@ -50,17 +52,52 @@ The Telegram host passes only the verified bootstrap context into the shared wor
 
 The host moves the broker workspace out of the market shell before mounting navigation so every section remains an independent surface. The navigation cannot grant capabilities: unavailable sections are filtered by the verified role inside `webapp-core`.
 
+## Marketplace checkout contract
+
+The client checkout uses three signed BFF operations:
+
+- `POST /webapp/quotes` with `sku`, `quantity` and `locale`;
+- `POST /webapp/quotes/:quote_id/accept`;
+- `GET /webapp/orders/:order_id`.
+
+The browser never sends `actor_user_id`. `TelegramWebAppService` verifies `initData`, authenticates the Telegram user through core, and supplies the stable internal UUID server-side.
+
+The BFF maps those operations to the liquidity-backed core endpoints:
+
+- `POST /v1/market/quotes`;
+- `POST /v1/market/quotes/:quote_id/accept`;
+- `GET /v1/market/orders/:order_id`;
+- `POST /v1/market/orders/:order_id/execute`.
+
+Core owns product availability, listing allocation, inventory reservation, quote expiration, client pricing, order ownership and fulfillment state. The Telegram adapter does not select a broker, inspect supply economics, or calculate inventory balances.
+
+The shared UI keeps quantity editable only before a quote is created. Once core reserves inventory, the displayed total, currency and expiration are authoritative for that quote.
+
+## Broker inventory contract
+
+The signed listing lifecycle remains:
+
+- `GET /webapp/broker/listings`;
+- `POST /webapp/broker/listings`;
+- `PATCH /webapp/broker/listings/:listing_id`;
+- `DELETE /webapp/broker/listings/:listing_id`.
+
+Listing responses now include total, available, reserved and sold quantities. The browser renders those balances but never mutates them directly. Core enforces the inventory equation and rejects a total-quantity reduction below already reserved or sold inventory.
+
 ## Administrator catalog contract
 
-The Products capability uses three signed BFF operations:
+The Products capability uses four signed BFF operations:
 
+- `POST /webapp/admin/products`;
 - `GET /webapp/admin/products`;
 - `PATCH /webapp/admin/products/:sku`;
 - `PUT /webapp/admin/products/:sku/localizations/:locale`.
 
-The browser submits product or localization versions, but never an actor UUID or role. `TelegramWebAppService` verifies `initData`, resolves the Telegram identity to the internal core user and supplies that UUID server-side. Core performs the definitive administrator check and optimistic-concurrency enforcement.
+Product creation submits the stable SKU, locale-neutral attributes and one initial localization. The shared controller always creates an `inactive` product; activation is a separate administrator edit after pricing and broker supply are ready.
 
-Product writes cannot alter SKU or price state. Localization writes are independent from product versions.
+The browser submits product or localization versions, but never an actor UUID or role. `TelegramWebAppService` verifies `initData`, resolves the Telegram identity to the internal core user and supplies that UUID server-side. Core performs the definitive administrator check, duplicate-SKU rejection and optimistic-concurrency enforcement.
+
+Product updates cannot alter SKU or price state. Localization writes are independent from product versions.
 
 ## Administrator pricing contract
 
@@ -74,7 +111,7 @@ The proposal returns one monotonic revision for the current append-only price le
 
 Existing `/apply_price`, `/apply_prices`, `/rates` and `/set_rate` commands remain Telegram compatibility surfaces over the same core pricing model. They do not own a separate price store or currency-rate contract.
 
-Wallet and automated settlement remain outside the pre-wallet administration sequence.
+Wallet, payout execution and automated settlement remain outside this purchase-cycle change.
 
 ## Immutable module dependency
 
