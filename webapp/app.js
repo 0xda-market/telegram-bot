@@ -1,7 +1,8 @@
 import { createTelegramHost } from "./adapter/telegram-host.js";
+import { localizeTelegramShell } from "./adapter/shell-localization.js";
 import { createTelegramTransport } from "./adapter/telegram-transport.js";
 
-const WEBAPP_CORE_REVISION = "92655b8985cfe39015d1db9b38f04304d15c979e";
+const WEBAPP_CORE_REVISION = "13fc73578d572f93d0c8b4ef2f7f0f3693009e9c";
 const runtime = globalThis.__ZERO_X_DA_MARKET__ || {};
 const webappCoreModuleUrl = runtime.webappCoreModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js`;
@@ -10,32 +11,34 @@ const apiBaseUrl = runtime.apiBaseUrl || ".";
 async function start() {
   const telegram = globalThis.Telegram?.WebApp;
   const host = createTelegramHost(telegram);
+  const locale = host.locale();
   const transport = createTelegramTransport({ telegram, apiBaseUrl });
-  const webappCore = await import(webappCoreModuleUrl);
 
   host.initialize();
+  localizeTelegramShell(document, locale);
+  const webappCore = await import(webappCoreModuleUrl);
   const app = await webappCore.mountMarketApp({ host, transport, document });
   const context = app.context();
   const marketRoot = document.querySelector("main");
-  const broker = await webappCore.mountBrokerWorkspace({ document, transport, ...app.context() });
+  const broker = await webappCore.mountBrokerWorkspace({ document, transport, ...context });
   if (broker?.root) document.body.append(broker.root);
   const admin = webappCore.mountAdminWorkspace({
     document,
     container: document.body,
     transport,
-    locale: host.locale(),
     ...context
   });
   await admin?.ready;
   const sections = [
-    { id: "market", label: "Market", root: marketRoot },
-    { id: "listings", label: "Listings", root: broker?.root },
-    { id: "admin", label: "Admin", root: admin?.root }
+    { id: "market", root: marketRoot },
+    { id: "listings", root: broker?.root },
+    { id: "admin", root: admin?.root }
   ].filter((entry) => entry.root);
 
   if (sections.length > 1) {
     webappCore.mountWorkspaceNavigation({
       document,
+      locale: context.locale,
       session: context.session,
       sections,
       selectionFeedback: () => host.selectionFeedback()
