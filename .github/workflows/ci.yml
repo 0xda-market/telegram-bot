@@ -23,8 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Run WebApp transport tests
-        run: node --test test/webapp_transport.test.mjs
+      - name: Run WebApp adapter tests
+        run: node --test test/*.test.mjs
       - name: Run tests
         id: tests
         run: |
