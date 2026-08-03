@@ -9,15 +9,17 @@ the supported deployment path.
 
 ## Current deployment contract
 
-Automated deployment is development-only:
+The repository has one `Deploy` workflow:
 
-| GitHub environment | Branch | Telegram bot | Runtime directory |
+| Invocation | Source | GitHub environment | Runtime directory |
 | --- | --- | --- | --- |
-| `development` | `master` | test bot | `environments/development` |
+| merged pull request into `master` | exact merge commit | `development` | `environments/development` |
+| manual dispatch | explicit branch, tag, or commit | `development` or `production` | matching environment directory |
 
-Production directories remain reserved, but the current workflow does not deploy
-`release*` or production. Enabling production requires a separate reviewed change
-paired with the core production workflow.
+Synchronizing an open pull request no longer creates a deployment run. Closing a
+pull request without merging skips the deploy job. A manual production deployment
+uses the protected `production` GitHub Environment and must remain paired with a
+compatible core production release.
 
 `DEPLOY_ENV` is the only runtime environment marker. It must match the runtime
 file and its VPS directory.
@@ -38,15 +40,17 @@ file and its VPS directory.
 /opt/0xda-market-runtime/active-environment
 ```
 
-The core repository owns the `Switch VPS Environment` controller. A bot deploy
-never switches the active environment by itself.
+The unified workflow stages an automatically merged development release, refreshes
+it when development is active, and force-activates the explicitly selected
+environment for a manual dispatch. There is no separate environment-switch
+workflow.
 
 The bot binds to `127.0.0.1:10001` for local smoke checks and exposes internal
 port `10000` as `market-bot` on the shared edge network.
 
-## GitHub development environment
+## GitHub environments
 
-Configure `development` with:
+Configure each available environment with:
 
 - secret `SSH_HOST`;
 - secret `SSH_USER` (`deploy`);
@@ -102,18 +106,26 @@ Webhook and Mini App menu registration remain separate reviewed operations.
 
 ## Deployment behavior
 
-After green CI, `master` stages or refreshes `development`.
+A merged pull request into `master` deploys its exact merge commit to
+`development`. Pull-request CI events are not deployment triggers.
 
-- an inactive release is built but not started;
+A manual run requires both:
+
+- `source_ref`: branch, tag, or commit to deploy;
+- `environment`: `development` or `production`.
+
+The selected reference is resolved to an immutable commit before upload.
+
+- an inactive automatic development release is built but not started;
 - the active development bot is refreshed and health-gated;
+- a manual run force-activates the selected environment;
 - a failed active refresh attempts to restart the previous release;
 - only the active bot joins the edge network with the `market-bot` alias;
 - deployment never changes DNS, Caddy routing, Telegram webhook state or
   Telegram Mini App menu settings.
 
-The core WebApp snapshot/runtime change must be deployed before this bot change,
-because `/bot/webapp/` imports `/webapp-core/index.js` and its BFF loads
-`/v1/webapp/bootstrap` from core.
+The matching core contract must be deployed before the bot adapter that consumes
+it.
 
 ## Smoke checks
 
@@ -168,7 +180,7 @@ journalctl -u 0xda-market-price-digest.service --since today
 ## Operations
 
 Reboot, HTTPS, health, logs, backups and rollback are documented centrally in
-`0xda-market/0xda-market`:
+`0xda-market/core`:
 
 - `deploy/vps/OPERATIONS.md`
 
