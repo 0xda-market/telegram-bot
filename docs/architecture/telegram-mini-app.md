@@ -56,7 +56,9 @@ The host moves the broker workspace out of the market shell before mounting navi
 
 The immutable shared module owns field semantics and keyboard visibility. Quantity, listing amount, client price and product position use native numeric inputs with decimal or integer `inputmode` as appropriate; identifiers remain text inputs. While a text field is focused, the shared handler follows `VisualViewport` changes and centers the field if the on-screen keyboard would cover it. This applies equally to checkout, broker and administrator surfaces, including fields mounted after bootstrap.
 
-The Telegram shell keeps numeric controls at a 16 px font size on coarse-pointer devices so iOS WebViews do not add a second focus zoom while the viewport is moving. Telegram SDK viewport callbacks remain responsible for catalog pagination only; they do not duplicate keyboard positioning logic.
+The Telegram shell keeps numeric controls at a 16 px font size on coarse-pointer devices so iOS WebViews do not add a second focus zoom while the viewport is moving. It also supplies one localized, touch-only confirmation control in the upper-right corner above the keyboard. The shared module positions that control at the visible viewport edge and blurs the active field when it is pressed; the action does not submit a form or invoke transport.
+
+Telegram SDK viewport callbacks remain responsible for catalog pagination only; they do not duplicate keyboard positioning logic.
 
 ## Marketplace checkout contract
 

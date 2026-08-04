@@ -16,6 +16,28 @@ button { cursor: pointer; }
   input[type="number"] { font-size: 16px; }
 }
 
+.keyboard-confirm {
+  position: fixed;
+  z-index: 100;
+  top: 100%;
+  right: max(10px, env(safe-area-inset-right));
+  transform: translateY(calc(-100% - 8px));
+  min-height: 38px;
+  border: 0;
+  border-radius: 11px;
+  padding: 0 14px;
+  color: var(--tg-theme-button-text-color, #fff);
+  background: var(--tg-theme-button-color, #2481cc);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.22);
+  font-size: 14px;
+  font-weight: 700;
+  touch-action: manipulation;
+}
+
+@media (pointer: fine) {
+  .keyboard-confirm { display: none !important; }
+}
+
 [data-loading="true"] {
   position: relative;
   pointer-events: none;

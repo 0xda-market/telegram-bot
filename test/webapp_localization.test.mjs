@@ -18,7 +18,7 @@ class Node {
 function shellDocument() {
   const selectors = [
     "#market-title", "#snapshot", "#search", "#category", "#status", "#products", ".navigation",
-    "#previous", "#next", "#home", "#close-dialog", "#checkout-action"
+    "#previous", "#next", "#home", "#close-dialog", "#checkout-action", "#keyboard-confirm"
   ];
   const nodes = Object.fromEntries(selectors.map((selector) => [selector, new Node()]));
   nodes["#category"].children.push(new Node());
@@ -49,6 +49,8 @@ test("localizes the first Telegram WebApp frame before the shared module loads",
   assert.equal(document.nodes["#status"].textContent, "Завантаження товарів…");
   assert.equal(document.nodes["#home"].textContent, "Категорії");
   assert.equal(document.nodes["#checkout-action"].textContent, "Отримати ціну");
+  assert.equal(document.nodes["#keyboard-confirm"].textContent, "Підтвердити");
+  assert.equal(document.nodes["#keyboard-confirm"].attributes["aria-label"], "Підтвердити");
   assert.equal(document.nodes[".navigation"].attributes["aria-label"], "Сторінки каталогу");
 });
 
@@ -57,4 +59,5 @@ test("keeps the static shell English for unsupported locales", () => {
   localizeTelegramShell(document, "de-DE");
   assert.equal(document.nodes["#market-title"].textContent, "Market");
   assert.equal(document.nodes["#search"].placeholder, "Search");
+  assert.equal(document.nodes["#keyboard-confirm"].textContent, "Confirm");
 });
