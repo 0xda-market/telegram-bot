@@ -2,10 +2,12 @@ import { createTelegramHost } from "./adapter/telegram-host.js";
 import { localizeTelegramShell } from "./adapter/shell-localization.js";
 import { createTelegramTransport } from "./adapter/telegram-transport.js";
 
-const WEBAPP_CORE_REVISION = "b6cdfdac446cfd11c97511c3ff994e554f74ab9d";
+const WEBAPP_CORE_REVISION = "6f8632de183e362bf62cfb9b6161ccb0f1298413";
 const runtime = globalThis.__ZERO_X_DA_MARKET__ || {};
 const webappCoreModuleUrl = runtime.webappCoreModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js`;
+const brokerOrdersModuleUrl = runtime.brokerOrdersModuleUrl ||
+  `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/broker-orders.js`;
 const apiBaseUrl = runtime.apiBaseUrl || ".";
 
 async function start() {
@@ -16,22 +18,26 @@ async function start() {
 
   host.initialize();
   localizeTelegramShell(document, locale);
-  const webappCore = await import(webappCoreModuleUrl);
+  const [webappCore, brokerOrdersModule] = await Promise.all([
+    import(webappCoreModuleUrl),
+    import(brokerOrdersModuleUrl)
+  ]);
   const app = await webappCore.mountMarketApp({ host, transport, document });
   const context = app.context();
   const marketRoot = document.querySelector("main");
   const broker = await webappCore.mountBrokerWorkspace({ document, transport, ...context });
   if (broker?.root) document.body.append(broker.root);
-  const admin = webappCore.mountAdminWorkspace({
+  const brokerOrders = await brokerOrdersModule.mountBrokerOrders({
     document,
-    container: document.body,
+    container: broker?.root || document.body,
     transport,
     ...context
   });
+  const admin = webappCore.mountAdminWorkspace({ document, container: document.body, transport, ...context });
   await admin?.ready;
   const sections = [
     { id: "market", root: marketRoot },
-    { id: "listings", root: broker?.root },
+    { id: "listings", root: broker?.root || brokerOrders?.root },
     { id: "admin", root: admin?.root }
   ].filter((entry) => entry.root);
 

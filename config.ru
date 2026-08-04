@@ -13,6 +13,9 @@ require_relative "lib/zero_x_da/market/telegram_bot/telegram_api"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_mini_app"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_web_app_auth"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_web_app_service"
+require_relative "lib/zero_x_da/market/telegram_bot/broker_order_notifier"
+require_relative "lib/zero_x_da/market/telegram_bot/broker_order_web_app_service"
+require_relative "lib/zero_x_da/market/telegram_bot/broker_order_mini_app"
 
 bot_token = ENV.fetch("TELEGRAM_BOT_TOKEN")
 public_url = ENV.fetch("PUBLIC_URL").delete_suffix("/")
@@ -35,10 +38,15 @@ web_app_auth = ZeroXDA::Market::TelegramBot::TelegramWebAppAuth.new(
   bot_token: bot_token,
   max_age_seconds: Integer(ENV.fetch("TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS", "3600"))
 )
+broker_order_notifier = ZeroXDA::Market::TelegramBot::BrokerOrderNotifier.new(
+  market_api: market_api,
+  telegram_api: telegram_api
+)
 web_app_service = ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(
   market_api: market_api,
   authentication: web_app_auth,
-  environment: ENV.fetch("DEPLOY_ENV", "development")
+  environment: ENV.fetch("DEPLOY_ENV", "development"),
+  broker_order_notifier: broker_order_notifier
 )
 mini_app = ZeroXDA::Market::TelegramBot::TelegramMiniApp.new(
   service: web_app_service,
