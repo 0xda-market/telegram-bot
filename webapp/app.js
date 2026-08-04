@@ -10,6 +10,11 @@ const brokerOrdersModuleUrl = runtime.brokerOrdersModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/broker-orders.js`;
 const apiBaseUrl = runtime.apiBaseUrl || ".";
 
+function revealApplication() {
+  document.body.classList.remove("app-booting");
+  document.body.removeAttribute("aria-busy");
+}
+
 async function start() {
   const telegram = globalThis.Telegram?.WebApp;
   const host = createTelegramHost(telegram);
@@ -51,6 +56,8 @@ async function start() {
     });
     document.body.classList.add("has-workspace-navigation");
   }
+
+  revealApplication();
 }
 
 start().catch((error) => {
@@ -59,4 +66,5 @@ start().catch((error) => {
     status.textContent = error.message;
     status.dataset.error = "true";
   }
+  revealApplication();
 });
