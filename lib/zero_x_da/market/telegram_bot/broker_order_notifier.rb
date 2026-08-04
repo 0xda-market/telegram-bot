@@ -21,11 +21,11 @@ module ZeroXDA::Market::TelegramBot
       @logger = logger
     end
 
-    def deliver(resource)
+    def deliver(resource, actor_user_id:)
       meta = resource.fetch("meta", {})
       event = meta["notification_event"]
       recipient_id = meta["notification_recipient_user_id"]
-      return resource unless meta["changed"] && event && recipient_id
+      return public_resource(resource) unless event && recipient_id
 
       profile = @market_api.active_users.find { |entry| entry.fetch("id") == recipient_id }
       attributes = profile&.fetch("attributes", {}) || {}
@@ -34,11 +34,13 @@ module ZeroXDA::Market::TelegramBot
 
       locale = String(attributes["language_code"]).downcase.start_with?("uk") ? "uk" : "en"
       order = resource.fetch("attributes")
-      text = COPY.fetch(event).fetch(locale).call(
-        order["product_name"] || order["sku"],
-        order["quantity"]
-      )
+      text = COPY.fetch(event).fetch(locale).call(order["product_name"] || order["sku"], order["quantity"])
       @telegram_api.send_message(chat_id: chat_id, text: text)
+      @market_api.acknowledge_broker_order_notification(
+        actor_user_id: actor_user_id,
+        order_id: resource.fetch("id"),
+        event: event
+      )
       public_resource(resource)
     rescue StandardError => error
       @logger.puts("broker order notification failed: #{error.class}: #{error.message}")
