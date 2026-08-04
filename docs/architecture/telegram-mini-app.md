@@ -52,6 +52,12 @@ The Telegram host passes only the verified bootstrap context into the shared wor
 
 The host moves the broker workspace out of the market shell before mounting navigation so every section remains an independent surface. The navigation cannot grant capabilities: unavailable sections are filtered by the verified role inside `webapp-core`.
 
+## Mobile input contract
+
+The immutable shared module owns field semantics and keyboard visibility. Quantity, listing amount, client price and product position use native numeric inputs with decimal or integer `inputmode` as appropriate; identifiers remain text inputs. While a text field is focused, the shared handler follows `VisualViewport` changes and centers the field if the on-screen keyboard would cover it. This applies equally to checkout, broker and administrator surfaces, including fields mounted after bootstrap.
+
+The Telegram shell keeps numeric controls at a 16 px font size on coarse-pointer devices so iOS WebViews do not add a second focus zoom while the viewport is moving. Telegram SDK viewport callbacks remain responsible for catalog pagination only; they do not duplicate keyboard positioning logic.
+
 ## Marketplace checkout contract
 
 The client checkout uses three signed BFF operations:
