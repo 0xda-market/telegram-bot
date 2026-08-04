@@ -22,7 +22,7 @@ The Telegram adapter owns Telegram SDK initialization, locale, viewport, theme, 
 
 ## Bootstrap contract
 
-The bootstrap transport preserves the complete `{ data, meta }` document. `webapp-core` converts it into an explicit `{ catalog, locale, session, currencies }` context. Resource transports unwrap their `data` resources. Durable writes always pass through verified Telegram authentication and the core API; no market state is authoritative in the browser.
+The bootstrap transport preserves the complete `{ data, meta }` document. `webapp-core` converts it into an explicit `{ catalog, locale, session, currencies }` context. Resource transports unwrap their `data` resources. Every successful Mini App `POST` document must first expose top-level `status: "ok"`. Durable writes always pass through verified Telegram authentication and the core API; no market state is authoritative in the browser.
 
 Every BFF request carries raw `Telegram.WebApp.initData` in `X-Telegram-Init-Data`. The server validates the HMAC, age and verified Telegram user before market operations. The public session never exposes the internal market UUID or bot token.
 
@@ -115,7 +115,9 @@ The Prices capability uses complete documents so proposal metadata is never disc
 - `POST /webapp/admin/prices`;
 - `GET /webapp/admin/prices/history`.
 
-The proposal returns one monotonic revision for the current append-only price ledger. The browser submits that exact revision with one complete application covering active products and currencies. Core rejects a stale revision before appending any row. The BFF resolves the administrator UUID only after signed Telegram authentication; the browser sends neither an actor UUID nor a trusted role.
+The proposal returns one monotonic revision for the current append-only price ledger. The browser submits that exact revision with only the fields changed since the proposal loaded. Core appends the submitted subset as one atomic batch and rejects a stale revision before appending any row; unrelated unpriced products do not block the save. The BFF resolves the administrator UUID only after signed Telegram authentication; the browser sends neither an actor UUID nor a trusted role.
+
+Rejected Mini App POSTs use top-level `status: "error"` alongside the existing error code and message. The Telegram transport rejects a successful POST document that omits `status`. While a write is pending, `webapp-core` marks the complete owning section inert and `aria-busy`, and this host renders that shared loading state with a visible spinner.
 
 Existing `/apply_price`, `/apply_prices`, `/rates` and `/set_rate` commands remain Telegram compatibility surfaces over the same core pricing model. They do not own a separate price store or currency-rate contract.
 

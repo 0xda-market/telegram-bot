@@ -71,17 +71,17 @@ module ZeroXDA::Market::TelegramBot
 
         return static_asset(request, environment) if request.get? || request.head?
 
-        json_response(404, error: "not_found")
+        json_response(404, status: "error", error: "not_found")
       rescue TelegramWebAppAuth::Invalid => error
-        json_response(401, error: "invalid_telegram_session", message: error.message)
+        json_response(401, status: "error", error: "invalid_telegram_session", message: error.message)
       rescue PurchaseFlow::AccessDenied => error
-        json_response(403, error: "access_denied", message: error.message)
+        json_response(403, status: "error", error: "access_denied", message: error.message)
       rescue PurchaseFlow::UnpricedProduct, ArgumentError => error
-        json_response(422, error: "invalid_request", message: error.message)
+        json_response(422, status: "error", error: "invalid_request", message: error.message)
       rescue MarketAPI::Error => error
-        json_response(error.status, error: error.code, message: error.message)
+        json_response(error.status, status: "error", error: error.code, message: error.message)
       rescue JSON::ParserError
-        json_response(400, error: "invalid_json")
+        json_response(400, status: "error", error: "invalid_json")
       end
 
       private
@@ -102,13 +102,13 @@ module ZeroXDA::Market::TelegramBot
           quantity: body.fetch("quantity", 1),
           locale: body["locale"]
         )
-        json_document(201, document)
+        post_document(201, document)
       end
 
       def accept(request, quote_id)
         request_document(request, allow_empty: true)
         document = @service.accept(init_data: init_data(request), quote_id: quote_id)
-        json_document(201, document)
+        post_document(201, document)
       end
 
       def refresh(request, order_id)
@@ -129,7 +129,7 @@ module ZeroXDA::Market::TelegramBot
           price_amount: body.fetch("price_amount"),
           currency: body.fetch("currency")
         )
-        json_document(201, document)
+        post_document(201, document)
       end
 
       def update_broker_listing(request, listing_id)
@@ -171,7 +171,7 @@ module ZeroXDA::Market::TelegramBot
           attributes: body.fetch("attributes"),
           localization: body.fetch("localization")
         )
-        json_document(201, document)
+        post_document(201, document)
       end
 
       def update_admin_product(request, sku)
@@ -221,7 +221,7 @@ module ZeroXDA::Market::TelegramBot
           revision: body.fetch("revision"),
           prices: body.fetch("prices")
         )
-        json_document(201, document)
+        post_document(201, document)
       end
 
       def init_data(request)
@@ -262,7 +262,7 @@ module ZeroXDA::Market::TelegramBot
         path = request.path_info.delete_prefix("/webapp")
         path = "/index.html" if path.empty? || path == "/"
         status, headers, body = @files.call(environment.merge("PATH_INFO" => path))
-        return json_response(404, error: "not_found") unless status == 200
+        return json_response(404, status: "error", error: "not_found") unless status == 200
 
         cache_control = path == "/index.html" ? "no-store" : ASSET_CACHE
         [
@@ -278,6 +278,10 @@ module ZeroXDA::Market::TelegramBot
 
       def json_document(status, document)
         [status, JSON_HEADERS, [JSON.generate(document)]]
+      end
+
+      def post_document(status, document)
+        json_document(status, { "status" => "ok" }.merge(document))
       end
 
       def json_response(status, **document)

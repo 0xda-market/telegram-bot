@@ -155,8 +155,10 @@ class TelegramMiniAppTest < Minitest::Test
     )
 
     assert_equal 201, quote.status
+    assert_equal "ok", JSON.parse(quote.body).fetch("status")
     assert_equal "2", JSON.parse(quote.body).dig("data", "attributes", "quantity")
     assert_equal 201, accepted.status
+    assert_equal "ok", JSON.parse(accepted.body).fetch("status")
     assert_equal 200, refreshed.status
     assert_equal(
       [
@@ -191,6 +193,7 @@ class TelegramMiniAppTest < Minitest::Test
     )
 
     assert_equal 201, response.status, response.body
+    assert_equal "ok", JSON.parse(response.body).fetch("status")
     request = @service.requests.fetch(0)
     assert_equal :create_admin_product, request.fetch(0)
     assert_equal "signed-init-data", request.fetch(1)
@@ -237,6 +240,7 @@ class TelegramMiniAppTest < Minitest::Test
 
     assert_equal 200, listed.status
     assert_equal 201, created.status
+    assert_equal "ok", JSON.parse(created.body).fetch("status")
     assert_equal 200, updated.status
     assert_equal 200, withdrawn.status
     assert_equal [:broker_listings, "signed-init-data"], @service.requests[0]
