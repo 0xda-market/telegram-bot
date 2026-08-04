@@ -12,6 +12,10 @@ button, input, select { font: inherit; }
 button { cursor: pointer; }
 [hidden] { display: none !important; }
 
+@media (pointer: coarse) {
+  input[type="number"] { font-size: 16px; }
+}
+
 [data-loading="true"] {
   position: relative;
   pointer-events: none;

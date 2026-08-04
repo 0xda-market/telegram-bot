@@ -8,7 +8,7 @@ class WebAppAdapterContractTest < Minitest::Test
   def test_entrypoint_delegates_to_one_pinned_marketplace_webapp_core_module
     source = File.read(File.join(ROOT, "webapp/app.js"))
 
-    assert_includes source, 'WEBAPP_CORE_REVISION = "77d88e122296c6fcef5d133328614cb3c23b60a9"'
+    assert_includes source, 'WEBAPP_CORE_REVISION = "b43051e115b9b82c9afb542451cd0abd9d44f188"'
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js"
     assert_includes source, "localizeTelegramShell(document, locale)"
     assert_includes source, "mountMarketApp({ host, transport, document })"
@@ -21,6 +21,10 @@ class WebAppAdapterContractTest < Minitest::Test
     refute_includes source, "/web-app/index.js"
     refute_includes source, "new CheckoutController"
     refute_includes source, "new CatalogStore"
+
+    styles = File.read(File.join(ROOT, "webapp/styles.css"))
+    assert_includes styles, 'input[type="number"]'
+    assert_includes styles, "font-size: 16px"
   end
 
   def test_telegram_specifics_stay_in_adapter
