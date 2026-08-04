@@ -101,4 +101,7 @@
   .admin-localization-list {
     grid-column: 1 / -1;
   }
+  .admin-localizations .admin-localization-form {
+    grid-column: 1 / -1;
+  }
 }

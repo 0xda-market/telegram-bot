@@ -28,7 +28,7 @@ test("adapts quantity checkout and broker listing resources", async () => {
     telegram: { initData: "signed" },
     fetchImpl: async (url, options) => {
       calls.push([url, options]);
-      return response({ data: resource });
+      return response({ status: "ok", data: resource });
     }
   });
 
@@ -55,7 +55,7 @@ test("adapts administrator creation and editing without exposing the actor UUID"
     telegram: { initData: "signed" },
     fetchImpl: async (url, options = {}) => {
       calls.push([url, options]);
-      return response({ data: url.includes("?locale=") ? [resource] : resource });
+      return response({ status: "ok", data: url.includes("?locale=") ? [resource] : resource });
     }
   });
 
@@ -129,7 +129,7 @@ test("preserves price proposal metadata and submits its exact revision", async (
       calls.push([url, options]);
       if (url.includes("/proposal")) return response(proposal);
       if (url.includes("/history")) return response(history);
-      return response({ data: [], meta: { revision: 9 } }, { status: 201 });
+      return response({ status: "ok", data: [], meta: { revision: 9 } }, { status: 201 });
     }
   });
 
@@ -157,9 +157,21 @@ test("preserves price proposal metadata and submits its exact revision", async (
   assert.equal(calls.some(([, options]) => String(options.body || "").includes("actor_user_id")), false);
 });
 
+test("rejects a successful POST document without the required status", async () => {
+  const transport = createTelegramTransport({
+    telegram: { initData: "signed" },
+    fetchImpl: async () => response({ data: { type: "quote", id: "quote-1", attributes: {} } }, { status: 201 })
+  });
+
+  await assert.rejects(
+    () => transport.quote({ sku: "premium_3m", quantity: "1", locale: "uk_UA" }),
+    /POST response is missing status/
+  );
+});
+
 test("pins and mounts the green marketplace package contract", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /5ae139977ad524ece1ef236ac6e17eb44bceea77/);
+  assert.match(source, /77d88e122296c6fcef5d133328614cb3c23b60a9/);
   assert.match(source, /localizeTelegramShell/);
   assert.match(source, /mountBrokerWorkspace/);
   assert.match(source, /mountAdminWorkspace/);

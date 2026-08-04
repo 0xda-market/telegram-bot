@@ -21,6 +21,9 @@ export function createTelegramTransport({
     });
     const document = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(document.message || document.error || `HTTP ${response.status}`);
+    if (String(options.method || "GET").toUpperCase() === "POST" && typeof document.status !== "string") {
+      throw new Error("Web App POST response is missing status.");
+    }
     return document;
   }
 

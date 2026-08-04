@@ -97,6 +97,7 @@ class TelegramAdminPricingTest < Minitest::Test
     assert_equal 7, JSON.parse(proposal.body).dig("meta", "revision")
     assert_equal 200, history.status, history.body
     assert_equal 201, applied.status, applied.body
+    assert_equal "ok", JSON.parse(applied.body).fetch("status")
     assert_equal 9, JSON.parse(applied.body).dig("meta", "revision")
     assert_equal [:proposal, "signed-init-data", "uk_UA"], @service.requests[0]
     assert_equal [:history, "signed-init-data", "12"], @service.requests[1]

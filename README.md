@@ -124,6 +124,10 @@ The Mini App imports `webapp-core` from an exact reviewed Git commit. Opening th
 Mini App makes exactly one complete catalog bootstrap request and stores the complete
 product array as an immutable snapshot.
 
+Successful Mini App POST responses include top-level `status: "ok"`; failures include
+`status: "error"`. The browser verifies that contract and makes the complete owning
+section inert with a visible loading state until each write settles.
+
 ```text
 open Mini App
   -> GET /webapp/bootstrap once
