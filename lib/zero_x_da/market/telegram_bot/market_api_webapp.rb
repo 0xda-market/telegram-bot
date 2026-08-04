@@ -34,14 +34,17 @@ module ZeroXDA::Market::TelegramBot
     end
 
     def complete_broker_order(actor_user_id:, order_id:, version:, reference: nil, data: {})
-      document = post(
+      post(
         "v1/broker/orders/#{resource_id(order_id)}/complete",
-        actor_user_id: actor_user_id,
-        version: version,
-        reference: reference,
-        data: data
-      )
-      document.fetch("data")
+        actor_user_id: actor_user_id, version: version, reference: reference, data: data
+      ).fetch("data")
+    end
+
+    def acknowledge_broker_order_notification(actor_user_id:, order_id:, event:)
+      post(
+        "v1/broker/orders/#{resource_id(order_id)}/notifications/#{resource_id(event)}/ack",
+        actor_user_id: actor_user_id
+      ).fetch("data")
     end
 
     def admin_products(actor_user_id:, locale: "en_US")
