@@ -171,7 +171,7 @@ test("rejects a successful POST document without the required status", async () 
 
 test("pins and mounts the green marketplace package contract", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /b43051e115b9b82c9afb542451cd0abd9d44f188/);
+  assert.match(source, /b6cdfdac446cfd11c97511c3ff994e554f74ab9d/);
   assert.match(source, /localizeTelegramShell/);
   assert.match(source, /mountBrokerWorkspace/);
   assert.match(source, /mountAdminWorkspace/);

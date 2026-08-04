@@ -8,7 +8,7 @@ class WebAppAdapterContractTest < Minitest::Test
   def test_entrypoint_delegates_to_one_pinned_marketplace_webapp_core_module
     source = File.read(File.join(ROOT, "webapp/app.js"))
 
-    assert_includes source, 'WEBAPP_CORE_REVISION = "b43051e115b9b82c9afb542451cd0abd9d44f188"'
+    assert_includes source, 'WEBAPP_CORE_REVISION = "b6cdfdac446cfd11c97511c3ff994e554f74ab9d"'
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js"
     assert_includes source, "localizeTelegramShell(document, locale)"
     assert_includes source, "mountMarketApp({ host, transport, document })"
@@ -25,6 +25,13 @@ class WebAppAdapterContractTest < Minitest::Test
     styles = File.read(File.join(ROOT, "webapp/styles.css"))
     assert_includes styles, 'input[type="number"]'
     assert_includes styles, "font-size: 16px"
+    assert_includes styles, ".keyboard-confirm"
+    assert_includes styles, "@media (pointer: fine)"
+
+    html = File.read(File.join(ROOT, "webapp/index.html"))
+    assert_includes html, 'id="keyboard-confirm"'
+    assert_includes html, "data-mobile-input-confirm"
+    assert_includes html, "hidden"
   end
 
   def test_telegram_specifics_stay_in_adapter
@@ -41,5 +48,6 @@ class WebAppAdapterContractTest < Minitest::Test
     refute_includes transport, "actor_user_id"
     assert_includes shell_localization, "Завантаження товарів…"
     assert_includes shell_localization, "Отримати ціну"
+    assert_includes shell_localization, "Підтвердити"
   end
 end

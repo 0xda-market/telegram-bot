@@ -13,7 +13,8 @@ const COPY = Object.freeze({
     next: "Next page",
     categories: "Categories",
     close: "Close",
-    requestQuote: "Request quote"
+    requestQuote: "Request quote",
+    confirmInput: "Confirm"
   }),
   uk: Object.freeze({
     lang: "uk",
@@ -29,7 +30,8 @@ const COPY = Object.freeze({
     next: "Наступна сторінка",
     categories: "Категорії",
     close: "Закрити",
-    requestQuote: "Отримати ціну"
+    requestQuote: "Отримати ціну",
+    confirmInput: "Підтвердити"
   })
 });
 
@@ -65,5 +67,7 @@ export function localizeTelegramShell(document, locale) {
   text("#home", copy.categories);
   attribute("#close-dialog", "aria-label", copy.close);
   text("#checkout-action", copy.requestQuote);
+  text("#keyboard-confirm", copy.confirmInput);
+  attribute("#keyboard-confirm", "aria-label", copy.confirmInput);
   return copy.lang;
 }
