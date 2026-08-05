@@ -16,8 +16,9 @@ test("keeps the application hidden until role workspaces and navigation are read
   assert.ok(app.indexOf("mountWorkspaceNavigation") < app.indexOf("revealApplication();\n}"));
 });
 
-test("reveals an actionable error state when bootstrap fails", () => {
+test("keeps the atomic shell visible and marks it as failed when startup exhausts retries", () => {
   assert.match(app, /start\(\)\.catch/);
-  assert.match(app, /status\.dataset\.error = "true"/);
-  assert.match(app, /revealApplication\(\);\n}\);/);
+  assert.match(app, /node\.dataset\.error = error \? "true" : "false"/);
+  assert.match(app, /Could not load\. Reopen the app\./);
+  assert.doesNotMatch(app, /start\(\)\.catch[\s\S]*revealApplication\(\)/);
 });
