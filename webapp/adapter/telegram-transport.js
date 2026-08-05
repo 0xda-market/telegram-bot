@@ -25,7 +25,17 @@ export function createTelegramTransport({
     return document.data;
   }
   return {
-    bootstrap({ locale }) { bootstrapPromise ||= requestDocument(`/bootstrap?${new URLSearchParams({ locale })}`); return bootstrapPromise; },
+    bootstrap({ locale }) {
+      bootstrapPromise ||= requestDocument(`/bootstrap?${new URLSearchParams({ locale })}`)
+        .catch((error) => {
+          bootstrapPromise = undefined;
+          throw error;
+        });
+      return bootstrapPromise;
+    },
+    reportRuntimeEvent(event) {
+      return requestDocument("/runtime-events", { method: "POST", body: JSON.stringify(event) });
+    },
     quote({ sku, quantity, locale }) { return requestResource("/quotes", { method: "POST", body: JSON.stringify({ sku, quantity, locale }) }); },
     acceptQuote({ quoteId }) { return requestResource(`/quotes/${encodeURIComponent(quoteId)}/accept`, { method: "POST", body: "{}" }); },
     refreshOrder({ orderId }) { return requestResource(`/orders/${encodeURIComponent(orderId)}`); },
