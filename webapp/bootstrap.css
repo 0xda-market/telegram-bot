@@ -13,19 +13,25 @@ body.app-booting > :not(#bootstrap-shell):not(script) {
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   min-height: 100vh;
-  padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
-  color: var(--tg-theme-hint-color, #74777f);
-  background: var(--tg-theme-secondary-bg-color, #f3f4f6);
+  min-height: 100dvh;
+  min-height: var(--tg-viewport-stable-height, 100dvh);
+  padding: max(var(--space-5), env(safe-area-inset-top)) var(--space-5) max(var(--space-5), env(safe-area-inset-bottom));
+  color: var(--text-secondary);
+  background: var(--surface-base);
   font-size: 13px;
+}
+
+.bootstrap-shell p[data-error="true"] {
+  color: var(--semantic-danger);
 }
 
 .bootstrap-spinner {
   width: 26px;
   height: 26px;
-  border: 3px solid color-mix(in srgb, var(--tg-theme-button-color, #2481cc) 24%, transparent);
-  border-top-color: var(--tg-theme-button-color, #2481cc);
+  border: 3px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: bootstrap-spin 700ms linear infinite;
 }
@@ -36,4 +42,8 @@ body:not(.app-booting) .bootstrap-shell {
 
 @keyframes bootstrap-spin {
   to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bootstrap-spinner { animation-duration: 1400ms; }
 }

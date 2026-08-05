@@ -1,16 +1,46 @@
+/*
+ * Layout, geometry and typography for the Telegram shell.
+ *
+ * Fluid material for the workspace navigation and the keyboard confirmation
+ * control lives in fluid-controls.css. This file positions and sizes those two
+ * controls; it never declares their background, border, shadow or filter.
+ */
+
 :root {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: var(--tg-theme-text-color, #111318);
-  background: var(--tg-theme-secondary-bg-color, #f3f4f6);
+  color: var(--text-primary);
+  background: var(--surface-base);
   font-synthesis: none;
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; background: inherit; }
-body.has-workspace-navigation { padding-bottom: calc(74px + env(safe-area-inset-bottom)); }
-button, input, select { font: inherit; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-height: var(--tg-viewport-stable-height, 100dvh);
+  background: inherit;
+}
+body.has-workspace-navigation { padding-bottom: calc(var(--workspace-bar-space) + env(safe-area-inset-bottom)); }
+button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 [hidden] { display: none !important; }
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Money, quantities, balances and revisions stay column-aligned. */
+.product-price,
+.dialog-price,
+.snapshot,
+.broker-listing-inventory,
+.admin-capability-metric,
+.admin-price-row input,
+.checkout-quantity-field input {
+  font-variant-numeric: tabular-nums;
+}
 
 @media (pointer: coarse) {
   input[type="number"] { font-size: 16px; }
@@ -21,22 +51,14 @@ button { cursor: pointer; }
   z-index: 100;
   top: 100%;
   right: max(10px, env(safe-area-inset-right));
-  transform: translateY(calc(-100% - 8px));
-  min-height: 38px;
-  border: 0;
-  border-radius: 11px;
-  padding: 0 14px;
-  color: var(--tg-theme-button-text-color, #fff);
-  background: var(--tg-theme-button-color, #2481cc);
-  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.22);
-  font-size: 14px;
+  transform: translateY(calc(-100% - var(--space-2)));
+  min-width: 148px;
+  min-height: var(--target-min);
+  padding: 0 var(--space-5);
+  font-size: 15px;
   font-weight: 700;
+  letter-spacing: -0.01em;
   touch-action: manipulation;
-}
-
-body:has(.keyboard-confirm:not([hidden])) .workspace-navigation {
-  visibility: hidden;
-  pointer-events: none;
 }
 
 @media (pointer: fine) {
@@ -53,12 +75,12 @@ body:has(.keyboard-confirm:not([hidden])) .workspace-navigation {
   content: "";
   position: absolute;
   z-index: 30;
-  top: 14px;
-  right: 14px;
+  top: var(--space-3);
+  right: var(--space-3);
   width: 18px;
   height: 18px;
-  border: 2px solid color-mix(in srgb, var(--tg-theme-button-color, #2481cc) 28%, transparent);
-  border-top-color: var(--tg-theme-button-color, #2481cc);
+  border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: section-loading 700ms linear infinite;
 }
@@ -69,43 +91,52 @@ body:has(.keyboard-confirm:not([hidden])) .workspace-navigation {
 
 .shell {
   min-height: 100vh;
-  padding: max(14px, env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom));
+  min-height: 100dvh;
+  min-height: var(--tg-viewport-stable-height, 100dvh);
+  padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-3) max(var(--space-4), env(safe-area-inset-bottom));
   display: grid;
   grid-template-rows: auto auto auto 1fr auto;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .header, .controls, .navigation {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 h1, h2, p { margin: 0; }
 h1 { font-size: 30px; letter-spacing: -0.04em; }
-.eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--tg-theme-hint-color, #74777f); }
-.snapshot { font-size: 11px; padding: 7px 9px; border-radius: 999px; color: var(--tg-theme-hint-color, #74777f); background: var(--tg-theme-bg-color, #fff); }
+.eyebrow { font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.snapshot {
+  font-size: 11px;
+  padding: 7px 9px;
+  border-radius: var(--radius-pill);
+  color: var(--text-secondary);
+  background: var(--surface-raised);
+}
 
 .controls { align-items: stretch; }
 .controls input, .controls select {
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 22%, transparent);
-  border-radius: 12px;
-  padding: 10px 12px;
-  color: var(--tg-theme-text-color, #111318);
-  background: var(--tg-theme-bg-color, #fff);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-control);
+  padding: 10px var(--space-3);
+  color: var(--text-primary);
+  background: var(--surface-recessed);
 }
 .controls input { flex: 1; }
 .controls select { max-width: 38%; }
-.status { min-height: 18px; font-size: 12px; color: var(--tg-theme-hint-color, #74777f); }
-.status[data-error="true"] { color: var(--tg-theme-destructive-text-color, #d14b42); }
+.controls input:focus, .controls select:focus { border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-hairline)); }
+.status { min-height: 18px; font-size: 12px; color: var(--text-secondary); }
+.status[data-error="true"] { color: var(--semantic-danger); }
 
 .products {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-template-rows: repeat(3, minmax(86px, 1fr));
-  gap: 8px;
+  gap: var(--space-2);
   align-content: stretch;
   min-height: 0;
 }
@@ -118,60 +149,106 @@ h1 { font-size: 30px; letter-spacing: -0.04em; }
   align-items: flex-start;
   justify-content: space-between;
   gap: 6px;
-  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 18%, transparent);
-  border-radius: 16px;
-  color: var(--tg-theme-text-color, #111318);
-  background: var(--tg-theme-bg-color, #fff);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-card);
+  color: var(--text-primary);
+  background: var(--surface-raised);
+  box-shadow: 0 6px 16px rgb(0 0 0 / 0.24), inset 0 1px 0 var(--edge-hairline);
   text-align: left;
+  transition:
+    transform var(--motion-press) var(--ease-viscous),
+    box-shadow var(--motion-press) var(--ease-viscous),
+    border-color var(--motion-state) ease;
 }
-.product:active { transform: scale(0.985); }
+/* Pressed surfaces move inward and compress their shadow. No spring return. */
+.product:active {
+  transform: translateY(1px) scale(0.985);
+  border-color: var(--edge-highlight);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.3), inset 0 1px 0 var(--edge-hairline);
+}
 .product:disabled { opacity: 0.45; cursor: default; }
-.product-category { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.09em; color: var(--tg-theme-hint-color, #74777f); }
+.product-category { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-muted); }
 .product strong { font-size: 14px; line-height: 1.15; }
-.product-price { font-size: 12px; color: var(--tg-theme-subtitle-text-color, var(--tg-theme-hint-color, #74777f)); }
+.product-price { font-size: 12px; color: var(--text-secondary); }
 
 .navigation {
   position: sticky;
   bottom: max(6px, env(safe-area-inset-bottom));
   padding: 6px;
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--tg-theme-bg-color, #fff) 88%, transparent);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--surface-base) 88%, transparent);
   backdrop-filter: blur(16px);
 }
-.navigation button, .primary-action {
-  min-height: 42px;
-  border: 0;
-  border-radius: 12px;
-  padding: 0 16px;
-  color: var(--tg-theme-button-text-color, #fff);
-  background: var(--tg-theme-button-color, #2481cc);
+/* Catalog paging is secondary navigation: matte, not a primary command. */
+.navigation button {
+  min-height: var(--target-min);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-4);
+  color: var(--text-primary);
+  background: var(--surface-raised);
+}
+/* Only one fixed control plane may occupy the bottom edge: catalog paging
+   moves above the workspace bar rather than under it. */
+body.has-workspace-navigation .navigation {
+  bottom: calc(var(--workspace-bar-space) + env(safe-area-inset-bottom));
 }
 .navigation button:first-child, .navigation button:last-child { min-width: 50px; }
 .navigation button:disabled, .primary-action:disabled { opacity: 0.3; cursor: default; }
 
-::backdrop { background: rgba(0,0,0,0.42); backdrop-filter: blur(7px); }
-dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; padding: 0; color: inherit; background: transparent; }
-.dialog-card { position: relative; display: grid; gap: 14px; padding: 22px; border-radius: 22px; background: var(--tg-theme-bg-color, #fff); }
-.dialog-close { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; border: 0; border-radius: 50%; color: inherit; background: var(--tg-theme-secondary-bg-color, #f3f4f6); font-size: 22px; }
+.primary-action {
+  width: 100%;
+  min-height: var(--target-min);
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-4);
+  color: var(--accent-text);
+  background: var(--accent);
+  font-weight: 700;
+}
+
+::backdrop { background: rgb(0 0 0 / 0.52); backdrop-filter: blur(7px); }
+dialog { width: min(calc(100% - var(--space-5)), 460px); border: 0; border-radius: 22px; padding: 0; color: inherit; background: transparent; }
+.dialog-card {
+  position: relative;
+  display: grid;
+  gap: var(--space-4);
+  padding: 22px;
+  border: 1px solid var(--edge-hairline);
+  border-radius: 22px;
+  color: var(--text-primary);
+  background: var(--surface-floating);
+}
+.dialog-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: var(--target-min);
+  height: var(--target-min);
+  border: 0;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  background: transparent;
+  font-size: 22px;
+}
 .dialog-price { font-size: 21px; font-weight: 800; }
-.dialog-status { min-height: 38px; font-size: 13px; color: var(--tg-theme-hint-color, #74777f); }
+.dialog-status { min-height: 38px; font-size: 13px; color: var(--text-secondary); }
 .checkout-quantity-field {
   display: grid;
   gap: 6px;
   font-size: 12px;
-  color: var(--tg-theme-hint-color, #74777f);
+  color: var(--text-secondary);
 }
 .checkout-quantity-field input {
   width: 100%;
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 22%, transparent);
-  border-radius: 12px;
-  padding: 11px 12px;
-  color: var(--tg-theme-text-color, #111318);
-  background: var(--tg-theme-secondary-bg-color, #f3f4f6);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-control);
+  padding: 11px var(--space-3);
+  color: var(--text-primary);
+  background: var(--surface-recessed);
 }
 .checkout-quantity-field input:disabled { opacity: 0.55; }
-.primary-action { width: 100%; font-weight: 700; }
 
 @media (orientation: landscape) {
   .shell { grid-template-rows: auto auto auto 1fr auto; }
@@ -187,32 +264,33 @@ dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; p
 }
 
 .broker-workspace, .admin-workspace {
-  margin: max(14px, env(safe-area-inset-top)) 12px 18px;
+  margin: max(var(--space-4), env(safe-area-inset-top)) var(--space-3) 18px;
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
 }
 .broker-workspace form, .broker-listing, .admin-capability {
   display: grid;
   gap: 10px;
-  padding: 14px;
-  border-radius: 16px;
-  background: var(--tg-theme-bg-color, #fff);
+  padding: var(--space-4);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
 }
-.broker-workspace label { display: grid; gap: 5px; font-size: 12px; }
+.broker-workspace label { display: grid; gap: 5px; font-size: 12px; color: var(--text-secondary); }
 .broker-workspace input, .broker-workspace select {
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 22%, transparent);
+  border: 1px solid var(--edge-hairline);
   border-radius: 10px;
   padding: 10px;
-  color: inherit;
-  background: var(--tg-theme-secondary-bg-color, #f3f4f6);
+  color: var(--text-primary);
+  background: var(--surface-recessed);
 }
 .broker-workspace button {
-  min-height: 40px;
+  min-height: var(--target-min);
   border: 0;
   border-radius: 10px;
-  color: var(--tg-theme-button-text-color, #fff);
-  background: var(--tg-theme-button-color, #2481cc);
+  color: var(--accent-text);
+  background: var(--accent);
 }
 .broker-listing {
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -222,18 +300,24 @@ dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; p
 .broker-listing-inventory {
   grid-column: 1 / -1;
   font-size: 12px;
-  color: var(--tg-theme-hint-color, #74777f);
+  color: var(--text-secondary);
+}
+/* Inventory balances are one server-owned equation and read as one group. */
+.broker-listing-inventory {
+  padding: var(--space-2) 10px;
+  border-radius: 10px;
+  background: var(--surface-recessed);
 }
 
 .admin-workspace-description, .admin-capability p {
   font-size: 13px;
   line-height: 1.4;
-  color: var(--tg-theme-hint-color, #74777f);
+  color: var(--text-secondary);
 }
 .admin-capability-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: var(--space-2);
 }
 .admin-capability { align-content: start; }
 .admin-capability strong { font-size: 14px; }
@@ -242,32 +326,26 @@ dialog { width: min(calc(100% - 24px), 460px); border: 0; border-radius: 22px; p
 .workspace-navigation {
   position: fixed;
   z-index: 20;
-  left: 12px;
-  right: 12px;
-  bottom: max(8px, env(safe-area-inset-bottom));
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: max(var(--space-2), env(safe-area-inset-bottom));
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  gap: 6px;
-  padding: 6px;
-  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 16%, transparent);
-  border-radius: 17px;
-  background: color-mix(in srgb, var(--tg-theme-bg-color, #fff) 92%, transparent);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(18px);
+  gap: 0;
+  padding: var(--space-1);
 }
 .workspace-tab {
-  min-height: 44px;
-  border: 0;
-  border-radius: 12px;
-  color: var(--tg-theme-hint-color, #74777f);
-  background: transparent;
+  position: relative;
+  z-index: 1;
+  min-height: var(--target-min);
+  padding: 0 var(--space-2);
   font-size: 12px;
   font-weight: 700;
-}
-.workspace-tab[aria-selected="true"] {
-  color: var(--tg-theme-button-text-color, #fff);
-  background: var(--tg-theme-button-color, #2481cc);
+  /* Ukrainian labels run longer than English ones and must never wrap. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @media (orientation: landscape) {

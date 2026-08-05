@@ -13,7 +13,21 @@ The result should feel futuristic and technical without copying iOS Liquid Glass
 
 ---
 
+## Ownership
+
+This document describes one application assembled from two repositories, and a rule is only actionable in the repository that owns the markup it applies to.
+
+- **`Owner: adapter`** — this repository. Stylesheets, the Telegram shell, tokens, material, motion.
+- **`Owner: webapp-core`** — the pinned module in `webapp/app.js`. Section structure, field order, row and card composition. These rules cannot land here; they require a reviewed change in [`0xda-market/webapp-core`](https://github.com/0xda-market/webapp-core) followed by a revision bump.
+- **`Owner: shared`** — a rule both must honour, usually because it constrains a contract rather than a surface.
+
+Every chapter below carries its owner. A chapter owned by `webapp-core` is a request against that repository, not a task for this one.
+
+---
+
 ## Core Principle
+
+`Owner: shared`
 
 ### Solid system, fluid control
 
@@ -33,15 +47,36 @@ This gives the effect a functional meaning rather than turning it into decoratio
 
 ## Visual Foundation
 
-### Background
+`Owner: adapter`
 
-Use a near-black graphite background rather than absolute black.
+### Base surface
 
-The tone should be slightly cool and deep enough to separate application layers without visible gradients dominating the screen.
+**The base surface is brand-owned and always dark. Only the accent, the lens and the material highlights derive from the active Telegram theme.**
+
+This is a deliberate trade: the application does not follow a user's light Telegram theme. The alternative — deriving surface tone from the theme — would make "dark operational surface" one of two skins and would require designing, measuring and maintaining a second palette. The fluid material also depends on layered translucency over a known dark base to stay predictable.
+
+The background is near-black graphite rather than absolute black: slightly cool, deep enough to separate layers without visible gradients dominating the screen.
+
+### Tokens
+
+Tones, geometry, spacing, motion and targets are declared once in `webapp/design-tokens.css`. This document names tokens rather than describing them, so an implementation can be reviewed against it:
+
+| Role | Token |
+| --- | --- |
+| application background | `--surface-base` |
+| stable content surfaces | `--surface-raised` |
+| dialogs and floating panels | `--surface-floating` |
+| inputs and recesses | `--surface-recessed` |
+| separation | `--edge-hairline`, `--edge-highlight` |
+| text | `--text-primary`, `--text-secondary`, `--text-muted` |
+| interactive accent | `--accent` (theme-derived) |
+| geometry | `--radius-control`, `--radius-card`, `--radius-plane` |
+| rhythm | `--space-1` … `--space-5` (4px base) |
+| motion | `--motion-press`, `--motion-state`, `--motion-lens`, `--ease-viscous` |
 
 ### Sections and cards
 
-Cards and working sections should be matte and one level lighter than the background.
+Cards and working sections use `--surface-raised`, one step above the background.
 
 Avoid thick gray borders. Prefer:
 
@@ -61,9 +96,11 @@ The intended hierarchy is:
 
 ## Fluid Material
 
+`Owner: adapter`
+
 The fluid material is the signature interaction layer of 0xda-market.
 
-It should derive translucency, contrast, accent depth, and highlights from the active Telegram theme while preserving the project’s own character.
+It derives translucency, contrast, accent depth, and highlights from the active Telegram theme while preserving the project's own character.
 
 ### Intended use
 
@@ -90,13 +127,25 @@ Do not apply it to:
 
 Too much fluid material would flatten the hierarchy and make all controls compete for attention.
 
+### Fallback ladder
+
+Fluid material is a progressive enhancement, and the enhancement must fail in the right direction. Every material background is declared as three steps, in this order:
+
+1. a plain opaque colour that is always valid;
+2. a `color-mix()` translucency;
+3. the layered blurred material, behind an `@supports` guard.
+
+`color-mix()` is the fragile dependency, not `backdrop-filter`. A declaration built from an unsupported function is dropped whole, so a fallback that is itself written in `color-mix()` is not a fallback. The plain colour must come first, in every rule, so a fixed control plane can never render without a background.
+
 ---
 
 ## Active Lens
 
-The selected action should not simply become blue.
+`Owner: adapter`
 
-A distinct **accent lens** should move inside the fluid bar.
+The selected action does not simply become blue.
+
+A distinct **accent lens** moves inside the fluid bar.
 
 ### Behavior
 
@@ -120,9 +169,17 @@ The motion language should be:
 - slightly viscous;
 - fast enough for operational use.
 
+### Construction
+
+There is exactly one lens. Tabs never carry an individual fill — a per-tab background is the "separate filled buttons" pattern this document rejects, and it cannot express travel.
+
+The lens is a pseudo-element of the navigation container, positioned from the selected index. The tab count and the selected index are read from the markup with `:has()`, so the adapter needs neither a script nor a change to the navigation produced by `webapp-core`. The container uses `gap: 0` so each tab is exactly one lens wide and lens travel is an exact multiple of its own width.
+
 ---
 
 ## Navigation
+
+`Owner: adapter`
 
 ### Workspace bar
 
@@ -131,12 +188,20 @@ The bottom workspace navigation is the primary expression of the fluid design sy
 It should:
 
 - float above content;
-- retain strong contrast in dark and light Telegram themes;
+- retain strong contrast against its own opaque fallback;
 - use one moving active lens;
 - avoid separate filled buttons for each tab;
 - remain readable without relying only on color.
 
 When the software keyboard is visible, the fixed workspace navigation must disappear or become non-interactive so only one fixed control plane remains above the keyboard.
+
+### Locale elasticity
+
+`uk_UA` is a primary locale and its labels run considerably longer than English — `Адміністрування` against `Admin`.
+
+Every control must stay legible at 1.4× the English string length. Tab labels never wrap: a wrapped label breaks the bar's fixed height and its lens geometry. Where a label cannot fit, the fallback is an icon plus an accessible name, not a truncated word.
+
+Tabs should carry icons for this reason as well as the accessibility one: color alone must never distinguish the selected section.
 
 ### Keyboard confirmation
 
@@ -155,9 +220,13 @@ Its only responsibility is to:
 
 ## Cards
 
+`Owner: adapter`
+
 Cards should feel dense, stable, and operational.
 
 ### Product card structure
+
+`Owner: webapp-core`
 
 A product card may contain:
 
@@ -177,15 +246,17 @@ Instead:
 - a short highlight travels along the edge;
 - the card returns without a pronounced spring.
 
-This gives tactile feedback while preserving the technical character.
+Press feedback uses `--motion-press` and `--ease-viscous`. This gives tactile feedback while preserving the technical character.
 
 ---
 
 ## Forms
 
+`Owner: adapter`
+
 ### Input fields
 
-Inputs should read as matte recesses inside stable surfaces.
+Inputs read as matte recesses (`--surface-recessed`) inside stable surfaces.
 
 Default state:
 
@@ -201,6 +272,8 @@ Focused state:
 - no large glow;
 - no layout shift.
 
+A focused field also receives the standard focus ring when reached by keyboard. The accent boundary is decoration; the ring is the accessibility contract and is never suppressed.
+
 ### Validation
 
 Do not flood invalid fields with red.
@@ -214,6 +287,8 @@ Prefer:
 
 ### Numeric fields
 
+`Owner: shared`
+
 Numeric inputs must continue using native numeric keyboard contracts with correct `inputmode`, scale, minimum, and step behavior.
 
 Visual styling must never weaken the semantic input contract.
@@ -222,9 +297,11 @@ Visual styling must never weaken the semantic input contract.
 
 ## Buttons
 
+`Owner: adapter`
+
 ### Primary actions
 
-Primary actions may use the fluid material.
+Primary actions may use the fluid material or the flat accent.
 
 They should appear as deliberate operational commands, not decorative pills.
 
@@ -238,7 +315,7 @@ Examples:
 
 ### Secondary actions
 
-Secondary actions should remain matte or transparent with a subtle boundary.
+Secondary actions remain matte with a hairline boundary. Catalog paging and locale chips are secondary: they navigate, they do not commit, and they must not read as primary commands.
 
 ### Destructive actions
 
@@ -258,7 +335,27 @@ A pending POST request should:
 
 ---
 
+## States
+
+`Owner: adapter` for presentation, `Owner: webapp-core` for the copy and the emitted state
+
+An operational surface spends a large share of its life not showing a populated, healthy screen. Each surface defines five states, and none of them may collapse the section's geometry.
+
+| State | Meaning | Treatment |
+| --- | --- | --- |
+| empty | the surface is legitimately empty — a new broker with no listings | one line of `--text-secondary` copy plus the action that resolves it |
+| zero results | a filter or search excluded everything | copy names the filter, offers to clear it; never the same as empty |
+| pending | a write is in flight | inert section, `aria-busy`, restrained indicator, unchanged geometry |
+| stale | the server moved under the operator — most often a price revision | first-class state with a semantic edge and an explicit reload action, not an error |
+| error | the operation failed | `--semantic-danger` edge, inline explanation, the failed action still visible |
+
+Stale is the state most easily mistaken for an error. It is not one: the operator's view is simply older than the ledger, and the interface must say so without discarding their edits.
+
+---
+
 ## Administration Workspace
+
+`Owner: webapp-core`
 
 The administration workspace should prioritize recurring operations over broad overview content.
 
@@ -287,6 +384,8 @@ The overview should orient the administrator, not delay access to work.
 
 ## Prices
 
+`Owner: webapp-core`
+
 The pricing surface should make state changes immediately legible.
 
 Each price row should clearly show:
@@ -310,6 +409,8 @@ The save action should remain singular and explicit:
 
 ## Products
 
+`Owner: webapp-core`
+
 The selected product should become the main working context.
 
 Recommended flow:
@@ -326,6 +427,8 @@ Do not visually merge product state, pricing, and localization into one form. Th
 
 ## Listings
 
+`Owner: webapp-core`
+
 A broker listing should communicate supply state in one compact operational card.
 
 Recommended content:
@@ -339,13 +442,15 @@ Recommended content:
 - listing status;
 - edit and withdraw actions.
 
-Inventory balances should be visually grouped because they represent one server-owned equation.
+Inventory balances are visually grouped because they represent one server-owned equation.
 
 The interface must not imply that the browser calculates or owns those balances.
 
 ---
 
 ## Orders and Fulfillment
+
+`Owner: webapp-core`
 
 Order state is better represented as a lifecycle than as a flat list of buttons.
 
@@ -365,25 +470,29 @@ Actions should appear only when the server contract permits the next transition.
 
 ## Color System
 
+`Owner: adapter`
+
 ### Primary accent
 
-Use an electric blue as the main interactive accent, but keep it concentrated inside the fluid material.
+`--accent` is an electric blue, kept concentrated inside the fluid material and the lens.
 
 Do not use large flat blue surfaces across the interface.
 
 ### Semantic colors
 
-- **Electric blue** — active navigation and primary action;
-- **Cool green** — successful or completed state;
-- **Amber** — waiting, reservation, or pending state;
-- **Muted red** — error or destructive action;
-- **Neutral graphite** — stable information surfaces.
+- `--accent` — active navigation and primary action;
+- `--semantic-success` — successful or completed state;
+- `--semantic-pending` — waiting, reservation, or pending state;
+- `--semantic-danger` — error or destructive action;
+- `--surface-raised` — stable information surfaces.
 
 Semantic colors must supplement labels and icons rather than replace them.
 
 ---
 
 ## Typography
+
+`Owner: adapter`
 
 Use a clear hierarchy with fewer bold elements.
 
@@ -392,16 +501,19 @@ Use a clear hierarchy with fewer bold elements.
 - large section titles;
 - medium card titles;
 - compact operational labels;
-- monospaced or tabular numerals where useful;
 - subdued descriptions and metadata.
 
 Avoid making every label bold. Excessive weight reduces hierarchy and makes the interface visually noisy.
 
-Prices, quantities, revisions, and inventory balances should remain highly legible.
+### Numerals
+
+Prices, quantities, revisions and inventory balances carry `font-variant-numeric: tabular-nums`. Operational figures are read in columns and compared against each other; proportional digits make a changed price harder to spot than an unchanged one.
 
 ---
 
 ## Motion
+
+`Owner: adapter`
 
 Motion should explain state, not decorate idle screens.
 
@@ -426,22 +538,42 @@ Motion should explain state, not decorate idle screens.
 
 ## Accessibility
 
-The visual system must preserve:
+`Owner: shared`
 
-- readable contrast in light and dark Telegram themes;
-- visible focus states;
-- minimum touch target sizes;
-- semantic button and tab roles;
-- `aria-selected` for active navigation;
-- `aria-busy` and inert state during writes;
-- text or icon reinforcement for semantic colors;
-- opaque fallback when backdrop filtering is unavailable.
+The requirements below are numeric so an implementation can be checked rather than asserted.
+
+| Requirement | Target |
+| --- | --- |
+| text contrast | 4.5:1, measured against the opaque fallback surface |
+| control boundary and focus ring contrast | 3:1 |
+| touch targets | `--target-min` (44×44) for every interactive control |
+| focus | `:focus-visible` ring using `--focus-ring`, never dependent on the fluid material |
+| navigation semantics | `aria-selected` on tabs, semantic button and tab roles |
+| write state | `aria-busy` and inert section during writes |
+| semantic colour | always reinforced by text or an icon |
+| material | opaque fallback whenever `color-mix()` or backdrop filtering is unavailable |
+
+Contrast for text over translucent material is measured against the opaque fallback, because that is the only defined backdrop — anything scrolled behind the bar is not.
 
 Fluid material is a progressive enhancement, not a dependency for usability.
 
 ---
 
+## Shell
+
+`Owner: adapter`
+
+The application runs inside a Telegram WebView, not a browser tab.
+
+Full-height surfaces use the host viewport height with a dynamic-unit fallback (`var(--tg-viewport-stable-height, 100dvh)`). `100vh` ignores the collapsed header and the on-screen keyboard, which is precisely the interval when the keyboard confirmation control has to be positioned correctly.
+
+Layout and material are separated by file: `styles.css` owns position, size and typography for the fluid controls; `fluid-controls.css` owns their background, border, shadow, filter and lens. No selector declares the same property in both, which keeps the result independent of stylesheet order.
+
+---
+
 ## Design Boundaries
+
+`Owner: shared`
 
 The visual system must not change application authority.
 
@@ -466,37 +598,15 @@ The design may clarify these contracts but must not simulate or infer them local
 
 ## Implementation Order
 
-### Phase 1 — interaction layer
+Each slice lands and reverts on its own. Slices 1–5 are adapter-only; slice 6 is the only one that requires the other repository.
 
-- workspace fluid bar;
-- active lens;
-- keyboard confirmation;
-- primary fluid buttons;
-- opaque and reduced-motion fallbacks.
-
-### Phase 2 — stable surfaces
-
-- background and card hierarchy;
-- input fields;
-- section spacing;
-- typography;
-- semantic states.
-
-### Phase 3 — operational screens
-
-- pricing rows;
-- product editor;
-- listing inventory cards;
-- order lifecycle;
-- compact administration metrics.
-
-### Phase 4 — refinement
-
-- motion tuning;
-- theme tuning;
-- contrast validation;
-- landscape behavior;
-- performance checks inside Telegram WebView.
+1. **Tokens and safety** — token layer, fallback ladder, focus ring, host viewport units, layout/material file split. *Done.*
+2. **Base surface** — brand-owned dark surfaces, `color-scheme: dark`, three-step elevation. *Done.*
+3. **Active lens** — one travelling lens, tabs lose their individual fill, locale-safe tab labels. *Done.*
+4. **Stable surfaces** — inputs, press feedback, secondary-action treatment, tabular numerals, 44px targets. *Done.*
+5. **States** — empty, zero-results, stale and error treatments applied to market and prices.
+6. **Operational screens** — price rows, product editor, listing inventory cards, order lifecycle, compact administration metrics. Gated on a `webapp-core` revision bump.
+7. **Refinement** — motion tuning, contrast validation, landscape behavior, performance checks inside the Telegram WebView.
 
 ---
 

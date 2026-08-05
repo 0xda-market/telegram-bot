@@ -2,18 +2,19 @@
 .admin-create-product {
   display: grid;
   gap: 10px;
-  padding-top: 4px;
+  padding-top: var(--space-1);
 }
 .admin-create-product {
-  padding: 14px;
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--tg-theme-bg-color, #fff) 82%, transparent);
+  padding: var(--space-4);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
 }
 .admin-create-product > p,
 .admin-products > p {
   font-size: 13px;
   line-height: 1.4;
-  color: var(--tg-theme-hint-color, #74777f);
+  color: var(--text-secondary);
 }
 .admin-products > select,
 .admin-product-form,
@@ -26,29 +27,46 @@
 .admin-product-form textarea,
 .admin-localization-form input {
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 22%, transparent);
+  border: 1px solid var(--edge-hairline);
   border-radius: 10px;
   padding: 10px;
-  color: inherit;
-  background: var(--tg-theme-secondary-bg-color, #f3f4f6);
+  color: var(--text-primary);
+  background: var(--surface-recessed);
+  transition: border-color var(--motion-state) ease;
+}
+.admin-products > select,
+.admin-product-form input,
+.admin-product-form select,
+.admin-localization-form input {
+  min-height: var(--target-min);
+}
+.admin-products > select:focus,
+.admin-product-form input:focus,
+.admin-product-form select:focus,
+.admin-product-form textarea:focus,
+.admin-localization-form input:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-hairline));
 }
 .admin-product-form,
 .admin-localization-form {
   display: grid;
   gap: 10px;
-  padding: 14px;
-  border-radius: 16px;
-  background: var(--tg-theme-bg-color, #fff);
+  padding: var(--space-4);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
 }
 .admin-product-form label,
 .admin-localization-form label {
   display: grid;
   gap: 5px;
   font-size: 12px;
+  color: var(--text-secondary);
 }
 .admin-product-form label:has(input[type="checkbox"]) {
   grid-template-columns: 1fr auto;
   align-items: center;
+  min-height: var(--target-min);
 }
 .admin-product-form textarea {
   resize: vertical;
@@ -58,28 +76,29 @@
 .admin-product-form button,
 .admin-localization-form button,
 .admin-localization-list button {
-  min-height: 40px;
+  min-height: var(--target-min);
   border: 0;
   border-radius: 10px;
-  padding: 0 12px;
-  color: var(--tg-theme-button-text-color, #fff);
-  background: var(--tg-theme-button-color, #2481cc);
+  padding: 0 var(--space-3);
+  color: var(--accent-text);
+  background: var(--accent);
 }
 .admin-products-status {
   min-height: 18px;
   font-size: 12px;
-  color: var(--tg-theme-hint-color, #74777f);
+  color: var(--text-secondary);
 }
 .admin-localization-list {
   display: flex;
   gap: 6px;
   overflow-x: auto;
 }
+/* Locale chips are secondary selection: matte, never the primary accent. */
 .admin-localization-list button {
-  min-height: 34px;
   white-space: nowrap;
-  color: var(--tg-theme-text-color, #111318);
-  background: var(--tg-theme-bg-color, #fff);
+  border: 1px solid var(--edge-hairline);
+  color: var(--text-primary);
+  background: var(--surface-raised);
 }
 
 @media (orientation: landscape) {
