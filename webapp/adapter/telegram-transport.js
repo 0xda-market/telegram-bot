@@ -1,29 +1,53 @@
+const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+
+function timeoutError(milliseconds) {
+  const error = new Error(`Web App request timed out after ${milliseconds} ms.`);
+  error.code = "request_timeout";
+  return error;
+}
+
 export function createTelegramTransport({
   telegram = globalThis.Telegram?.WebApp,
   apiBaseUrl = ".",
-  fetchImpl = globalThis.fetch
+  fetchImpl = globalThis.fetch,
+  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS
 } = {}) {
   let bootstrapPromise;
+
   async function requestDocument(path, options = {}) {
     const initData = telegram?.initData || "";
     if (!initData) throw new Error("Open this Web App inside Telegram.");
     if (typeof fetchImpl !== "function") throw new Error("Web App transport is unavailable.");
-    const response = await fetchImpl(`${apiBaseUrl}${path}`, {
-      ...options,
-      headers: { accept: "application/json", "content-type": "application/json", "x-telegram-init-data": initData, ...(options.headers || {}) }
-    });
-    const document = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(document.message || document.error || `HTTP ${response.status}`);
-    if (String(options.method || "GET").toUpperCase() === "POST" && typeof document.status !== "string") {
-      throw new Error("Web App POST response is missing status.");
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(timeoutError(requestTimeoutMs)), requestTimeoutMs);
+
+    try {
+      const response = await fetchImpl(`${apiBaseUrl}${path}`, {
+        ...options,
+        signal: controller.signal,
+        headers: { accept: "application/json", "content-type": "application/json", "x-telegram-init-data": initData, ...(options.headers || {}) }
+      });
+      const document = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(document.message || document.error || `HTTP ${response.status}`);
+      if (String(options.method || "GET").toUpperCase() === "POST" && document.status !== "ok") {
+        throw new Error(document.message || document.error || "Web App POST response is missing status: ok.");
+      }
+      return document;
+    } catch (error) {
+      if (controller.signal.aborted) throw controller.signal.reason || timeoutError(requestTimeoutMs);
+      throw error;
+    } finally {
+      clearTimeout(timeout);
     }
-    return document;
   }
+
   async function requestResource(path, options = {}) {
     const document = await requestDocument(path, options);
     if (!("data" in document)) throw new Error("Web App resource response is missing data.");
     return document.data;
   }
+
   return {
     bootstrap({ locale }) {
       bootstrapPromise ||= requestDocument(`/bootstrap?${new URLSearchParams({ locale })}`)

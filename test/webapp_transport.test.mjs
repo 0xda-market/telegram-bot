@@ -16,6 +16,22 @@ test("preserves the complete bootstrap document and caches it", async () => {
   assert.equal(calls.length, 1);
 });
 
+test("clears a timed-out bootstrap so startup retry issues a new request", async () => {
+  let calls = 0;
+  const transport = createTelegramTransport({
+    telegram: { initData: "signed" },
+    requestTimeoutMs: 5,
+    fetchImpl: async (_url, { signal }) => {
+      calls += 1;
+      return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+    }
+  });
+
+  await assert.rejects(() => transport.bootstrap({ locale: "uk_UA" }), /timed out after 5 ms/);
+  await assert.rejects(() => transport.bootstrap({ locale: "uk_UA" }), /timed out after 5 ms/);
+  assert.equal(calls, 2);
+});
+
 test("adapts quantity checkout and broker listing resources", async () => {
   const calls = [];
   const resource = { type: "quote", id: "quote-1", attributes: {} };
@@ -90,9 +106,14 @@ test("preserves price proposal metadata and submits its exact revision", async (
   assert.equal(applied.meta.revision, 9);
 });
 
-test("rejects a successful POST document without the required status", async () => {
+test("rejects a successful POST document without status ok", async () => {
   const transport = createTelegramTransport({ telegram: { initData: "signed" }, fetchImpl: async () => response({ data: {} }, { status: 201 }) });
-  await assert.rejects(() => transport.quote({ sku: "premium_3m", quantity: "1", locale: "uk_UA" }), /POST response is missing status/);
+  await assert.rejects(() => transport.quote({ sku: "premium_3m", quantity: "1", locale: "uk_UA" }), /missing status: ok/);
+});
+
+test("rejects a nominal HTTP success carrying status error", async () => {
+  const transport = createTelegramTransport({ telegram: { initData: "signed" }, fetchImpl: async () => response({ status: "error", message: "write rejected", data: {} }, { status: 200 }) });
+  await assert.rejects(() => transport.quote({ sku: "premium_3m", quantity: "1", locale: "uk_UA" }), /write rejected/);
 });
 
 test("pins and mounts the broker order marketplace package contract", () => {
