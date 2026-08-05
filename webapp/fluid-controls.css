@@ -1,0 +1,120 @@
+:root {
+  --fluid-bar-surface: color-mix(in srgb, var(--tg-theme-bg-color, #111318) 72%, transparent);
+  --fluid-bar-edge: color-mix(in srgb, var(--tg-theme-text-color, #ffffff) 16%, transparent);
+  --fluid-bar-highlight: color-mix(in srgb, var(--tg-theme-button-color, #2481cc) 42%, transparent);
+  --fluid-bar-shadow: color-mix(in srgb, #000 42%, transparent);
+}
+
+.workspace-navigation,
+.keyboard-confirm {
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--fluid-bar-edge);
+  background:
+    radial-gradient(120% 180% at 8% -60%, color-mix(in srgb, var(--tg-theme-text-color, #fff) 19%, transparent), transparent 52%),
+    radial-gradient(90% 130% at 92% 150%, var(--fluid-bar-highlight), transparent 58%),
+    linear-gradient(115deg, var(--fluid-bar-surface), color-mix(in srgb, var(--fluid-bar-surface) 82%, transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--tg-theme-text-color, #fff) 15%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000 18%, transparent),
+    0 14px 38px var(--fluid-bar-shadow);
+  backdrop-filter: blur(26px) saturate(145%);
+  -webkit-backdrop-filter: blur(26px) saturate(145%);
+}
+
+.workspace-navigation::before,
+.keyboard-confirm::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -70% -18%;
+  background: linear-gradient(
+    104deg,
+    transparent 30%,
+    color-mix(in srgb, var(--tg-theme-text-color, #fff) 11%, transparent) 46%,
+    transparent 62%
+  );
+  transform: translateX(-24%) rotate(-4deg);
+  pointer-events: none;
+}
+
+.workspace-navigation {
+  gap: 5px;
+  padding: 5px;
+  border-radius: 20px;
+  transition: opacity 160ms ease, transform 220ms cubic-bezier(.2, .8, .2, 1), visibility 160ms linear;
+}
+
+.workspace-tab {
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+  min-height: 46px;
+  border: 1px solid transparent;
+  border-radius: 15px;
+  color: color-mix(in srgb, var(--tg-theme-text-color, #fff) 66%, var(--tg-theme-hint-color, #74777f));
+  background: transparent;
+  transition:
+    color 150ms ease,
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 110ms ease;
+}
+
+.workspace-tab[aria-selected="true"] {
+  color: var(--tg-theme-text-color, #fff);
+  border-color: color-mix(in srgb, var(--tg-theme-button-color, #2481cc) 32%, var(--fluid-bar-edge));
+  background:
+    radial-gradient(120% 180% at 14% -35%, color-mix(in srgb, var(--tg-theme-text-color, #fff) 18%, transparent), transparent 54%),
+    linear-gradient(
+      118deg,
+      color-mix(in srgb, var(--tg-theme-button-color, #2481cc) 34%, transparent),
+      color-mix(in srgb, var(--tg-theme-button-color, #2481cc) 17%, transparent)
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--tg-theme-text-color, #fff) 16%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000 15%, transparent),
+    0 6px 18px color-mix(in srgb, var(--tg-theme-button-color, #2481cc) 24%, transparent);
+}
+
+.workspace-tab:active,
+.keyboard-confirm:active {
+  transform: scale(0.975);
+}
+
+.keyboard-confirm {
+  min-width: 148px;
+  min-height: 46px;
+  border-radius: 16px;
+  padding: 0 20px;
+  color: var(--tg-theme-text-color, #fff);
+  background:
+    radial-gradient(110% 170% at 12% -42%, color-mix(in srgb, var(--tg-theme-text-color, #fff) 21%, transparent), transparent 54%),
+    radial-gradient(100% 130% at 100% 145%, color-mix(in srgb, var(--tg-theme-button-color, #2481cc) 52%, transparent), transparent 62%),
+    linear-gradient(118deg, var(--fluid-bar-surface), color-mix(in srgb, var(--fluid-bar-surface) 76%, transparent));
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+body:has(.keyboard-confirm:not([hidden])) .workspace-navigation {
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(12px) scale(0.96);
+  pointer-events: none;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .workspace-navigation,
+  .keyboard-confirm {
+    background: color-mix(in srgb, var(--tg-theme-bg-color, #111318) 94%, #000);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workspace-navigation,
+  .workspace-tab,
+  .keyboard-confirm {
+    transition: none;
+  }
+}
