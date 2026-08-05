@@ -5,12 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
     <meta name="color-scheme" content="light dark">
     <title>0xda-market</title>
+    <link rel="stylesheet" href="./bootstrap.css">
     <link rel="stylesheet" href="./styles.css">
     <link rel="stylesheet" href="./admin-products.css">
     <link rel="stylesheet" href="./admin-prices.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
-  <body>
+  <body class="app-booting" aria-busy="true">
+    <section id="bootstrap-shell" class="bootstrap-shell" role="status" aria-live="polite">
+      <span class="bootstrap-spinner" aria-hidden="true"></span>
+      <p>Loading market…</p>
+    </section>
+
     <main class="shell">
       <header class="header">
         <div>
