@@ -23,13 +23,17 @@ class WebAppAdapterContractTest < Minitest::Test
 
     html = File.read(File.join(ROOT, "webapp/index.html"))
     assert_includes html, "data-mobile-input-confirm"
+    assert_includes html, 'href="./fluid-controls.css"'
   end
 
-  def test_keyboard_confirmation_replaces_fixed_workspace_navigation
-    styles = File.read(File.join(ROOT, "webapp/styles.css"))
+  def test_fluid_bar_keeps_keyboard_confirmation_clear_of_workspace_navigation
+    styles = File.read(File.join(ROOT, "webapp/fluid-controls.css"))
 
+    assert_includes styles, "--fluid-bar-surface"
+    assert_includes styles, "backdrop-filter: blur(26px) saturate(145%)"
+    assert_includes styles, '.workspace-tab[aria-selected="true"]'
     assert_match(
-      /body:has\(\.keyboard-confirm:not\(\[hidden\]\)\) \.workspace-navigation \{\s*visibility: hidden;\s*pointer-events: none;\s*\}/m,
+      /body:has\(\.keyboard-confirm:not\(\[hidden\]\)\) \.workspace-navigation \{[\s\S]*visibility: hidden;[\s\S]*pointer-events: none;/,
       styles
     )
   end
