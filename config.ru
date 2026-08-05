@@ -16,9 +16,12 @@ require_relative "lib/zero_x_da/market/telegram_bot/telegram_web_app_service"
 require_relative "lib/zero_x_da/market/telegram_bot/broker_order_notifier"
 require_relative "lib/zero_x_da/market/telegram_bot/broker_order_web_app_service"
 require_relative "lib/zero_x_da/market/telegram_bot/broker_order_mini_app"
+require_relative "lib/zero_x_da/market/telegram_bot/runtime_event_notifier"
+require_relative "lib/zero_x_da/market/telegram_bot/runtime_event_mini_app"
 
 bot_token = ENV.fetch("TELEGRAM_BOT_TOKEN")
 public_url = ENV.fetch("PUBLIC_URL").delete_suffix("/")
+deploy_environment = ENV.fetch("DEPLOY_ENV", "development")
 telegram_api = ZeroXDA::Market::TelegramBot::TelegramAPI.new(token: bot_token)
 telegram_username = ZeroXDA::Market::TelegramBot::TelegramBotIdentity.resolve(
   configured_username: ENV["TELEGRAM_BOT_USERNAME"],
@@ -45,12 +48,22 @@ broker_order_notifier = ZeroXDA::Market::TelegramBot::BrokerOrderNotifier.new(
 web_app_service = ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(
   market_api: market_api,
   authentication: web_app_auth,
-  environment: ENV.fetch("DEPLOY_ENV", "development"),
+  environment: deploy_environment,
   broker_order_notifier: broker_order_notifier
 )
 mini_app = ZeroXDA::Market::TelegramBot::TelegramMiniApp.new(
   service: web_app_service,
   root: File.expand_path("webapp", __dir__)
+)
+runtime_event_notifier = ZeroXDA::Market::TelegramBot::RuntimeEventNotifier.new(
+  market_api: market_api,
+  telegram_api: telegram_api
+)
+mini_app = ZeroXDA::Market::TelegramBot::RuntimeEventMiniApp.new(
+  app: mini_app,
+  authentication: web_app_auth,
+  notifier: runtime_event_notifier,
+  environment: deploy_environment
 )
 
 use Rack::CommonLogger, $stdout
