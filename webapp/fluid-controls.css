@@ -17,7 +17,7 @@
   --fluid-bar-fallback: #14171d;
   --fluid-bar-surface: color-mix(in srgb, var(--surface-raised) 72%, transparent);
   --fluid-bar-edge: var(--edge-hairline);
-  --fluid-bar-highlight: color-mix(in srgb, var(--accent) 42%, transparent);
+  --fluid-bar-highlight: color-mix(in srgb, var(--accent) var(--accent-glow), transparent);
   --fluid-bar-shadow: var(--edge-shadow);
   --fluid-lens-fallback: #1d3a63;
 }

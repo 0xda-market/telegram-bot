@@ -50,8 +50,62 @@ class WebAppAdapterContractTest < Minitest::Test
     assert_includes tokens, "--focus-ring"
     assert_includes tokens, "--ease-viscous"
     # The base surface is brand-owned; only the accent derives from the theme.
-    assert_includes tokens, "--accent: var(--tg-theme-button-color"
+    assert_includes tokens, "--accent-source: var(--tg-theme-button-color"
     refute_match(/--surface-\w+:\s*var\(--tg-theme/, tokens)
+  end
+
+  # The daypart may change how the material reads. It may not change whether a
+  # price is legible, so it is confined to four decorative tokens.
+  MODULATED_TOKENS = %w[--edge-highlight --edge-shadow --accent-glow --accent].freeze
+
+  def test_daypart_modulates_intensity_and_never_a_contrast_contract
+    tokens = File.read(File.join(ROOT, "webapp/design-tokens.css"))
+    states = tokens.scan(/:root\[data-daypart="(\w+)"\]\s*\{([^}]*)\}/)
+
+    assert_equal %w[night twilight], states.map(&:first).uniq.sort,
+                 "day is the base :root state and needs no override"
+
+    states.each do |daypart, body|
+      declared = body.split(";").filter_map do |declaration|
+        name = declaration.split(":", 2).first.to_s.strip
+        name unless name.empty?
+      end
+
+      assert_empty declared - MODULATED_TOKENS,
+                   "daypart #{daypart} may only modulate #{MODULATED_TOKENS.join(', ')}"
+    end
+  end
+
+  def test_daypart_accent_tint_cannot_invalidate_a_material_background
+    tokens = File.read(File.join(ROOT, "webapp/design-tokens.css"))
+    guard = "@supports (color: color-mix(in srgb, #000 50%, #fff))"
+
+    assert_includes tokens, guard
+
+    guarded = tokens[/#{Regexp.escape(guard)}\s*\{.*/m]
+    unguarded = tokens.sub(/#{Regexp.escape(guard)}\s*\{.*/m, "")
+
+    assert_match(/--accent:\s*color-mix/, guarded)
+    refute_match(/:root\[data-daypart="\w+"\]\s*\{[^}]*--accent:\s*color-mix/m, unguarded)
+    # Without color-mix() the accent must still resolve to a plain colour.
+    assert_match(/--accent:\s*var\(--accent-source\)/, unguarded)
+  end
+
+  def test_interactive_boundaries_use_the_control_edge
+    tokens = File.read(File.join(ROOT, "webapp/design-tokens.css"))
+
+    assert_includes tokens, "--edge-control"
+    refute_match(/:root\[data-daypart="\w+"\]\s*\{[^}]*--edge-control/m, tokens)
+
+    %w[styles.css admin-prices.css admin-products.css].each do |file|
+      css = File.read(File.join(ROOT, "webapp", file))
+      inputs = css.scan(/^[^{}]*\binput[^{}]*\{[^}]*\}/m)
+
+      next if inputs.empty?
+
+      assert inputs.any? { |rule| rule.include?("var(--edge-control)") },
+             "#{file} styles inputs without the identifying control boundary"
+    end
   end
 
   def test_one_lens_travels_instead_of_filling_each_tab

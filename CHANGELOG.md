@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - One travelling accent lens in the workspace navigation, positioned from the
   selected tab with `:has()` and needing neither a script nor a change to the
   navigation markup owned by `webapp-core`.
+- Daypart: the Mini App follows the device's local hour through three discrete
+  states that modulate material intensity and accent temperature only. Surfaces,
+  text tones, focus and touch targets are identical in every state, so no
+  contrast contract depends on the hour. `__ZERO_X_DA_MARKET__.daypart` pins the
+  state for reproduction.
 
 ### Changed
 
@@ -41,6 +46,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keyboard focus is now visible in the Mini App: interactive controls render a
   `:focus-visible` ring that does not depend on the fluid material.
 - Dialog close and locale-chip controls now meet the 44px minimum touch target.
+- Interactive boundaries meet 3:1 against their surface. Two near-black surfaces
+  cannot reach that ratio against each other, so inputs, selects, secondary
+  buttons and product cards use a stronger control edge while cards and sections
+  keep the quieter hairline.
 - Prices, quantities, balances and revisions use tabular numerals so operational
   figures stay column-aligned.
 
