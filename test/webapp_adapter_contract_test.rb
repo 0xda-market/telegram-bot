@@ -171,18 +171,32 @@ class WebAppAdapterContractTest < Minitest::Test
     refute_match(/min-height:\s*3\dpx/, products)
   end
 
-  def test_layout_and_material_never_declare_the_same_property
-    layout = top_level_declarations(File.read(File.join(ROOT, "webapp/styles.css")))
-    material = top_level_declarations(File.read(File.join(ROOT, "webapp/fluid-controls.css")))
+  # One property, one owner. styles.css owns layout, fluid-controls.css owns
+  # material, fluid-core-markup.css owns the elements webapp-core emits inside
+  # them. Any pair declaring the same property makes rendering depend on the
+  # order of the <link> tags.
+  STYLESHEET_OWNERS = {
+    "styles.css" => "layout",
+    "fluid-controls.css" => "material",
+    "fluid-core-markup.css" => "core-owned elements"
+  }.freeze
 
-    conflicts = layout.filter_map do |selector, properties|
-      shared = properties & material.fetch(selector, [])
-      "#{selector} -> #{shared.join(', ')}" unless shared.empty?
+  def test_no_two_adapter_stylesheets_declare_the_same_property
+    declarations = STYLESHEET_OWNERS.keys.to_h do |file|
+      [file, top_level_declarations(File.read(File.join(ROOT, "webapp", file)))]
     end
 
-    assert_empty conflicts,
-                 "styles.css owns layout and fluid-controls.css owns material; " \
-                 "these selectors declare the same property in both files"
+    conflicts = declarations.keys.combination(2).flat_map do |left, right|
+      declarations[left].filter_map do |selector, properties|
+        shared = properties & declarations[right].fetch(selector, [])
+        next if shared.empty?
+
+        "#{selector} -> #{shared.join(', ')} " \
+          "(#{left} owns #{STYLESHEET_OWNERS[left]}, #{right} owns #{STYLESHEET_OWNERS[right]})"
+      end
+    end
+
+    assert_empty conflicts, "these selectors declare the same property in two adapter stylesheets"
   end
 
   def test_telegram_specifics_stay_in_adapter

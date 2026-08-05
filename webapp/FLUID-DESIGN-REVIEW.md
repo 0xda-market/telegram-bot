@@ -381,7 +381,7 @@ proposal, not the current one.
 | P3 | Token layer; prose references tokens, not adjectives | adapter | applied |
 | P4 | Build the active lens (CSS-only, no core change) | adapter | applied |
 | P5 | Add a States chapter (empty, error, stale, pending) | doc | chapter written; treatments pending |
-| P6 | Locale-elasticity rule; icons alongside tab labels | doc + core | rule written, labels made wrap-safe; icons need core |
+| P6 | Locale-elasticity rule; icons alongside tab labels | doc + core | applied |
 | P7 | Numeric accessibility targets and a focus token | doc + adapter | applied |
 | P8 | Three-step fallback ladder, declaration-first | adapter | applied |
 | P9 | Host viewport units instead of `100vh` | adapter | applied |
@@ -396,5 +396,12 @@ What remains is the work that cannot land in this repository. The chapters
 marked `Owner: webapp-core` — price row composition, product editor flow,
 listing inventory cards, the order lifecycle rail and the compact
 administration metrics — need a reviewed change in `webapp-core` and a revision
-bump in `webapp/app.js`. Tab icons (P6) are in that set: the adapter can keep a
-label from wrapping, but it cannot add an icon to markup it does not own.
+bump in `webapp/app.js`.
+
+Tab icons (P6) were in that set and have since landed: a `webapp-core` revision
+now emits an icon and a label element per tab, and below 430px the label becomes
+visually hidden rather than truncated, so `Адміністрування` keeps a full
+accessible name instead of an ellipsis. The adapter's own tab-level text
+handling became inert at that point and was removed — a tab is now a grid
+container with no text of its own, and `fluid-core-markup.css` owns label
+overflow.
