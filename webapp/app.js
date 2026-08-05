@@ -1,5 +1,6 @@
 import { createTelegramHost } from "./adapter/telegram-host.js";
 import { localizeTelegramShell } from "./adapter/shell-localization.js";
+import { createStartupController } from "./adapter/startup-controller.js";
 import { createTelegramTransport } from "./adapter/telegram-transport.js";
 
 const WEBAPP_CORE_REVISION = "6f8632de183e362bf62cfb9b6161ccb0f1298413";
@@ -15,14 +16,25 @@ function revealApplication() {
   document.body.removeAttribute("aria-busy");
 }
 
-async function start() {
-  const telegram = globalThis.Telegram?.WebApp;
-  const host = createTelegramHost(telegram);
-  const locale = host.locale();
-  const transport = createTelegramTransport({ telegram, apiBaseUrl });
+function shellMessage(message, error = false) {
+  const node = document.querySelector("#bootstrap-shell p");
+  if (node) {
+    node.textContent = message;
+    node.dataset.error = error ? "true" : "false";
+  }
+}
 
-  host.initialize();
-  localizeTelegramShell(document, locale);
+function logStartup(event) {
+  const payload = {
+    component: "telegram-mini-app",
+    timestamp: new Date().toISOString(),
+    ...event,
+    error: event.error?.message
+  };
+  console.info("[0xda-market startup]", payload);
+}
+
+async function initializeApplication({ host, transport }) {
   const [webappCore, brokerOrdersModule] = await Promise.all([
     import(webappCoreModuleUrl),
     import(brokerOrdersModuleUrl)
@@ -56,15 +68,45 @@ async function start() {
     });
     document.body.classList.add("has-workspace-navigation");
   }
+}
 
+async function start() {
+  const telegram = globalThis.Telegram?.WebApp;
+  const host = createTelegramHost(telegram);
+  const locale = host.locale();
+  const transport = createTelegramTransport({ telegram, apiBaseUrl });
+
+  host.initialize();
+  localizeTelegramShell(document, locale);
+  shellMessage(locale.startsWith("uk") ? "Завантаження маркету…" : "Loading market…");
+
+  const startup = createStartupController({
+    run: () => initializeApplication({ host, transport }),
+    onPhase: (event) => {
+      logStartup(event);
+      if (event.phase === "retry") {
+        shellMessage(locale.startsWith("uk") ? "Повторне підключення…" : "Reconnecting…");
+      }
+    },
+    onFailure: async (error) => {
+      shellMessage(
+        locale.startsWith("uk") ? "Не вдалося завантажити. Відкрийте застосунок ще раз." : "Could not load. Reopen the app.",
+        true
+      );
+      await transport.reportRuntimeEvent?.({
+        type: "startup_failed",
+        message: error?.message || "unknown startup failure",
+        revision: WEBAPP_CORE_REVISION
+      }).catch(() => {});
+    }
+  });
+
+  await startup.start();
   revealApplication();
 }
 
 start().catch((error) => {
-  const status = document.querySelector("#status");
-  if (status) {
-    status.textContent = error.message;
-    status.dataset.error = "true";
-  }
-  revealApplication();
+  logStartup({ phase: "failed", error });
+  // Deliberately keep the atomic loading shell visible. A partially mounted
+  // market is never presented as a usable application.
 });
