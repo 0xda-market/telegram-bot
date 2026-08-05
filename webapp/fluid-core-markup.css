@@ -1,0 +1,93 @@
+/* Adapter presentation for markup owned by webapp-core. */
+
+.workspace-tab {
+  display: grid;
+  grid-template-columns: auto minmax(0, auto);
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.workspace-tab-icon {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  font-size: 15px;
+  line-height: 1;
+  color: currentColor;
+}
+
+.workspace-tab-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.admin-capability-rail {
+  display: flex;
+  gap: var(--space-2);
+  padding-bottom: var(--space-1);
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: inline proximity;
+  scrollbar-width: none;
+}
+
+.admin-capability-rail::-webkit-scrollbar { display: none; }
+
+.admin-capability-summary {
+  flex: 0 0 min(76vw, 280px);
+  min-height: 112px;
+  scroll-snap-align: start;
+}
+
+.admin-capability-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.admin-capability-note {
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+@media (max-width: 430px) {
+  .workspace-navigation .workspace-tab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .workspace-tab {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .workspace-tab-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 17px;
+  }
+}
+
+@media (orientation: landscape) and (min-width: 700px) {
+  .admin-capability-rail {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
+  }
+
+  .admin-capability-summary {
+    min-width: 0;
+  }
+}
