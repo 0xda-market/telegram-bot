@@ -25,6 +25,15 @@ class WebAppAdapterContractTest < Minitest::Test
     assert_includes html, "data-mobile-input-confirm"
   end
 
+  def test_keyboard_confirmation_replaces_fixed_workspace_navigation
+    styles = File.read(File.join(ROOT, "webapp/styles.css"))
+
+    assert_match(
+      /body:has\(\.keyboard-confirm:not\(\[hidden\]\)\) \.workspace-navigation \{\s*visibility: hidden;\s*pointer-events: none;\s*\}/m,
+      styles
+    )
+  end
+
   def test_telegram_specifics_stay_in_adapter
     transport = File.read(File.join(ROOT, "webapp/adapter/telegram-transport.js"))
     shell_localization = File.read(File.join(ROOT, "webapp/adapter/shell-localization.js"))
