@@ -318,9 +318,11 @@ The 38px value would be a sub-target control if the load order ever changed.
 
 **Proposal P10** — one selector, one owner. `styles.css` keeps layout and
 position for these controls; `fluid-controls.css` keeps material only
-(background, border, shadow, filter). Add a contract test that no selector
-appears in both files, which is a stronger and more durable assertion than the
-current string checks.
+(background, border, shadow, filter). Under that split a selector legitimately
+appears in both files, so the enforceable assertion is at property level: no
+selector may declare the same property in both stylesheets. That makes the
+result independent of link order, and it is a more durable check than the
+current selector-string assertions.
 
 ### F11 — The implementation phases are not shippable slices
 
@@ -346,7 +348,9 @@ one that requires the other repository.
 
 ## Implementation drift table
 
-Where the document and the shipped adapter already disagree:
+Where the document and the adapter disagreed when this review was written. Every
+row is now closed; the "Code" column records the state that prompted the
+proposal, not the current one.
 
 | Rule | Document | Code |
 | --- | --- | --- |
@@ -363,19 +367,27 @@ Where the document and the shipped adapter already disagree:
 
 ## Summary of proposals
 
-| # | Proposal | Owner | Blocking |
+| # | Proposal | Owner | Status |
 | --- | --- | --- | --- |
-| P1 | Mark every rule with its owning repository | doc | — |
-| P2 | Decide the base surface: brand-owned dark, theme-derived accent | doc + adapter | P3, P4 |
-| P3 | Token layer; prose references tokens, not adjectives | adapter | — |
-| P4 | Build the active lens (CSS-only, no core change) | adapter | P3 |
-| P5 | Add a States chapter (empty, error, stale, pending) | doc | — |
-| P6 | Locale-elasticity rule; icons alongside tab labels | doc + core | — |
-| P7 | Numeric accessibility targets and a focus token | doc + adapter | P3 |
-| P8 | Three-step fallback ladder, declaration-first | adapter | — |
-| P9 | Host viewport units instead of `100vh` | adapter | — |
-| P10 | One selector, one stylesheet; contract test | adapter | — |
-| P11 | Re-cut phases into independently revertible slices | doc | — |
+| P1 | Mark every rule with its owning repository | doc | applied |
+| P2 | Decide the base surface: brand-owned dark, theme-derived accent | doc + adapter | applied |
+| P3 | Token layer; prose references tokens, not adjectives | adapter | applied |
+| P4 | Build the active lens (CSS-only, no core change) | adapter | applied |
+| P5 | Add a States chapter (empty, error, stale, pending) | doc | chapter written; treatments pending |
+| P6 | Locale-elasticity rule; icons alongside tab labels | doc + core | rule written, labels made wrap-safe; icons need core |
+| P7 | Numeric accessibility targets and a focus token | doc + adapter | applied |
+| P8 | Three-step fallback ladder, declaration-first | adapter | applied |
+| P9 | Host viewport units instead of `100vh` | adapter | applied |
+| P10 | One selector, one stylesheet; contract test | adapter | applied |
+| P11 | Re-cut phases into independently revertible slices | doc | applied |
 
-P2 is the decision that unblocks the rest; every token value in P3 depends on
-its answer.
+P2 was the decision that unblocked the rest: it is recorded in
+`FLUID-DESIGN.md` and in `docs/architecture/fluid-controls.md`, which
+previously required the opposite, and every token value in P3 follows from it.
+
+What remains is the work that cannot land in this repository. The chapters
+marked `Owner: webapp-core` — price row composition, product editor flow,
+listing inventory cards, the order lifecycle rail and the compact
+administration metrics — need a reviewed change in `webapp-core` and a revision
+bump in `webapp/app.js`. Tab icons (P6) are in that set: the adapter can keep a
+label from wrapping, but it cannot add an icon to markup it does not own.

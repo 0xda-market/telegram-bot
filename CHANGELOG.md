@@ -7,13 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Mini App design token layer (`webapp/design-tokens.css`) declaring surfaces,
+  edges, text tones, geometry, spacing, motion and accessibility targets, so the
+  fluid design direction references named values instead of adjectives.
+- One travelling accent lens in the workspace navigation, positioned from the
+  selected tab with `:has()` and needing neither a script nor a change to the
+  navigation markup owned by `webapp-core`.
+
 ### Changed
 
+- The Mini App base surface is now brand-owned and always dark; only the accent,
+  the lens and the material highlights derive from the active Telegram theme.
+  The app no longer follows a light Telegram theme.
+- Fluid material backgrounds declare an opaque colour before any `color-mix()`
+  value, so a WebView without `color-mix()` renders an opaque control plane
+  rather than one with no background at all.
+- `webapp/styles.css` now owns layout and `webapp/fluid-controls.css` owns
+  material for the workspace navigation and keyboard confirmation; no selector
+  declares the same property in both, so rendering no longer depends on
+  stylesheet order.
+- Full-height Mini App surfaces use the Telegram viewport height with a `100dvh`
+  fallback instead of `100vh`.
 - `/apply_price` with a missing or malformed product/amount now starts a short
   dialog instead of a usage hint: the bot asks for the amount when only the
   product is given, and walks through product selection (catalog buttons or a
   typed sku/position/short name) and then the amount when arguments are absent
   or invalid.
+
+### Fixed
+
+- Keyboard focus is now visible in the Mini App: interactive controls render a
+  `:focus-visible` ring that does not depend on the fluid material.
+- Dialog close and locale-chip controls now meet the 44px minimum touch target.
+- Prices, quantities, balances and revisions use tabular numerals so operational
+  figures stay column-aligned.
 
 ## [0.1.0] - 2026-07-19
 

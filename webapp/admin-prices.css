@@ -1,6 +1,6 @@
 .admin-prices {
   display: grid;
-  gap: 12px;
+  gap: var(--space-3);
   padding-top: 6px;
 }
 
@@ -8,46 +8,53 @@
 .admin-prices-status {
   font-size: 13px;
   line-height: 1.4;
-  color: var(--tg-theme-hint-color, #74777f);
+  color: var(--text-secondary);
 }
 
 .admin-price-form,
 .admin-price-rows,
 .admin-price-history {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .admin-price-row,
 .admin-price-history-row {
   display: grid;
   gap: 6px;
-  padding: 12px;
+  padding: var(--space-3);
+  border: 1px solid var(--edge-hairline);
   border-radius: 14px;
-  background: var(--tg-theme-bg-color, #fff);
+  background: var(--surface-raised);
 }
 
 .admin-price-row span,
 .admin-price-history-row time {
   font-size: 11px;
-  color: var(--tg-theme-hint-color, #74777f);
+  color: var(--text-secondary);
 }
 
 .admin-price-row input {
   min-width: 0;
-  border: 1px solid color-mix(in srgb, var(--tg-theme-hint-color, #74777f) 22%, transparent);
+  min-height: var(--target-min);
+  border: 1px solid var(--edge-hairline);
   border-radius: 10px;
   padding: 10px;
-  color: inherit;
-  background: var(--tg-theme-secondary-bg-color, #f3f4f6);
+  color: var(--text-primary);
+  background: var(--surface-recessed);
+  transition: border-color var(--motion-state) ease;
+}
+
+.admin-price-row input:focus {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-hairline));
 }
 
 .admin-price-form > button {
-  min-height: 44px;
+  min-height: var(--target-min);
   border: 0;
-  border-radius: 12px;
-  color: var(--tg-theme-button-text-color, #fff);
-  background: var(--tg-theme-button-color, #2481cc);
+  border-radius: var(--radius-control);
+  color: var(--accent-text);
+  background: var(--accent);
   font-weight: 700;
 }
 
@@ -62,6 +69,7 @@
 
 .admin-price-history-row time {
   grid-column: 1 / -1;
+  font-variant-numeric: tabular-nums;
 }
 
 @media (orientation: landscape) {

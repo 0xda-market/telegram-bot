@@ -1,0 +1,68 @@
+/*
+ * 0xda-market design tokens.
+ *
+ * The base surface is brand-owned and always dark. Only the accent, the lens
+ * and the material highlights derive from the active Telegram theme, so a
+ * light Telegram theme changes the accent hue but never the surface tone.
+ *
+ * Every value here is a target a review can check. Prose in FLUID-DESIGN.md
+ * references these names instead of describing tones in adjectives.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Elevation ladder. Cards sit one step above the application background. */
+  --surface-base: #0d0f13;
+  --surface-raised: #14171d;
+  --surface-floating: #181c23;
+  --surface-recessed: #0a0c10;
+
+  /* Edges. Separation comes from hairlines and inner highlights, not borders. */
+  --edge-hairline: rgb(255 255 255 / 0.08);
+  --edge-highlight: rgb(255 255 255 / 0.14);
+  --edge-shadow: rgb(0 0 0 / 0.42);
+
+  /* Text. Contrast measured against --surface-raised, the opaque backdrop. */
+  --text-primary: #e7e9ee;    /* 14.0:1 */
+  --text-secondary: #a0a6b3;  /*  7.3:1 */
+  --text-muted: #7d8593;      /*  4.7:1 */
+
+  /* Accent. Theme-derived, with an electric blue default. */
+  --accent: var(--tg-theme-button-color, #2f81f7);
+  --accent-text: var(--tg-theme-button-text-color, #ffffff);
+
+  /* Semantic states. Always paired with a label or icon, never used alone. */
+  --semantic-success: #3fb984;
+  --semantic-pending: #e0a33e;
+  --semantic-danger: #d9635c;
+
+  /* Geometry. */
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-plane: 20px;
+  --radius-pill: 999px;
+
+  /* Spacing, 4px base. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+
+  /* Motion. Viscous rather than elastic: no overshoot past the destination. */
+  --motion-press: 110ms;
+  --motion-state: 180ms;
+  --motion-lens: 260ms;
+  --ease-viscous: cubic-bezier(0.32, 0.72, 0.16, 1);
+
+  /* Space reserved by the fixed workspace bar, for content and for any
+     sticky control that would otherwise sit underneath it. */
+  --workspace-bar-space: 74px;
+
+  /* Accessibility targets. */
+  --target-min: 44px;
+  --focus-ring: #7fb2ff;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+}
