@@ -12,6 +12,14 @@ This is not an imitation of a platform navigation bar. It is a 0xda-market surfa
 
 The base surface is brand-owned and always dark; only the accent, the lens and the material highlights derive from the active Telegram theme. The application therefore does not follow a user's light Telegram theme. This keeps the layered translucency predictable over a known backdrop and removes the need to maintain and verify a second palette. Tones, geometry, spacing, motion and accessibility targets are declared once in `webapp/design-tokens.css`.
 
+## Daypart
+
+`webapp/adapter/daypart.js` resolves the device's local hour into one of three discrete states — `day`, `twilight`, `night` — and writes it to `data-daypart` on the document element, re-resolving when the Mini App becomes visible again. `globalThis.__ZERO_X_DA_MARKET__.daypart` pins the state so a reported defect stays reproducible.
+
+The daypart modulates four tokens only: `--edge-highlight`, `--edge-shadow`, `--accent-glow` and `--accent`. Surfaces, text tones, `--edge-control`, focus and touch targets are identical in every state, so no contrast contract depends on the hour — accent contrast against `--surface-raised` is 4.8:1, 4.9:1 and 5.0:1 respectively. `day` is the base `:root` state, so a shell whose script never runs is unaffected. The accent tint sits behind a `color-mix()` `@supports` guard: a custom property accepts any token sequence at parse time, so an unguarded mix would fail later, when it is substituted into a background.
+
+Local time decides how much glare is welcome, not luminance. It is a poor proxy for ambient light — the platform's own auto-night knows more — which is why it is not allowed near surface tone.
+
 ## Implementation
 
 `webapp/styles.css` owns position, size and typography for both controls; `webapp/fluid-controls.css` owns their background, border, shadow, filter and lens. No selector declares the same property in both files, so the result does not depend on stylesheet order.
@@ -32,5 +40,6 @@ When a text or numeric field owns focus, `webapp-core` exposes the host-provided
 - one clear interactive plane above the keyboard;
 - no dependency on iOS-only APIs or visual assets;
 - readable opaque fallback when blur or `color-mix()` is unavailable;
-- measurable targets: 44px controls, 4.5:1 text contrast, a `:focus-visible` ring independent of the material;
+- measurable targets: 44px controls, 4.5:1 text contrast, 3:1 interactive boundaries, a `:focus-visible` ring independent of the material;
+- daypart modulates material intensity only, never a contrast contract;
 - no change to role authorization, workspace selection or POST behavior.

@@ -1,3 +1,4 @@
+import { applyDaypart, observeDaypart } from "./adapter/daypart.js";
 import { createTelegramHost } from "./adapter/telegram-host.js";
 import { localizeTelegramShell } from "./adapter/shell-localization.js";
 import { createStartupController } from "./adapter/startup-controller.js";
@@ -77,6 +78,8 @@ async function start() {
   const transport = createTelegramTransport({ telegram, apiBaseUrl });
 
   host.initialize();
+  applyDaypart(document, { override: runtime.daypart });
+  observeDaypart(document, { override: runtime.daypart });
   localizeTelegramShell(document, locale);
   shellMessage(locale.startsWith("uk") ? "Завантаження маркету…" : "Loading market…");
 

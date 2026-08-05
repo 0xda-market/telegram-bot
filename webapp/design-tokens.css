@@ -18,8 +18,12 @@
   --surface-floating: #181c23;
   --surface-recessed: #0a0c10;
 
-  /* Edges. Separation comes from hairlines and inner highlights, not borders. */
+  /* Edges. Separation comes from hairlines and inner highlights, not borders.
+     --edge-control is the exception: an interactive boundary is identification,
+     not decoration, so it holds 3:1 against --surface-raised and is never
+     modulated. Card and section separation keeps the quieter hairline. */
   --edge-hairline: rgb(255 255 255 / 0.08);
+  --edge-control: rgb(255 255 255 / 0.34);
   --edge-highlight: rgb(255 255 255 / 0.14);
   --edge-shadow: rgb(0 0 0 / 0.42);
 
@@ -29,8 +33,11 @@
   --text-muted: #7d8593;      /*  4.7:1 */
 
   /* Accent. Theme-derived, with an electric blue default. */
-  --accent: var(--tg-theme-button-color, #2f81f7);
+  --accent-source: var(--tg-theme-button-color, #2f81f7);
+  --accent-warm: #ffb26b;
+  --accent: var(--accent-source);
   --accent-text: var(--tg-theme-button-text-color, #ffffff);
+  --accent-glow: 42%;
 
   /* Semantic states. Always paired with a label or icon, never used alone. */
   --semantic-success: #3fb984;
@@ -65,4 +72,55 @@
   --focus-ring: #7fb2ff;
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
+}
+
+/*
+ * Daypart.
+ *
+ * The interface follows the user's local hour, but only through material
+ * intensity and accent temperature. Surfaces, text tones, focus, targets and
+ * every contrast contract are identical in all three states — the hour changes
+ * how the material reads, never whether a price is legible.
+ *
+ * Local time is a poor proxy for ambient light, which is why it is not allowed
+ * to decide luminance. It is a fine proxy for "how much glare is welcome".
+ *
+ * Only these four tokens may be modulated:
+ *
+ *   --edge-highlight  --edge-shadow  --accent-glow  --accent
+ *
+ * The base :root above is the day state, so a shell whose script never runs
+ * renders exactly as it did before the daypart existed.
+ */
+
+:root[data-daypart="twilight"] {
+  --edge-highlight: rgb(255 255 255 / 0.11);
+  --edge-shadow: rgb(0 0 0 / 0.46);
+  --accent-glow: 34%;
+}
+
+:root[data-daypart="night"] {
+  --edge-highlight: rgb(255 255 255 / 0.09);
+  --edge-shadow: rgb(0 0 0 / 0.52);
+  --accent-glow: 26%;
+}
+
+/*
+ * Accent temperature is guarded: a custom property holds any token sequence at
+ * parse time, so an unguarded color-mix() would only fail later, when it is
+ * substituted into a background — exactly the failure mode the material
+ * fallback ladder exists to prevent. Without color-mix() the accent simply
+ * stays at its source value.
+ *
+ * Both mixes keep the accent above 4.5:1 against --surface-raised
+ * (day 4.7:1, twilight 4.9:1, night 5.0:1).
+ */
+@supports (color: color-mix(in srgb, #000 50%, #fff)) {
+  :root[data-daypart="twilight"] {
+    --accent: color-mix(in srgb, var(--accent-source) 94%, var(--accent-warm));
+  }
+
+  :root[data-daypart="night"] {
+    --accent: color-mix(in srgb, var(--accent-source) 88%, var(--accent-warm));
+  }
 }

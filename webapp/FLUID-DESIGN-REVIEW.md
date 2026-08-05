@@ -255,6 +255,13 @@ shipped adapter:
 - **Tabular numerals** — "Typography" recommends them for prices, quantities
   and balances; `font-variant-numeric` appears nowhere.
 
+Making the chapter numeric exposed a further consequence, corrected after the
+first implementation pass: two near-black surfaces cannot reach 3:1 against each
+other at any tone, so a hairline border cannot both stay decorative and identify
+a control. Interactive boundaries therefore use a stronger `--edge-control`
+(3.1:1 measured), while cards and sections keep the quieter hairline. The
+"avoid thick gray borders" rule governs separation, not identification.
+
 **Proposal P7** — make the chapter numeric: 44×44 minimum target, 4.5:1 for
 text and 3:1 for control boundaries and focus rings, a focus token
 (`--focus-ring`) that is a solid two-pixel outline with offset and never

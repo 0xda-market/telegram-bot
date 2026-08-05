@@ -120,7 +120,7 @@ h1 { font-size: 30px; letter-spacing: -0.04em; }
 .controls { align-items: stretch; }
 .controls input, .controls select {
   min-width: 0;
-  border: 1px solid var(--edge-hairline);
+  border: 1px solid var(--edge-control);
   border-radius: var(--radius-control);
   padding: 10px var(--space-3);
   color: var(--text-primary);
@@ -128,7 +128,7 @@ h1 { font-size: 30px; letter-spacing: -0.04em; }
 }
 .controls input { flex: 1; }
 .controls select { max-width: 38%; }
-.controls input:focus, .controls select:focus { border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-hairline)); }
+.controls input:focus, .controls select:focus { border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-control)); }
 .status { min-height: 18px; font-size: 12px; color: var(--text-secondary); }
 .status[data-error="true"] { color: var(--semantic-danger); }
 
@@ -149,7 +149,7 @@ h1 { font-size: 30px; letter-spacing: -0.04em; }
   align-items: flex-start;
   justify-content: space-between;
   gap: 6px;
-  border: 1px solid var(--edge-hairline);
+  border: 1px solid var(--edge-control);
   border-radius: var(--radius-card);
   color: var(--text-primary);
   background: var(--surface-raised);
@@ -182,7 +182,7 @@ h1 { font-size: 30px; letter-spacing: -0.04em; }
 /* Catalog paging is secondary navigation: matte, not a primary command. */
 .navigation button {
   min-height: var(--target-min);
-  border: 1px solid var(--edge-hairline);
+  border: 1px solid var(--edge-control);
   border-radius: var(--radius-control);
   padding: 0 var(--space-4);
   color: var(--text-primary);
@@ -279,7 +279,7 @@ dialog { width: min(calc(100% - var(--space-5)), 460px); border: 0; border-radiu
 .broker-workspace label { display: grid; gap: 5px; font-size: 12px; color: var(--text-secondary); }
 .broker-workspace input, .broker-workspace select {
   min-width: 0;
-  border: 1px solid var(--edge-hairline);
+  border: 1px solid var(--edge-control);
   border-radius: 10px;
   padding: 10px;
   color: var(--text-primary);
