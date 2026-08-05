@@ -67,7 +67,8 @@ Tones, geometry, spacing, motion and targets are declared once in `webapp/design
 | stable content surfaces | `--surface-raised` |
 | dialogs and floating panels | `--surface-floating` |
 | inputs and recesses | `--surface-recessed` |
-| separation | `--edge-hairline`, `--edge-highlight` |
+| card and section separation | `--edge-hairline`, `--edge-highlight` |
+| interactive boundary | `--edge-control` |
 | text | `--text-primary`, `--text-secondary`, `--text-muted` |
 | interactive accent | `--accent` (theme-derived) |
 | geometry | `--radius-control`, `--radius-card`, `--radius-plane` |
@@ -84,6 +85,8 @@ Avoid thick gray borders. Prefer:
 - a soft downward shadow;
 - restrained tonal separation;
 - rounded geometry with consistent radii.
+
+This applies to separation, not to identification. Two near-black surfaces cannot reach 3:1 against each other at any tone, so an interactive control is identified by its boundary and uses the stronger `--edge-control`. Cards and sections, which are only separated, keep the quieter hairline.
 
 The intended hierarchy is:
 
@@ -488,6 +491,27 @@ Do not use large flat blue surfaces across the interface.
 
 Semantic colors must supplement labels and icons rather than replace them.
 
+### Daypart
+
+The interface follows the user's local hour, but only through material intensity and accent temperature. Three discrete states — `day`, `twilight`, `night` — modulate exactly four tokens:
+
+| Token | day | twilight | night |
+| --- | --- | --- | --- |
+| `--edge-highlight` | 0.14 | 0.11 | 0.09 |
+| `--edge-shadow` | 0.42 | 0.46 | 0.52 |
+| `--accent-glow` | 42% | 34% | 26% |
+| `--accent` | source | 94% source, 6% warm | 88% source, 12% warm |
+
+Surfaces, text tones, `--edge-control`, focus and targets are identical in all three. The hour may change how the material reads; it may never change whether a price is legible. Accent contrast against `--surface-raised` is measured at every state (4.8:1, 4.9:1, 5.0:1).
+
+Three constraints make this safe rather than decorative:
+
+- **Local time decides glare, not luminance.** The hour is a poor proxy for ambient light — the platform's own auto-night knows more — so it is not allowed to decide surface tone. It is a fine proxy for how much glare is welcome.
+- **Discrete, not a ramp.** A discrete state can be pinned, screenshotted and asserted. A continuous ramp would make a reported defect depend on the hour it was reported.
+- **Pinnable.** A runtime override fixes the daypart, so a defect stays reproducible.
+
+`day` is the base state, so a shell whose script never runs renders as though the daypart did not exist.
+
 ---
 
 ## Typography
@@ -545,7 +569,8 @@ The requirements below are numeric so an implementation can be checked rather th
 | Requirement | Target |
 | --- | --- |
 | text contrast | 4.5:1, measured against the opaque fallback surface |
-| control boundary and focus ring contrast | 3:1 |
+| interactive boundary (`--edge-control`) and focus ring | 3:1 |
+| card and section separation (`--edge-hairline`) | decorative; identification comes from the control it wraps, never from this edge |
 | touch targets | `--target-min` (44×44) for every interactive control |
 | focus | `:focus-visible` ring using `--focus-ring`, never dependent on the fluid material |
 | navigation semantics | `aria-selected` on tabs, semantic button and tab roles |
@@ -604,9 +629,10 @@ Each slice lands and reverts on its own. Slices 1–5 are adapter-only; slice 6 
 2. **Base surface** — brand-owned dark surfaces, `color-scheme: dark`, three-step elevation. *Done.*
 3. **Active lens** — one travelling lens, tabs lose their individual fill, locale-safe tab labels. *Done.*
 4. **Stable surfaces** — inputs, press feedback, secondary-action treatment, tabular numerals, 44px targets. *Done.*
-5. **States** — empty, zero-results, stale and error treatments applied to market and prices.
-6. **Operational screens** — price rows, product editor, listing inventory cards, order lifecycle, compact administration metrics. Gated on a `webapp-core` revision bump.
-7. **Refinement** — motion tuning, contrast validation, landscape behavior, performance checks inside the Telegram WebView.
+5. **Daypart** — discrete local-hour states modulating material intensity and accent temperature only. *Done.*
+6. **States** — empty, zero-results, stale and error treatments applied to market and prices.
+7. **Operational screens** — price rows, product editor, listing inventory cards, order lifecycle, compact administration metrics. Gated on a `webapp-core` revision bump.
+8. **Refinement** — motion tuning, contrast validation, landscape behavior, performance checks inside the Telegram WebView.
 
 ---
 

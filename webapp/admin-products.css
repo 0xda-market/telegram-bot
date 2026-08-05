@@ -27,7 +27,7 @@
 .admin-product-form textarea,
 .admin-localization-form input {
   min-width: 0;
-  border: 1px solid var(--edge-hairline);
+  border: 1px solid var(--edge-control);
   border-radius: 10px;
   padding: 10px;
   color: var(--text-primary);
@@ -45,7 +45,7 @@
 .admin-product-form select:focus,
 .admin-product-form textarea:focus,
 .admin-localization-form input:focus {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-hairline));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-control));
 }
 .admin-product-form,
 .admin-localization-form {
@@ -96,7 +96,7 @@
 /* Locale chips are secondary selection: matte, never the primary accent. */
 .admin-localization-list button {
   white-space: nowrap;
-  border: 1px solid var(--edge-hairline);
+  border: 1px solid var(--edge-control);
   color: var(--text-primary);
   background: var(--surface-raised);
 }

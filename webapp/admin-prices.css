@@ -37,7 +37,7 @@
 .admin-price-row input {
   min-width: 0;
   min-height: var(--target-min);
-  border: 1px solid var(--edge-hairline);
+  border: 1px solid var(--edge-control);
   border-radius: 10px;
   padding: 10px;
   color: var(--text-primary);
@@ -46,7 +46,7 @@
 }
 
 .admin-price-row input:focus {
-  border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-hairline));
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-control));
 }
 
 .admin-price-form > button {
