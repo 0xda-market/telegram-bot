@@ -204,7 +204,9 @@ When the software keyboard is visible, the fixed workspace navigation must disap
 
 Every control must stay legible at 1.4× the English string length. Tab labels never wrap: a wrapped label breaks the bar's fixed height and its lens geometry. Where a label cannot fit, the fallback is an icon plus an accessible name, not a truncated word.
 
-Tabs should carry icons for this reason as well as the accessibility one: color alone must never distinguish the selected section.
+Tabs carry icons for this reason as well as the accessibility one: color alone must never distinguish the selected section. Below 430px the label becomes visually hidden rather than truncated, so the accessible name survives at full length.
+
+Label overflow belongs to the stylesheet that owns the tab's icon and label elements. A tab is a grid container with no text of its own, so text handling declared on the tab itself is inert.
 
 ### Keyboard confirmation
 

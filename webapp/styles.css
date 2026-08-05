@@ -335,6 +335,9 @@ dialog { width: min(calc(100% - var(--space-5)), 460px); border: 0; border-radiu
   gap: 0;
   padding: var(--space-1);
 }
+/* Label overflow belongs to fluid-core-markup.css, which owns the tab's
+   icon and label elements. A tab is a grid container with no text of its
+   own, so text handling declared here would be inert. */
 .workspace-tab {
   position: relative;
   z-index: 1;
@@ -342,10 +345,6 @@ dialog { width: min(calc(100% - var(--space-5)), 460px); border: 0; border-radiu
   padding: 0 var(--space-2);
   font-size: 12px;
   font-weight: 700;
-  /* Ukrainian labels run longer than English ones and must never wrap. */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 @media (orientation: landscape) {
