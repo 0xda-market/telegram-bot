@@ -35,7 +35,6 @@ button { cursor: pointer; }
 .product-price,
 .dialog-price,
 .snapshot,
-.broker-listing-inventory,
 .admin-capability-metric,
 .admin-price-row input,
 .checkout-quantity-field input {
@@ -292,22 +291,9 @@ dialog { width: min(calc(100% - var(--space-5)), 460px); border: 0; border-radiu
   color: var(--accent-text);
   background: var(--accent);
 }
-.broker-listing {
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-}
-.broker-listing > span,
-.broker-listing-inventory {
-  grid-column: 1 / -1;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-/* Inventory balances are one server-owned equation and read as one group. */
-.broker-listing-inventory {
-  padding: var(--space-2) 10px;
-  border-radius: 10px;
-  background: var(--surface-recessed);
-}
+/* A listing is a single-column operational card — header, supply price, the
+   balance group, then its actions. Composition of those parts is core-owned
+   markup and is presented in fluid-core-markup.css. */
 
 .admin-workspace-description, .admin-capability p {
   font-size: 13px;

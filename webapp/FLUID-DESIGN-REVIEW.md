@@ -392,16 +392,29 @@ P2 was the decision that unblocked the rest: it is recorded in
 `FLUID-DESIGN.md` and in `docs/architecture/fluid-controls.md`, which
 previously required the opposite, and every token value in P3 follows from it.
 
-What remains is the work that cannot land in this repository. The chapters
-marked `Owner: webapp-core` — price row composition, product editor flow,
-listing inventory cards, the order lifecycle rail and the compact
-administration metrics — need a reviewed change in `webapp-core` and a revision
-bump in `webapp/app.js`.
+Slice 6 — the chapters marked `Owner: webapp-core` — has now landed in both
+repositories.
 
-Tab icons (P6) were in that set and have since landed: a `webapp-core` revision
-now emits an icon and a label element per tab, and below 430px the label becomes
-visually hidden rather than truncated, so `Адміністрування` keeps a full
-accessible name instead of an ellipsis. The adapter's own tab-level text
-handling became inert at that point and was removed — a tab is now a grid
-container with no text of its own, and `fluid-core-markup.css` owns label
-overflow.
+Tab icons (P6) went first: a `webapp-core` revision emits an icon and a label
+element per tab, and below 430px the label becomes visually hidden rather than
+truncated, so `Адміністрування` keeps a full accessible name instead of an
+ellipsis. The adapter's own tab-level text handling became inert at that point
+and was removed — a tab is now a grid container with no text of its own, and
+`fluid-core-markup.css` owns label overflow.
+
+The remaining five followed in one core revision, each with its adapter
+presentation in `fluid-core-markup.css`:
+
+| Chapter | Core markup | Adapter presentation |
+| --- | --- | --- |
+| Prices | name, current and previous amounts, edited value, `data-price-state` | accent edge on a changed row, tabular amounts, state chip |
+| Products | `data-product-step` selector → summary → fields, scoped locale-neutral and localized | summary reads as an identity card above the editable fields |
+| Listings | header, supply price, four balances under `data-inventory-owner="server"`, actions | one recessed balance group; withdraw takes the semantic edge, not the accent fill |
+| Orders | five `data-lifecycle-state` steps, actions only where the contract permits | connected rail, success/pending/danger markers each beside their own label |
+| Administration | rail ordered by operational frequency, `admin-capability-link` per mounted capability | matte link at the card foot, never the primary accent |
+
+Two adapter selectors were retired by that change rather than restyled: the
+three-column `.broker-listing` grid, whose card is now a single-column stack,
+and `.admin-products > select`, whose select moved inside the core-owned
+`.admin-product-selector`. Both were replaced in place, so no rule survives
+that matches nothing.
