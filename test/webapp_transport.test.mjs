@@ -118,7 +118,7 @@ test("rejects a nominal HTTP success carrying status error", async () => {
 
 test("pins and mounts the broker order marketplace package contract", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /707f9c122548efaf72c00be04bac6e6f1cc187ba/);
+  assert.match(source, /1ca7cdb4567b500a540967cd1a2e2ceda01f8931/);
   assert.match(source, /mountBrokerWorkspace/);
   assert.match(source, /mountBrokerOrders/);
   assert.match(source, /mountAdminWorkspace/);

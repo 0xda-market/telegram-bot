@@ -28,13 +28,22 @@
   background: var(--surface-raised);
 }
 
-.admin-price-row span,
+.admin-price-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.admin-price-row .admin-price-amounts {
+  grid-column: 1 / -1;
+}
+
 .admin-price-history-row time {
   font-size: 11px;
   color: var(--text-secondary);
 }
 
 .admin-price-row input {
+  grid-column: 1 / -1;
   min-width: 0;
   min-height: var(--target-min);
   border: 1px solid var(--edge-control);

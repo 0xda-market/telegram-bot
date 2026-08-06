@@ -55,6 +55,402 @@
   color: var(--text-muted);
 }
 
+/* The rail orients and then gets out of the way, so its link is a secondary
+   navigation control: matte, hairline, never the primary accent fill. */
+.admin-capability-link {
+  display: grid;
+  align-content: center;
+  min-height: var(--target-min);
+  margin-top: auto;
+  border: 1px solid var(--edge-control);
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-3);
+  color: var(--text-primary);
+  background: var(--surface-recessed);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+/*
+ * Core-owned lists.
+ *
+ * The description and ordered lists below carry meaning — a balance group, a
+ * lifecycle order — so the markup stays semantic and only its default
+ * typography is reset here.
+ */
+.broker-listing-inventory,
+.broker-listing-balance-label,
+.broker-listing-balance-value,
+.admin-product-summary-fields,
+.admin-product-summary-label,
+.admin-product-summary-value,
+.order-lifecycle-rail {
+  margin: 0;
+  padding: 0;
+}
+
+.order-lifecycle-rail {
+  list-style: none;
+}
+
+/*
+ * Price rows.
+ *
+ * Composition is core-owned: name, the two server amounts, the edited value,
+ * then the changed state. This file gives that order a reading rhythm — labels
+ * quiet, amounts column-aligned, the state legible without colour alone.
+ */
+.admin-price-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.admin-price-amounts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.admin-price-amount {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-price-amount-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.admin-price-amount-value {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.admin-price-change {
+  justify-self: end;
+  align-self: start;
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-2);
+  color: var(--text-muted);
+  background: var(--surface-recessed);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* A changed row is accented, not flooded: one accent edge and a matching
+   chip, both alongside the localized copy the state already carries. */
+.admin-price-row[data-price-state="changed"] {
+  border-color: var(--edge-control);
+  box-shadow: inset 3px 0 0 var(--accent);
+  transition: box-shadow var(--motion-state) ease;
+}
+
+.admin-price-change[data-price-state="changed"] {
+  color: var(--accent-text);
+  background: var(--accent);
+}
+
+/*
+ * Product editor.
+ *
+ * The selected product is the working context, so its summary reads as a
+ * stable identity card above the editable, locale-neutral fields.
+ */
+.admin-product-summary {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
+}
+
+.admin-product-summary-name {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.admin-product-summary-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-3);
+}
+
+.admin-product-summary-field {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-product-summary-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.admin-product-summary-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow-wrap: anywhere;
+}
+
+.admin-product-summary-field[data-product-field="localizations"] {
+  grid-column: 1 / -1;
+}
+
+/*
+ * Listing cards.
+ *
+ * One card carries product, status, supply price, the four balances and the
+ * two actions. The balances are one server-owned equation, so they read as one
+ * recessed group rather than four loose figures.
+ */
+.broker-listing-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.broker-listing-product {
+  min-width: 0;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.broker-listing-status {
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-2);
+  color: var(--text-secondary);
+  background: var(--surface-recessed);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.broker-listing[data-listing-status="withdrawn"] .broker-listing-status {
+  color: var(--text-muted);
+}
+
+.broker-listing-price {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.broker-listing-price-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.broker-listing-price-amount {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.broker-listing-inventory {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-2);
+  padding: var(--space-2) 10px;
+  border-radius: 10px;
+  background: var(--surface-recessed);
+}
+
+.broker-listing-balance {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.broker-listing-balance-label {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.broker-listing-balance-value {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.broker-listing-actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--space-2);
+}
+
+/* Withdrawing is destructive: a restrained semantic edge, never the accent
+   fill that publishes a listing. --semantic-danger holds 5.0:1 on
+   --surface-raised. */
+.broker-listing-action[data-listing-action="withdraw"] {
+  border: 1px solid var(--edge-control);
+  border-color: color-mix(in srgb, var(--semantic-danger) 45%, var(--edge-control));
+  color: var(--semantic-danger);
+  background: var(--surface-raised);
+}
+
+/*
+ * Order lifecycle rail.
+ *
+ * Every order emits all five steps, so the rail keeps its geometry whatever
+ * the server reports. Each state is a tone plus the step's own localized
+ * label; colour never carries the state alone.
+ *
+ * Tones on --surface-raised: success 7.3:1, pending 8.2:1, danger 5.0:1.
+ */
+.broker-orders {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.broker-order-list {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.broker-order {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
+}
+
+.broker-order-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.broker-order-product {
+  min-width: 0;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.broker-order-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.order-lifecycle-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+
+.order-lifecycle-step {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  padding-top: 16px;
+  text-align: center;
+}
+
+/* The step marker, and the connector that joins it to the next step. */
+.order-lifecycle-step::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 50%;
+  translate: -50% 0;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--edge-control);
+  border-radius: var(--radius-pill);
+  background: var(--surface-recessed);
+}
+
+.order-lifecycle-step::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 50%;
+  width: 100%;
+  height: 1px;
+  background: var(--edge-hairline);
+}
+
+.order-lifecycle-step:last-child::after {
+  content: none;
+}
+
+.order-lifecycle-step-label {
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.order-lifecycle-step[data-lifecycle-state="complete"]::before {
+  border-color: var(--semantic-success);
+  background: var(--semantic-success);
+}
+
+.order-lifecycle-step[data-lifecycle-state="complete"] .order-lifecycle-step-label {
+  color: var(--text-secondary);
+}
+
+.order-lifecycle-step[data-lifecycle-state="current"]::before {
+  border-color: var(--semantic-pending);
+  background: var(--semantic-pending);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--semantic-pending) 22%, transparent);
+}
+
+.order-lifecycle-step[data-lifecycle-state="current"] .order-lifecycle-step-label {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.order-lifecycle-step[data-lifecycle-state="failed"]::before {
+  border-color: var(--semantic-danger);
+  background: var(--semantic-danger);
+}
+
+.order-lifecycle-step[data-lifecycle-state="failed"] .order-lifecycle-step-label {
+  color: var(--semantic-danger);
+  font-weight: 700;
+}
+
+/* An order the operator cannot act on yet keeps its rail and loses only the
+   control, so the card geometry does not shift between states. */
+.broker-order-actions:empty {
+  display: none;
+}
+
+.broker-orders .broker-order-action {
+  min-height: var(--target-min);
+  border: 0;
+  border-radius: var(--radius-control);
+  padding: 0 var(--space-4);
+  color: var(--accent-text);
+  background: var(--accent);
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-price-row[data-price-state="changed"] {
+    transition: none;
+  }
+}
+
 @media (max-width: 430px) {
   .workspace-navigation .workspace-tab-label {
     position: absolute;

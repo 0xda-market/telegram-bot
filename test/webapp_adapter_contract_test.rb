@@ -8,7 +8,7 @@ class WebAppAdapterContractTest < Minitest::Test
   def test_entrypoint_delegates_to_pinned_marketplace_modules
     source = File.read(File.join(ROOT, "webapp/app.js"))
 
-    assert_includes source, 'WEBAPP_CORE_REVISION = "707f9c122548efaf72c00be04bac6e6f1cc187ba"'
+    assert_includes source, 'WEBAPP_CORE_REVISION = "1ca7cdb4567b500a540967cd1a2e2ceda01f8931"'
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js"
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/broker-orders.js"
     assert_includes source, "mountBrokerWorkspace({ document, transport, ...context })"

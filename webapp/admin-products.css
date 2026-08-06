@@ -16,12 +16,12 @@
   line-height: 1.4;
   color: var(--text-secondary);
 }
-.admin-products > select,
+.admin-product-selector select,
 .admin-product-form,
 .admin-localization-form {
   width: 100%;
 }
-.admin-products > select,
+.admin-product-selector select,
 .admin-product-form input,
 .admin-product-form select,
 .admin-product-form textarea,
@@ -34,13 +34,13 @@
   background: var(--surface-recessed);
   transition: border-color var(--motion-state) ease;
 }
-.admin-products > select,
+.admin-product-selector select,
 .admin-product-form input,
 .admin-product-form select,
 .admin-localization-form input {
   min-height: var(--target-min);
 }
-.admin-products > select:focus,
+.admin-product-selector select:focus,
 .admin-product-form input:focus,
 .admin-product-form select:focus,
 .admin-product-form textarea:focus,
@@ -100,6 +100,10 @@
   color: var(--text-primary);
   background: var(--surface-raised);
 }
+.admin-localization-list button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--edge-control));
+  background: var(--surface-recessed);
+}
 
 @media (orientation: landscape) {
   .admin-products {
@@ -116,7 +120,7 @@
   .admin-products > h3,
   .admin-products > p,
   .admin-products-status,
-  .admin-products > select,
+  .admin-product-selector,
   .admin-localization-list {
     grid-column: 1 / -1;
   }
