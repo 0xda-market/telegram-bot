@@ -1,0 +1,104 @@
+/*
+ * Circular control and progress material.
+ *
+ * Every visible orb uses one tokenized core. A close control keeps the
+ * 44px interaction target around that core; when its dialog becomes pending,
+ * the same core changes state into the spinner instead of drawing a second
+ * indicator over the close glyph.
+ */
+
+.bootstrap-spinner,
+[data-loading="true"]::after,
+.dialog-close::before {
+  box-sizing: border-box;
+  width: var(--orb-size);
+  height: var(--orb-size);
+  border: var(--orb-stroke) solid var(--orb-track);
+  border-radius: var(--radius-pill);
+  background: var(--orb-surface);
+  box-shadow:
+    inset 0 1px 0 var(--edge-highlight),
+    0 4px 12px rgb(0 0 0 / 0.28);
+}
+
+.bootstrap-spinner,
+[data-loading="true"]::after,
+dialog[data-loading="true"] .dialog-close::before {
+  border-top-color: var(--accent);
+  animation: orb-spin var(--orb-spin-duration) linear infinite;
+}
+
+.bootstrap-spinner {
+  display: block;
+}
+
+[data-loading="true"]::after {
+  content: "";
+  position: absolute;
+  z-index: 30;
+  top: var(--space-3);
+  right: var(--space-3);
+  pointer-events: none;
+}
+
+.dialog-close {
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  appearance: none;
+  color: var(--text-secondary);
+  background: transparent;
+  font-size: 0;
+  touch-action: manipulation;
+}
+
+.dialog-close::before,
+.dialog-close::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  pointer-events: none;
+  transition:
+    opacity var(--motion-state) ease,
+    transform var(--motion-press) var(--ease-viscous);
+}
+
+.dialog-close::after {
+  width: 12px;
+  height: 12px;
+  background:
+    linear-gradient(45deg, transparent 42%, currentColor 42% 58%, transparent 58%),
+    linear-gradient(-45deg, transparent 42%, currentColor 42% 58%, transparent 58%);
+}
+
+.dialog-close:active::before,
+.dialog-close:active::after {
+  transform: scale(0.9);
+}
+
+/* The dialog itself owns the generic pending pseudo-element. Suppress it and
+   reuse the close orb, so the X and spinner can never occupy the same pixels. */
+dialog[data-loading="true"]::after {
+  content: none;
+}
+
+dialog[data-loading="true"] .dialog-close::after {
+  opacity: 0;
+  transform: scale(0.65);
+}
+
+@keyframes orb-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bootstrap-spinner,
+  [data-loading="true"]::after,
+  dialog[data-loading="true"] .dialog-close::before {
+    animation-duration: 1400ms;
+  }
+}

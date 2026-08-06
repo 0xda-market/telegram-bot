@@ -27,23 +27,6 @@ body.app-booting > :not(#bootstrap-shell):not(script) {
   color: var(--semantic-danger);
 }
 
-.bootstrap-spinner {
-  width: 26px;
-  height: 26px;
-  border: 3px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: bootstrap-spin 700ms linear infinite;
-}
-
 body:not(.app-booting) .bootstrap-shell {
   display: none;
-}
-
-@keyframes bootstrap-spin {
-  to { transform: rotate(360deg); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bootstrap-spinner { animation-duration: 1400ms; }
 }

@@ -338,6 +338,12 @@ A pending POST request should:
 - preserve the section geometry;
 - show a visible but restrained loading indicator.
 
+Circular progress and close affordances use one **orb primitive**: the same
+visible diameter, stroke, accent track, surface, and motion. The interactive
+close control keeps its full 44px target around that smaller visual core. If a
+pending surface already contains the close orb, the orb changes into the
+loading state; a second spinner must never be stacked over its glyph.
+
 ---
 
 ## States

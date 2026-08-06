@@ -23,6 +23,7 @@ class WebAppAdapterContractTest < Minitest::Test
 
     html = File.read(File.join(ROOT, "webapp/index.html"))
     assert_includes html, "data-mobile-input-confirm"
+    assert_includes html, 'href="./orb-controls.css"'
     assert_includes html, 'href="./fluid-controls.css"'
   end
 
@@ -171,12 +172,35 @@ class WebAppAdapterContractTest < Minitest::Test
     refute_match(/min-height:\s*3\dpx/, products)
   end
 
+  def test_close_and_progress_orbs_share_one_visual_contract
+    tokens = File.read(File.join(ROOT, "webapp/design-tokens.css"))
+    bootstrap = File.read(File.join(ROOT, "webapp/bootstrap.css"))
+    styles = File.read(File.join(ROOT, "webapp/styles.css"))
+    orbs = File.read(File.join(ROOT, "webapp/orb-controls.css"))
+
+    %w[--orb-size --orb-stroke --orb-track --orb-surface --orb-spin-duration].each do |token|
+      assert_includes tokens, token
+    end
+
+    assert_includes orbs, ".bootstrap-spinner,"
+    assert_includes orbs, '[data-loading="true"]::after,'
+    assert_includes orbs, ".dialog-close::before"
+    assert_includes orbs, 'dialog[data-loading="true"]::after'
+    assert_includes orbs, "content: none"
+    assert_includes orbs, 'dialog[data-loading="true"] .dialog-close::before'
+    assert_includes orbs, "animation: orb-spin var(--orb-spin-duration)"
+    refute_includes bootstrap, ".bootstrap-spinner"
+    refute_includes styles, '[data-loading="true"]::after'
+    refute_match(/border-radius:\s*50%/, bootstrap + styles + orbs)
+  end
+
   # One property, one owner. styles.css owns layout, fluid-controls.css owns
   # material, fluid-core-markup.css owns the elements webapp-core emits inside
   # them. Any pair declaring the same property makes rendering depend on the
   # order of the <link> tags.
   STYLESHEET_OWNERS = {
     "styles.css" => "layout",
+    "orb-controls.css" => "circular controls and progress",
     "fluid-controls.css" => "material",
     "fluid-core-markup.css" => "core-owned elements"
   }.freeze
