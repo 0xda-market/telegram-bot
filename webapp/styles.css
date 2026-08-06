@@ -70,24 +70,6 @@ button { cursor: pointer; }
   opacity: 0.68;
   transition: opacity 120ms ease;
 }
-[data-loading="true"]::after {
-  content: "";
-  position: absolute;
-  z-index: 30;
-  top: var(--space-3);
-  right: var(--space-3);
-  width: 18px;
-  height: 18px;
-  border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: section-loading 700ms linear infinite;
-}
-
-@keyframes section-loading {
-  to { transform: rotate(360deg); }
-}
-
 .shell {
   min-height: 100vh;
   min-height: 100dvh;
@@ -220,15 +202,10 @@ dialog { width: min(calc(100% - var(--space-5)), 460px); border: 0; border-radiu
 }
 .dialog-close {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: var(--space-2);
+  right: var(--space-2);
   width: var(--target-min);
   height: var(--target-min);
-  border: 0;
-  border-radius: 50%;
-  color: var(--text-secondary);
-  background: transparent;
-  font-size: 22px;
 }
 .dialog-price { font-size: 21px; font-weight: 800; }
 .dialog-status { min-height: 38px; font-size: 13px; color: var(--text-secondary); }

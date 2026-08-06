@@ -50,6 +50,14 @@
   --radius-plane: 20px;
   --radius-pill: 999px;
 
+  /* Orb primitive. Close controls and progress indicators share the same
+     visible diameter, stroke, track and surface. Interactive orbs keep a
+     larger hit target around this visual core. */
+  --orb-size: 28px;
+  --orb-stroke: 2px;
+  --orb-track: rgb(47 129 247 / 0.24);
+  --orb-surface: #10151d;
+
   /* Spacing, 4px base. */
   --space-1: 4px;
   --space-2: 8px;
@@ -61,6 +69,7 @@
   --motion-press: 110ms;
   --motion-state: 180ms;
   --motion-lens: 260ms;
+  --orb-spin-duration: 700ms;
   --ease-viscous: cubic-bezier(0.32, 0.72, 0.16, 1);
 
   /* Space reserved by the fixed workspace bar, for content and for any
@@ -116,6 +125,11 @@
  * (day 4.7:1, twilight 4.9:1, night 5.0:1).
  */
 @supports (color: color-mix(in srgb, #000 50%, #fff)) {
+  :root {
+    --orb-track: color-mix(in srgb, var(--accent) 24%, transparent);
+    --orb-surface: color-mix(in srgb, var(--surface-recessed) 86%, var(--accent) 14%);
+  }
+
   :root[data-daypart="twilight"] {
     --accent: color-mix(in srgb, var(--accent-source) 94%, var(--accent-warm));
   }
