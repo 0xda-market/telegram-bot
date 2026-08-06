@@ -19,42 +19,18 @@ jobs:
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.3.11
-      - run: bundle install
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Run WebApp adapter tests
-        run: node --test test/*.test.mjs
-      - name: Run tests
+      - name: Run repository CI
         id: tests
-        run: |
-          set -o pipefail
-          bundle exec rake >test.log 2>&1 || {
-            cat test.log
-            exit 1
-          }
-      - name: Validate documented repository links
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: bash bin/check_documented_repositories
+        run: bash bin/ci
       - name: Upload test failure log
-        if: failure() && steps.tests.outcome == 'failure'
+        if: failure() && hashFiles('test.log') != ''
         uses: actions/upload-artifact@v4
         with:
           name: test-log
           path: test.log
           retention-days: 3
-      - name: Validate VPS deployment configuration
-        env:
-          RELEASE_SHA: 0000000000000000000000000000000000000000
-        run: |
-          bash -n bin/check_documented_repositories
-          bash -n deploy/vps/deploy.sh
-          bash -n deploy/vps/run-price-digest.sh
-          bash -n deploy/vps/install-systemd.sh
-          bash test/vps_price_digest_test.sh
-          cat >deploy/vps/.env <<'ENV'
-          DEPLOY_ENV=development
-          ENV
-          docker compose --file deploy/vps/compose.yaml --env-file deploy/vps/.env config --quiet
-      - run: docker build --tag 0xda-market-bot .
