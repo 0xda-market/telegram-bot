@@ -1,0 +1,56 @@
+name: CI Self-hosted
+
+on:
+  push:
+    branches:
+      - master
+      - 'release*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on:
+      - self-hosted
+      - linux
+      - x64
+      - 0xda-market-ci
+    timeout-minutes: 15
+    steps:
+      - name: Verify runner toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v git
+          command -v ruby
+          command -v bundle
+          command -v node
+          command -v docker
+          ruby -e 'abort "Ruby 3.3.11 required" unless RUBY_VERSION == "3.3.11"'
+          node -e 'process.exit(Number(process.versions.node.split(".")[0]) === 22 ? 0 : 1)'
+          docker compose version
+
+      - name: Checkout without Marketplace actions
+        shell: bash
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+          git -C "$GITHUB_WORKSPACE" init
+          git -C "$GITHUB_WORKSPACE" remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          if [[ -n "${PR_NUMBER:-}" ]]; then
+            git -C "$GITHUB_WORKSPACE" fetch --no-tags --depth=1 origin "refs/pull/${PR_NUMBER}/merge"
+          else
+            git -C "$GITHUB_WORKSPACE" fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          fi
+          git -C "$GITHUB_WORKSPACE" checkout --detach FETCH_HEAD
+
+      - name: Run repository CI
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: bash bin/ci

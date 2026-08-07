@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+bundle config set --local path vendor/bundle
+bundle install
+node --test test/*.test.mjs
+
+set +e
+bundle exec rake >test.log 2>&1
+test_status=$?
+set -e
+if (( test_status != 0 )); then
+  cat test.log
+  exit "$test_status"
+fi
+
+bash bin/check_documented_repositories
+
+bash -n bin/check_documented_repositories
+bash -n deploy/vps/deploy.sh
+bash -n deploy/vps/run-price-digest.sh
+bash -n deploy/vps/install-systemd.sh
+bash test/vps_price_digest_test.sh
+
+cat >deploy/vps/.env <<'ENV'
+DEPLOY_ENV=development
+ENV
+
+RELEASE_SHA="${RELEASE_SHA:-0000000000000000000000000000000000000000}" \
+  docker compose --file deploy/vps/compose.yaml --env-file deploy/vps/.env config --quiet
+
+docker build --tag 0xda-market-bot .
