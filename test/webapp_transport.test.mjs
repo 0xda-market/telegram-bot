@@ -116,9 +116,12 @@ test("rejects a nominal HTTP success carrying status error", async () => {
   await assert.rejects(() => transport.quote({ sku: "premium_3m", quantity: "1", locale: "uk_UA" }), /write rejected/);
 });
 
-test("pins and mounts the broker order marketplace package contract", () => {
+test("pins and mounts the current webapp-core contracts", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /1ca7cdb4567b500a540967cd1a2e2ceda01f8931/);
+  assert.match(source, /aa678e3cb439bc6d242221668f2e7a16d31dbb88/);
+  assert.match(source, /checkout-feedback-state\.js/);
+  assert.match(source, /createCheckoutFeedbackState/);
+  assert.match(source, /withCheckoutFeedback/);
   assert.match(source, /mountBrokerWorkspace/);
   assert.match(source, /mountBrokerOrders/);
   assert.match(source, /mountAdminWorkspace/);
