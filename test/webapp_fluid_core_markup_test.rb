@@ -8,7 +8,7 @@ class WebappFluidCoreMarkupTest < Minitest::Test
   def test_pins_the_merged_core_markup_revision
     app = File.read(File.join(ROOT, "webapp/app.js"))
 
-    assert_includes app, 'const WEBAPP_CORE_REVISION = "f588cdf71f5c12c93851638ca88e5c904a34bca6"'
+    assert_includes app, 'const WEBAPP_CORE_REVISION = "e38fc6b9e42c0c0ec220d1f5072beb5e7c6c5dc9"'
   end
 
   def test_loads_adapter_styles_after_the_fluid_material
@@ -60,7 +60,6 @@ class WebappFluidCoreMarkupTest < Minitest::Test
     assert_includes core_markup, ".admin-product-summary"
     assert_includes core_markup, ".admin-product-summary-fields"
     assert_includes core_markup, '.admin-product-summary-field[data-product-field="localizations"]'
-    # The product select moved inside the core-owned selector wrapper.
     products = File.read(File.join(ROOT, "webapp/admin-products.css"))
 
     assert_includes products, ".admin-product-selector select"
@@ -82,7 +81,6 @@ class WebappFluidCoreMarkupTest < Minitest::Test
     refute_nil withdraw
     assert_includes withdraw, "var(--semantic-danger)"
     refute_match(/background:\s*var\(--accent\)/, withdraw)
-    # The restrained edge is declared plainly before any color-mix().
     assert_match(/border:\s*1px solid var\(--edge-control\)/, withdraw)
   end
 

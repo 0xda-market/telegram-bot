@@ -14,8 +14,7 @@ module ZeroXDA::Market::TelegramBot
       end
 
       # `product:` remains accepted for the existing inline bot purchase
-      # callback. The Mini App sends `sku:` and `quantity:` directly. Both
-      # surfaces use the marketplace API when the connected core supports it.
+      # callback. The Mini App sends `sku:` and recipient data directly.
       def quote(
         user:,
         telegram_user:,
@@ -23,6 +22,7 @@ module ZeroXDA::Market::TelegramBot
         locale:,
         sku: nil,
         quantity: "1",
+        recipient: nil,
         product: nil
       )
         if marketplace_api?
@@ -30,6 +30,7 @@ module ZeroXDA::Market::TelegramBot
             actor_user_id: user.fetch("id"),
             sku: sku || product&.fetch("id"),
             quantity: quantity,
+            recipient: recipient,
             context: ownership_context(
               user: user,
               telegram_user: telegram_user,
