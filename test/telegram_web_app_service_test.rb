@@ -138,10 +138,11 @@ class TelegramWebAppServiceTest < Minitest::Test
       @refreshes = []
     end
 
-    def quote(sku:, quantity:, user:, telegram_user:, chat:, locale:)
+    def quote(sku:, quantity:, recipient:, user:, telegram_user:, chat:, locale:)
       @quotes << {
         sku: sku,
         quantity: quantity,
+        recipient: recipient,
         user: user,
         telegram_user: telegram_user,
         chat: chat,
@@ -152,7 +153,7 @@ class TelegramWebAppServiceTest < Minitest::Test
         "id" => "quote-1",
         "attributes" => {
           "quantity" => quantity,
-          "total_price_usdt" => "26.50",
+          "total_price_usdt" => "13.25",
           "currency" => "USDT",
           "expires_at" => "2026-07-31T18:00:00Z"
         }
@@ -199,18 +200,20 @@ class TelegramWebAppServiceTest < Minitest::Test
     assert_equal 1, @market.authentications.length
   end
 
-  def test_quote_passes_exact_quantity_and_verified_identity_without_an_extra_catalog_read
+  def test_quote_passes_single_quantity_recipient_and_verified_identity_without_an_extra_catalog_read
     document = @service.quote(
       init_data: "signed",
       sku: "premium_3m",
-      quantity: "2",
+      quantity: "1",
+      recipient: { "mode" => "username", "username" => "recipient" },
       locale: "uk_UA"
     )
 
     assert_equal "quote-1", document.dig("data", "id")
-    assert_equal "2", document.dig("data", "attributes", "quantity")
+    assert_equal "1", document.dig("data", "attributes", "quantity")
     assert_equal "premium_3m", @purchase.quotes.first.fetch(:sku)
-    assert_equal "2", @purchase.quotes.first.fetch(:quantity)
+    assert_equal "1", @purchase.quotes.first.fetch(:quantity)
+    assert_equal({ "mode" => "username", "username" => "recipient" }, @purchase.quotes.first.fetch(:recipient))
     assert_equal "internal-user-id", @purchase.quotes.first.dig(:user, "id")
     assert_empty @market.bootstrap_requests
   end
