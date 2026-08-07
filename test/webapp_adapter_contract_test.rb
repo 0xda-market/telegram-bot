@@ -8,9 +8,12 @@ class WebAppAdapterContractTest < Minitest::Test
   def test_entrypoint_delegates_to_pinned_marketplace_modules
     source = File.read(File.join(ROOT, "webapp/app.js"))
 
-    assert_includes source, 'WEBAPP_CORE_REVISION = "1ca7cdb4567b500a540967cd1a2e2ceda01f8931"'
+    assert_includes source, 'WEBAPP_CORE_REVISION = "aa678e3cb439bc6d242221668f2e7a16d31dbb88"'
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js"
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/broker-orders.js"
+    assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/checkout-feedback-state.js"
+    assert_includes source, "createCheckoutFeedbackState"
+    assert_includes source, "withCheckoutFeedback"
     assert_includes source, "mountBrokerWorkspace({ document, transport, ...context })"
     assert_includes source, "mountBrokerOrders({"
     assert_includes source, "mountAdminWorkspace({"
@@ -50,13 +53,10 @@ class WebAppAdapterContractTest < Minitest::Test
     assert_includes tokens, "--target-min: 44px"
     assert_includes tokens, "--focus-ring"
     assert_includes tokens, "--ease-viscous"
-    # The base surface is brand-owned; only the accent derives from the theme.
     assert_includes tokens, "--accent-source: var(--tg-theme-button-color"
     refute_match(/--surface-\w+:\s*var\(--tg-theme/, tokens)
   end
 
-  # The daypart may change how the material reads. It may not change whether a
-  # price is legible, so it is confined to four decorative tokens.
   MODULATED_TOKENS = %w[--edge-highlight --edge-shadow --accent-glow --accent].freeze
 
   def test_daypart_modulates_intensity_and_never_a_contrast_contract
@@ -88,7 +88,6 @@ class WebAppAdapterContractTest < Minitest::Test
 
     assert_match(/--accent:\s*color-mix/, guarded)
     refute_match(/:root\[data-daypart="\w+"\]\s*\{[^}]*--accent:\s*color-mix/m, unguarded)
-    # Without color-mix() the accent must still resolve to a plain colour.
     assert_match(/--accent:\s*var\(--accent-source\)/, unguarded)
   end
 
@@ -182,22 +181,20 @@ class WebAppAdapterContractTest < Minitest::Test
       assert_includes tokens, token
     end
 
-    assert_includes orbs, ".bootstrap-spinner,"
-    assert_includes orbs, '[data-loading="true"]::after,'
+    assert_includes orbs, ".bootstrap-spinner"
+    assert_includes orbs, '[data-loading="true"]::after'
     assert_includes orbs, ".dialog-close::before"
     assert_includes orbs, 'dialog[data-loading="true"]::after'
     assert_includes orbs, "content: none"
-    assert_includes orbs, 'dialog[data-loading="true"] .dialog-close::before'
-    assert_includes orbs, "animation: orb-spin var(--orb-spin-duration)"
+    assert_includes orbs, 'dialog[data-checkout-feedback="loading"] .dialog-close::before'
+    assert_includes orbs, 'dialog[data-checkout-feedback="error"] .dialog-close::before'
+    assert_includes orbs, 'dialog[data-checkout-feedback="error"] .dialog-close::after'
+    assert_includes orbs, "animation: orb-close-pulse"
     refute_includes bootstrap, ".bootstrap-spinner"
     refute_includes styles, '[data-loading="true"]::after'
     refute_match(/border-radius:\s*50%/, bootstrap + styles + orbs)
   end
 
-  # One property, one owner. styles.css owns layout, fluid-controls.css owns
-  # material, fluid-core-markup.css owns the elements webapp-core emits inside
-  # them. Any pair declaring the same property makes rendering depend on the
-  # order of the <link> tags.
   STYLESHEET_OWNERS = {
     "styles.css" => "layout",
     "orb-controls.css" => "circular controls and progress",
@@ -239,8 +236,6 @@ class WebAppAdapterContractTest < Minitest::Test
 
   private
 
-  # Collects the properties each selector declares outside any at-rule, so a
-  # responsive override inside @media stays a legitimate override.
   def top_level_declarations(css)
     declarations = Hash.new { |rules, selector| rules[selector] = [] }
     buffer = +""
