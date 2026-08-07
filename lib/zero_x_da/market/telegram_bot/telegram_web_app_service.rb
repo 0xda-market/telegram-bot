@@ -37,11 +37,12 @@ module ZeroXDA::Market::TelegramBot
         )
       end
 
-      def quote(init_data:, sku:, quantity:, locale:)
+      def quote(init_data:, sku:, quantity:, locale:, recipient: nil)
         session, user = authenticate(init_data)
         quote = @purchase_flow.quote(
           sku: sku,
           quantity: quantity,
+          recipient: recipient,
           user: user,
           telegram_user: session.user,
           chat: session.chat,
@@ -109,72 +110,33 @@ module ZeroXDA::Market::TelegramBot
 
       def create_admin_product(init_data:, sku:, attributes:, localization:)
         _session, user = authenticate(init_data)
-        {
-          "data" => @market_api.create_admin_product(
-            actor_user_id: user.fetch("id"),
-            sku: sku,
-            attributes: attributes,
-            localization: localization
-          )
-        }
+        { "data" => @market_api.create_admin_product(actor_user_id: user.fetch("id"), sku: sku, attributes: attributes, localization: localization) }
       end
 
       def update_admin_product(init_data:, sku:, version:, attributes:)
         _session, user = authenticate(init_data)
-        {
-          "data" => @market_api.update_admin_product(
-            actor_user_id: user.fetch("id"),
-            sku: sku,
-            version: version,
-            attributes: attributes
-          )
-        }
+        { "data" => @market_api.update_admin_product(actor_user_id: user.fetch("id"), sku: sku, version: version, attributes: attributes) }
       end
 
-      def save_admin_product_localization(
-        init_data:,
-        sku:,
-        locale:,
-        full_name:,
-        button_label:,
-        version: nil
-      )
+      def save_admin_product_localization(init_data:, sku:, locale:, full_name:, button_label:, version: nil)
         _session, user = authenticate(init_data)
-        {
-          "data" => @market_api.save_admin_product_localization(
-            actor_user_id: user.fetch("id"),
-            sku: sku,
-            locale: locale,
-            full_name: full_name,
-            button_label: button_label,
-            version: version
-          )
-        }
+        { "data" => @market_api.save_admin_product_localization(actor_user_id: user.fetch("id"), sku: sku, locale: locale,
+                                                                  full_name: full_name, button_label: button_label, version: version) }
       end
 
       def admin_price_proposal(init_data:, locale:)
         _session, user = authenticate(init_data)
-        @market_api.admin_price_proposal(
-          actor_user_id: user.fetch("id"),
-          locale: normalized_locale(locale)
-        )
+        @market_api.admin_price_proposal(actor_user_id: user.fetch("id"), locale: normalized_locale(locale))
       end
 
       def admin_price_history(init_data:, limit:)
         _session, user = authenticate(init_data)
-        @market_api.admin_price_history(
-          actor_user_id: user.fetch("id"),
-          limit: limit
-        )
+        @market_api.admin_price_history(actor_user_id: user.fetch("id"), limit: limit)
       end
 
       def apply_admin_prices(init_data:, revision:, prices:)
         _session, user = authenticate(init_data)
-        @market_api.apply_admin_prices(
-          actor_user_id: user.fetch("id"),
-          revision: revision,
-          prices: prices
-        )
+        @market_api.apply_admin_prices(actor_user_id: user.fetch("id"), revision: revision, prices: prices)
       end
 
       private
