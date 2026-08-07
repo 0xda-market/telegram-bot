@@ -5,12 +5,36 @@ require_relative "market_api"
 
 module ZeroXDA::Market::TelegramBot
   class MarketAPI
+    # Mini App signed user data includes current Telegram Premium state when
+    # Telegram provides it. Persist that provider fact with the external
+    # identity so core can make the eligibility decision without depending on
+    # Telegram itself.
+    def authenticate_telegram(user:, chat:)
+      provider_data = {
+        chat_id: chat.fetch("id").to_s,
+        username: user["username"],
+        first_name: user["first_name"],
+        last_name: user["last_name"],
+        language_code: user["language_code"]
+      }
+      provider_data[:is_premium] = user["is_premium"] if user.key?("is_premium")
+      document = post(
+        "v1/auth/external",
+        provider: TELEGRAM_PROVIDER,
+        provider_user_id: user.fetch("id").to_s,
+        provider_data: provider_data.compact
+      )
+      document.fetch("data")
+    end
+
     def webapp_bootstrap(locale: "en_US", currency: "USDT")
       get("v1/webapp/bootstrap?#{URI.encode_www_form(locale: locale, currency: currency)}", authenticated: false)
     end
 
-    def create_marketplace_quote(actor_user_id:, sku:, quantity:, context:)
-      post("v1/market/quotes", actor_user_id: actor_user_id, sku: sku, quantity: quantity, context: context).fetch("data")
+    def create_marketplace_quote(actor_user_id:, sku:, quantity:, context:, recipient: nil)
+      payload = { actor_user_id: actor_user_id, sku: sku, quantity: quantity, context: context }
+      payload[:recipient] = recipient if recipient
+      post("v1/market/quotes", payload).fetch("data")
     end
 
     def accept_marketplace_quote(actor_user_id:, quote_id:)
