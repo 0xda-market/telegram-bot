@@ -100,6 +100,7 @@ module ZeroXDA::Market::TelegramBot
           init_data: init_data(request),
           sku: body.fetch("sku"),
           quantity: body.fetch("quantity", 1),
+          recipient: body["recipient"],
           locale: body["locale"]
         )
         post_document(201, document)
