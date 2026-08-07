@@ -47,13 +47,14 @@ export function createTelegramTransport({
   telegram = globalThis.Telegram?.WebApp,
   apiBaseUrl = ".",
   fetchImpl = globalThis.fetch,
-  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS
+  requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  locale: defaultLocale = "en_US"
 } = {}) {
   let bootstrapPromise;
 
   async function requestDocument(path, options = {}) {
     const initData = telegram?.initData || "";
-    const locale = options.locale || "en_US";
+    const locale = options.locale || defaultLocale;
     if (!initData) {
       throw new Error(normalizeLocale(locale) === "uk_UA" ? "Відкрийте застосунок у Telegram." : "Open this Web App inside Telegram.");
     }
@@ -104,8 +105,8 @@ export function createTelegramTransport({
       return requestDocument("/runtime-events", { method: "POST", body: JSON.stringify(event) });
     },
     quote({ sku, quantity, locale }) { return requestResource("/quotes", { method: "POST", body: JSON.stringify({ sku, quantity, locale }), locale }); },
-    acceptQuote({ quoteId, locale }) { return requestResource(`/quotes/${encodeURIComponent(quoteId)}/accept`, { method: "POST", body: "{}", locale }); },
-    refreshOrder({ orderId, locale }) { return requestResource(`/orders/${encodeURIComponent(orderId)}`, { locale }); },
+    acceptQuote({ quoteId }) { return requestResource(`/quotes/${encodeURIComponent(quoteId)}/accept`, { method: "POST", body: "{}" }); },
+    refreshOrder({ orderId }) { return requestResource(`/orders/${encodeURIComponent(orderId)}`); },
     listBrokerListings() { return requestResource("/broker/listings"); },
     createBrokerListing({ sku, quantity, priceAmount, currency }) { return requestResource("/broker/listings", { method: "POST", body: JSON.stringify({ sku, quantity, price_amount: priceAmount, currency }) }); },
     updateBrokerListing({ listingId, quantity, priceAmount, currency, version }) { return requestResource(`/broker/listings/${encodeURIComponent(listingId)}`, { method: "PATCH", body: JSON.stringify({ quantity, price_amount: priceAmount, currency, version }) }); },
