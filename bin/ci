@@ -25,5 +25,7 @@ cat >deploy/vps/.env <<'ENV'
 DEPLOY_ENV=development
 ENV
 
-docker compose --file deploy/vps/compose.yaml --env-file deploy/vps/.env config --quiet
+RELEASE_SHA="${RELEASE_SHA:-0000000000000000000000000000000000000000}" \
+  docker compose --file deploy/vps/compose.yaml --env-file deploy/vps/.env config --quiet
+
 docker build --tag 0xda-market-bot .
