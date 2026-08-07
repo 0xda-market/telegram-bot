@@ -81,7 +81,7 @@ async function start() {
   const { createCheckoutFeedbackState, withCheckoutFeedback } = await import(checkoutFeedbackModuleUrl);
   const checkoutFeedback = createCheckoutFeedbackState({ dialog: checkoutDialog });
   const transport = withCheckoutFeedback(
-    createTelegramTransport({ telegram, apiBaseUrl }),
+    createTelegramTransport({ telegram, apiBaseUrl, locale }),
     { dialog: checkoutDialog, feedback: checkoutFeedback }
   );
 

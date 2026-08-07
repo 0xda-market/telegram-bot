@@ -27,8 +27,8 @@ test("clears a timed-out bootstrap so startup retry issues a new request", async
     }
   });
 
-  await assert.rejects(() => transport.bootstrap({ locale: "uk_UA" }), /timed out after 5 ms/);
-  await assert.rejects(() => transport.bootstrap({ locale: "uk_UA" }), /timed out after 5 ms/);
+  await assert.rejects(() => transport.bootstrap({ locale: "uk_UA" }), /Час очікування відповіді минув \(5 мс\)/);
+  await assert.rejects(() => transport.bootstrap({ locale: "uk_UA" }), /Час очікування відповіді минув \(5 мс\)/);
   assert.equal(calls, 2);
 });
 
@@ -106,14 +106,39 @@ test("preserves price proposal metadata and submits its exact revision", async (
   assert.equal(applied.meta.revision, 9);
 });
 
+test("localizes structured API errors for Ukrainian without exposing backend copy", async () => {
+  const transport = createTelegramTransport({
+    telegram: { initData: "signed" },
+    locale: "uk_UA",
+    fetchImpl: async () => response({
+      status: "error",
+      errors: [{ code: "insufficient_liquidity", message: "insufficient broker liquidity", details: { sku: "premium_3m" } }]
+    }, { ok: false, status: 409 })
+  });
+
+  await assert.rejects(
+    () => transport.quote({ sku: "premium_3m", quantity: "1", locale: "uk_UA" }),
+    /Недостатньо доступної пропозиції брокерів для цього замовлення/
+  );
+});
+
+test("keeps unknown backend errors as a fallback", async () => {
+  const transport = createTelegramTransport({
+    telegram: { initData: "signed" },
+    locale: "uk_UA",
+    fetchImpl: async () => response({ errors: [{ code: "future_error", message: "future backend message" }] }, { ok: false, status: 409 })
+  });
+  await assert.rejects(() => transport.listBrokerListings(), /future backend message/);
+});
+
 test("rejects a successful POST document without status ok", async () => {
   const transport = createTelegramTransport({ telegram: { initData: "signed" }, fetchImpl: async () => response({ data: {} }, { status: 201 }) });
-  await assert.rejects(() => transport.quote({ sku: "premium_3m", quantity: "1", locale: "uk_UA" }), /missing status: ok/);
+  await assert.rejects(() => transport.quote({ sku: "premium_3m", quantity: "1", locale: "en_US" }), /HTTP 201/);
 });
 
 test("rejects a nominal HTTP success carrying status error", async () => {
   const transport = createTelegramTransport({ telegram: { initData: "signed" }, fetchImpl: async () => response({ status: "error", message: "write rejected", data: {} }, { status: 200 }) });
-  await assert.rejects(() => transport.quote({ sku: "premium_3m", quantity: "1", locale: "uk_UA" }), /write rejected/);
+  await assert.rejects(() => transport.quote({ sku: "premium_3m", quantity: "1", locale: "en_US" }), /write rejected/);
 });
 
 test("pins and mounts the current webapp-core contracts", () => {
