@@ -35,8 +35,8 @@ class TelegramMiniAppTest < Minitest::Test
       }
     end
 
-    def quote(init_data:, sku:, quantity:, locale:)
-      @requests << [:quote, init_data, sku, quantity, locale]
+    def quote(init_data:, sku:, quantity:, locale:, recipient: nil)
+      @requests << [:quote, init_data, sku, quantity, recipient, locale]
       {
         "data" => {
           "type" => "quote",
@@ -136,12 +136,13 @@ class TelegramMiniAppTest < Minitest::Test
     assert_equal [[:bootstrap, "signed-init-data", "uk_UA"]], @service.requests
   end
 
-  def test_routes_quantity_quote_acceptance_and_order_refresh
+  def test_routes_single_unit_recipient_quote_acceptance_and_order_refresh
+    recipient = { mode: "username", username: "recipient" }
     quote = @client.post(
       "/webapp/quotes",
       "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data",
       "CONTENT_TYPE" => "application/json",
-      input: JSON.generate(sku: "premium_3m", quantity: "2", locale: "uk_UA")
+      input: JSON.generate(sku: "premium_3m", quantity: "1", recipient: recipient, locale: "uk_UA")
     )
     accepted = @client.post(
       "/webapp/quotes/quote-1/accept",
@@ -156,13 +157,13 @@ class TelegramMiniAppTest < Minitest::Test
 
     assert_equal 201, quote.status
     assert_equal "ok", JSON.parse(quote.body).fetch("status")
-    assert_equal "2", JSON.parse(quote.body).dig("data", "attributes", "quantity")
+    assert_equal "1", JSON.parse(quote.body).dig("data", "attributes", "quantity")
     assert_equal 201, accepted.status
     assert_equal "ok", JSON.parse(accepted.body).fetch("status")
     assert_equal 200, refreshed.status
     assert_equal(
       [
-        [:quote, "signed-init-data", "premium_3m", "2", "uk_UA"],
+        [:quote, "signed-init-data", "premium_3m", "1", { "mode" => "username", "username" => "recipient" }, "uk_UA"],
         [:accept, "signed-init-data", "quote-1"],
         [:refresh, "signed-init-data", "order-1"]
       ],
