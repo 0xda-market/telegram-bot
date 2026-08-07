@@ -1,6 +1,14 @@
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 
 const ERROR_MESSAGES = Object.freeze({
+  en_US: Object.freeze({
+    single_quantity_only: "This product can only be purchased one at a time.",
+    recipient_username_required: "Enter the recipient's Telegram username.",
+    recipient_mode_unsupported: "This recipient option is not supported for the product.",
+    recipient_identity_unavailable: "Your Telegram username is required to buy this product for yourself.",
+    recipient_ambiguous: "This username cannot be resolved safely.",
+    premium_already_active: "Telegram Premium is already active for this recipient."
+  }),
   uk_UA: Object.freeze({
     insufficient_liquidity: "Недостатньо доступної пропозиції брокерів для цього замовлення.",
     quote_reprice_required: "Умови пропозиції змінилися. Отримайте нову ціну.",
@@ -10,22 +18,37 @@ const ERROR_MESSAGES = Object.freeze({
     fulfillment_not_ready: "Замовлення ще не готове до виконання.",
     fulfillment_incomplete: "Не вдалося завершити виконання замовлення.",
     duplicate_active_listing: "Для цього активу й валюти вже є активне оголошення.",
+    single_quantity_only: "Цей продукт можна купити лише по одному.",
+    recipient_username_required: "Вкажіть Telegram username одержувача.",
+    recipient_mode_unsupported: "Цей варіант одержувача недоступний для продукту.",
+    recipient_identity_unavailable: "Для купівлі собі потрібен ваш Telegram username.",
+    recipient_ambiguous: "Не вдалося однозначно визначити цей username.",
+    premium_already_active: "У цього одержувача Telegram Premium уже активний.",
     missing_field: "У запиті бракує обов’язкових даних.",
     validation_error: "Перевірте введені дані й спробуйте ще раз.",
     unauthorized: "Потрібна авторизація.",
     forbidden: "Недостатньо прав для цієї дії.",
     not_found: "Запитаний ресурс не знайдено."
+  }),
+  ru_RU: Object.freeze({
+    single_quantity_only: "Этот продукт можно купить только по одному.",
+    recipient_username_required: "Укажите Telegram username получателя.",
+    recipient_mode_unsupported: "Этот вариант получателя недоступен для продукта.",
+    recipient_identity_unavailable: "Для покупки себе требуется ваш Telegram username.",
+    recipient_ambiguous: "Не удалось однозначно определить этот username.",
+    premium_already_active: "У этого получателя Telegram Premium уже активен."
   })
 });
 
 function normalizeLocale(locale) {
-  return String(locale || "en_US").toLowerCase().startsWith("uk") ? "uk_UA" : "en_US";
+  const language = String(locale || "en_US").toLowerCase().split(/[-_]/, 1)[0];
+  return ({ uk: "uk_UA", ru: "ru_RU", en: "en_US" })[language] || "en_US";
 }
 
 function apiError(document, status, locale) {
   const first = Array.isArray(document?.errors) ? document.errors[0] : null;
   const code = String(first?.code || document?.code || "");
-  const localized = ERROR_MESSAGES[normalizeLocale(locale)]?.[code];
+  const localized = ERROR_MESSAGES[normalizeLocale(locale)]?.[code] || ERROR_MESSAGES.en_US[code];
   const fallback = first?.message || document?.message || document?.error || `HTTP ${status}`;
   const error = new Error(localized || fallback);
   if (code) error.code = code;
@@ -34,11 +57,12 @@ function apiError(document, status, locale) {
 }
 
 function timeoutError(milliseconds, locale) {
-  const error = new Error(
-    normalizeLocale(locale) === "uk_UA"
-      ? `Час очікування відповіді минув (${milliseconds} мс).`
-      : `Web App request timed out after ${milliseconds} ms.`
-  );
+  const messages = {
+    uk_UA: `Час очікування відповіді минув (${milliseconds} мс).`,
+    ru_RU: `Время ожидания ответа истекло (${milliseconds} мс).`,
+    en_US: `Web App request timed out after ${milliseconds} ms.`
+  };
+  const error = new Error(messages[normalizeLocale(locale)]);
   error.code = "request_timeout";
   return error;
 }
@@ -56,10 +80,12 @@ export function createTelegramTransport({
     const initData = telegram?.initData || "";
     const locale = options.locale || defaultLocale;
     if (!initData) {
-      throw new Error(normalizeLocale(locale) === "uk_UA" ? "Відкрийте застосунок у Telegram." : "Open this Web App inside Telegram.");
+      const messages = { uk_UA: "Відкрийте застосунок у Telegram.", ru_RU: "Откройте приложение в Telegram.", en_US: "Open this Web App inside Telegram." };
+      throw new Error(messages[normalizeLocale(locale)]);
     }
     if (typeof fetchImpl !== "function") {
-      throw new Error(normalizeLocale(locale) === "uk_UA" ? "З’єднання із застосунком недоступне." : "Web App transport is unavailable.");
+      const messages = { uk_UA: "З’єднання із застосунком недоступне.", ru_RU: "Соединение с приложением недоступно.", en_US: "Web App transport is unavailable." };
+      throw new Error(messages[normalizeLocale(locale)]);
     }
 
     const controller = new AbortController();
@@ -104,7 +130,7 @@ export function createTelegramTransport({
     reportRuntimeEvent(event) {
       return requestDocument("/runtime-events", { method: "POST", body: JSON.stringify(event) });
     },
-    quote({ sku, quantity, locale }) { return requestResource("/quotes", { method: "POST", body: JSON.stringify({ sku, quantity, locale }), locale }); },
+    quote({ sku, quantity, recipient, locale }) { return requestResource("/quotes", { method: "POST", body: JSON.stringify({ sku, quantity, recipient, locale }), locale }); },
     acceptQuote({ quoteId }) { return requestResource(`/quotes/${encodeURIComponent(quoteId)}/accept`, { method: "POST", body: "{}" }); },
     refreshOrder({ orderId }) { return requestResource(`/orders/${encodeURIComponent(orderId)}`); },
     listBrokerListings() { return requestResource("/broker/listings"); },
