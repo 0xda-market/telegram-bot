@@ -4,12 +4,14 @@ import { localizeTelegramShell } from "./adapter/shell-localization.js";
 import { createStartupController } from "./adapter/startup-controller.js";
 import { createTelegramTransport } from "./adapter/telegram-transport.js";
 
-const WEBAPP_CORE_REVISION = "1ca7cdb4567b500a540967cd1a2e2ceda01f8931";
+const WEBAPP_CORE_REVISION = "aa678e3cb439bc6d242221668f2e7a16d31dbb88";
 const runtime = globalThis.__ZERO_X_DA_MARKET__ || {};
 const webappCoreModuleUrl = runtime.webappCoreModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js`;
 const brokerOrdersModuleUrl = runtime.brokerOrdersModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/broker-orders.js`;
+const checkoutFeedbackModuleUrl = runtime.checkoutFeedbackModuleUrl ||
+  `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/checkout-feedback-state.js`;
 const apiBaseUrl = runtime.apiBaseUrl || ".";
 
 function revealApplication() {
@@ -75,7 +77,13 @@ async function start() {
   const telegram = globalThis.Telegram?.WebApp;
   const host = createTelegramHost(telegram);
   const locale = host.locale();
-  const transport = createTelegramTransport({ telegram, apiBaseUrl });
+  const checkoutDialog = document.querySelector("#checkout-dialog");
+  const { createCheckoutFeedbackState, withCheckoutFeedback } = await import(checkoutFeedbackModuleUrl);
+  const checkoutFeedback = createCheckoutFeedbackState({ dialog: checkoutDialog });
+  const transport = withCheckoutFeedback(
+    createTelegramTransport({ telegram, apiBaseUrl }),
+    { dialog: checkoutDialog, feedback: checkoutFeedback }
+  );
 
   host.initialize();
   applyDaypart(document, { override: runtime.daypart });
