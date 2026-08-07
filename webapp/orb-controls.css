@@ -1,15 +1,13 @@
 /*
  * Circular control and progress material.
  *
- * Every visible orb uses one tokenized core. A close control keeps the
- * 44px interaction target around that core; when its dialog becomes pending,
- * the same core changes state into the spinner instead of drawing a second
- * indicator over the close glyph.
+ * Bootstrap and section progress use the shared full-size orb. Checkout
+ * feedback state is owned by webapp-core; this host only owns material and
+ * motion for idle, loading and error.
  */
 
-.bootstrap-spinner,
 [data-loading="true"]::after,
-.dialog-close::before {
+.bootstrap-spinner {
   box-sizing: border-box;
   width: var(--orb-size);
   height: var(--orb-size);
@@ -21,9 +19,8 @@
     0 4px 12px rgb(0 0 0 / 0.28);
 }
 
-.bootstrap-spinner,
 [data-loading="true"]::after,
-dialog[data-loading="true"] .dialog-close::before {
+.bootstrap-spinner {
   border-top-color: var(--accent);
   animation: orb-spin var(--orb-spin-duration) linear infinite;
 }
@@ -61,10 +58,20 @@ dialog[data-loading="true"] .dialog-close::before {
   position: absolute;
   inset: 0;
   margin: auto;
+  box-sizing: border-box;
   pointer-events: none;
   transition:
     opacity var(--motion-state) ease,
     transform var(--motion-press) var(--ease-viscous);
+}
+
+.dialog-close::before {
+  width: 18px;
+  height: 18px;
+  border: var(--orb-stroke) solid var(--orb-track);
+  border-radius: var(--radius-pill);
+  background: var(--orb-surface);
+  box-shadow: inset 0 1px 0 var(--edge-highlight);
 }
 
 .dialog-close::after {
@@ -80,25 +87,73 @@ dialog[data-loading="true"] .dialog-close::before {
   transform: scale(0.9);
 }
 
-/* The dialog itself owns the generic pending pseudo-element. Suppress it and
-   reuse the close orb, so the X and spinner can never occupy the same pixels. */
 dialog[data-loading="true"]::after {
   content: none;
 }
 
-dialog[data-loading="true"] .dialog-close::after {
+dialog[data-loading="true"]:not([data-checkout-feedback]) .dialog-close::before,
+dialog[data-checkout-feedback="loading"] .dialog-close::before {
+  width: var(--orb-size);
+  height: var(--orb-size);
+  border-color: var(--accent);
+  background: transparent;
+  box-shadow: none;
+  animation: orb-close-pulse 900ms var(--ease-viscous) infinite alternate;
+}
+
+dialog[data-checkout-feedback="loading"] .dialog-close::after {
   opacity: 0;
   transform: scale(0.65);
+}
+
+dialog[data-checkout-feedback="error"] .dialog-close::before {
+  width: var(--orb-size);
+  height: var(--orb-size);
+  border-color: var(--semantic-pending);
+  background: color-mix(in srgb, var(--semantic-pending) 16%, var(--orb-surface));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    0 0 12px color-mix(in srgb, var(--semantic-pending) 38%, transparent);
+  animation: none;
+}
+
+dialog[data-checkout-feedback="error"] .dialog-close::after {
+  content: "⚠";
+  display: grid;
+  width: var(--orb-size);
+  height: var(--orb-size);
+  place-items: center;
+  color: var(--semantic-pending);
+  background: none;
+  font-size: 15px;
+  line-height: 1;
+  opacity: 1;
+  transform: none;
 }
 
 @keyframes orb-spin {
   to { transform: rotate(360deg); }
 }
 
+@keyframes orb-close-pulse {
+  from {
+    opacity: 0.58;
+    transform: scale(0.642857);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bootstrap-spinner,
-  [data-loading="true"]::after,
-  dialog[data-loading="true"] .dialog-close::before {
+  [data-loading="true"]::after {
     animation-duration: 1400ms;
+  }
+
+  dialog[data-checkout-feedback="loading"] .dialog-close::before {
+    animation-duration: 1600ms;
   }
 }
