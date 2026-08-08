@@ -1,10 +1,12 @@
 import { applyDaypart, observeDaypart } from "./adapter/daypart.js";
+import { pickTelegramRecipient } from "./adapter/recipient-picker.js";
+import { createRecipientPickerTransport } from "./adapter/recipient-picker-transport.js";
 import { createTelegramHost } from "./adapter/telegram-host.js";
 import { localizeTelegramShell } from "./adapter/shell-localization.js";
 import { createStartupController } from "./adapter/startup-controller.js";
 import { createTelegramTransport } from "./adapter/telegram-transport.js";
 
-const WEBAPP_CORE_REVISION = "e38fc6b9e42c0c0ec220d1f5072beb5e7c6c5dc9";
+const WEBAPP_CORE_REVISION = "7bc175f97ed94c3cd31e68db0e61f2b7e509d063";
 const runtime = globalThis.__ZERO_X_DA_MARKET__ || {};
 const webappCoreModuleUrl = runtime.webappCoreModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js`;
@@ -75,7 +77,7 @@ async function initializeApplication({ host, transport }) {
 
 async function start() {
   const telegram = globalThis.Telegram?.WebApp;
-  const host = createTelegramHost(telegram);
+  let host = createTelegramHost(telegram);
   const locale = host.locale();
   const checkoutDialog = document.querySelector("#checkout-dialog");
   const { createCheckoutFeedbackState, withCheckoutFeedback } = await import(checkoutFeedbackModuleUrl);
@@ -84,6 +86,10 @@ async function start() {
     createTelegramTransport({ telegram, apiBaseUrl, locale }),
     { dialog: checkoutDialog, feedback: checkoutFeedback }
   );
+  const recipientTransport = createRecipientPickerTransport({ telegram, apiBaseUrl });
+  host = createTelegramHost(telegram, {
+    recipientPicker: () => pickTelegramRecipient({ telegram, transport: recipientTransport, locale })
+  });
 
   host.initialize();
   applyDaypart(document, { override: runtime.daypart });
