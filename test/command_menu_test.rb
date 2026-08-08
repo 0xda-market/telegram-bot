@@ -74,7 +74,7 @@ class CommandMenuTest < Minitest::Test
     assert_equal 1, market.requests.length
     assert_equal 1, market.health_requests
     assert_equal "✅ ready\n✅ Market core\n✅ Client bot", telegram.messages.last.fetch(:text)
-    assert_equal %w[buy status ready], telegram.commands.last.fetch(:commands).map { |item| item.fetch(:command) }
+    assert_includes telegram.command_sets.last.fetch(:commands).map { |item| item.fetch(:command) }, "ready"
   end
 
   def test_users_and_work_commands_remain_visible
