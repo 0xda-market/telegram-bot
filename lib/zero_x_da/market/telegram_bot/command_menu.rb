@@ -14,6 +14,7 @@ module ZeroXDA::Market::TelegramBot
           start: "🔐 authorization",
           buy: "🛍️ buy",
           status: "👤 account status",
+          ready: "✅ readiness",
           servers: "📊 server status",
           users: "👥 active users",
           set_admin: "🔑 assign administrator",
@@ -26,6 +27,7 @@ module ZeroXDA::Market::TelegramBot
           start: "🔐 авторизація",
           buy: "🛍️ купити",
           status: "👤 власний статус",
+          ready: "✅ готовність",
           servers: "📊 стан серверів",
           users: "👥 активні користувачі",
           set_admin: "🔑 призначити адміністратора",
@@ -38,6 +40,7 @@ module ZeroXDA::Market::TelegramBot
           start: "🔐 авторизация",
           buy: "🛍️ купить",
           status: "👤 статус аккаунта",
+          ready: "✅ готовность",
           servers: "📊 состояние серверов",
           users: "👥 активные пользователи",
           set_admin: "🔑 назначить администратора",
@@ -50,6 +53,7 @@ module ZeroXDA::Market::TelegramBot
           start: "🔐 autorisation",
           buy: "🛍️ acheter",
           status: "👤 état du compte",
+          ready: "✅ disponibilité",
           servers: "📊 état des serveurs",
           users: "👥 utilisateurs actifs",
           set_admin: "🔑 nommer un administrateur",
@@ -62,6 +66,7 @@ module ZeroXDA::Market::TelegramBot
           start: "🔐 autorización",
           buy: "🛍️ comprar",
           status: "👤 estado de la cuenta",
+          ready: "✅ disponibilidad",
           servers: "📊 estado de los servidores",
           users: "👥 usuarios activos",
           set_admin: "🔑 asignar administrador",
@@ -74,6 +79,7 @@ module ZeroXDA::Market::TelegramBot
           start: "🔐 Autorisierung",
           buy: "🛍️ kaufen",
           status: "👤 Kontostatus",
+          ready: "✅ Bereitschaft",
           servers: "📊 Serverstatus",
           users: "👥 aktive Nutzer",
           set_admin: "🔑 Administrator zuweisen",
@@ -84,11 +90,11 @@ module ZeroXDA::Market::TelegramBot
         }
       }.freeze
 
-      CLIENT_COMMANDS = %i[buy status].freeze
+      CLIENT_COMMANDS = %i[buy status ready].freeze
       ADMIN_WORK_COMMANDS = %i[apply_prices apply_price rates set_rate].freeze
       ADMIN_FOOTER_COMMANDS = %i[status servers users set_admin].freeze
-      ADMIN_COMMANDS = (ADMIN_WORK_COMMANDS + ADMIN_FOOTER_COMMANDS.drop(1)).freeze
-      TRANSIENT_COMMANDS = %w[/status /servers].freeze
+      ADMIN_COMMANDS = (ADMIN_WORK_COMMANDS + [:ready] + ADMIN_FOOTER_COMMANDS.drop(1)).freeze
+      TRANSIENT_COMMANDS = %w[/status /ready /servers].freeze
 
       module_function
 
@@ -101,7 +107,7 @@ module ZeroXDA::Market::TelegramBot
       end
 
       def admin(locale: Locale::DEFAULT)
-        commands_for([:buy] + ADMIN_WORK_COMMANDS + ADMIN_FOOTER_COMMANDS, locale: locale)
+        commands_for([:buy] + ADMIN_WORK_COMMANDS + [:ready] + ADMIN_FOOTER_COMMANDS, locale: locale)
       end
 
       def commands_for(names, locale:)
@@ -135,6 +141,35 @@ module ZeroXDA::Market::TelegramBot
         send_message(target_chat_id, t(:assigned_admin_notice, locale: Locale::DEFAULT))
       rescue TelegramAPI::Error => error
         warn "new admin menu sync failed: #{error.message}"
+      end
+    end
+
+    module ReadyCommand
+      private
+
+      def dispatch_command(command, message, argument)
+        return show_ready(message) if command == "/ready"
+
+        super
+      end
+
+      def supported_command?(text)
+        parse_command(text).first == "/ready" || super
+      end
+
+      def show_ready(message)
+        chat_id = message.fetch("chat").fetch("id")
+        user = authenticate_user(message)
+        sync_commands(chat_id, user)
+        health = @market_api.health
+        core_ready = health.fetch("status", "unknown") == "ok"
+        icon = core_ready ? "✅" : "❌"
+        state = core_ready ? "ready" : "not ready"
+
+        send_message(
+          chat_id,
+          "#{icon} #{state}\n#{icon} Market core\n✅ Client bot"
+        )
       end
     end
 
@@ -177,6 +212,7 @@ module ZeroXDA::Market::TelegramBot
     end
 
     Bot.prepend(CommandMenuLocalization)
+    Bot.prepend(ReadyCommand)
     Bot.prepend(TransientUserCommands)
     Bot.prepend(TelegramUpdateLocale)
 end
