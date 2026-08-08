@@ -8,12 +8,14 @@ class WebAppAdapterContractTest < Minitest::Test
   def test_entrypoint_delegates_to_pinned_marketplace_modules
     source = File.read(File.join(ROOT, "webapp/app.js"))
 
-    assert_includes source, 'WEBAPP_CORE_REVISION = "e38fc6b9e42c0c0ec220d1f5072beb5e7c6c5dc9"'
+    assert_includes source, 'WEBAPP_CORE_REVISION = "76fb0aa7da358b0ecc133e03bac7211b34c4f2fd"'
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js"
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/broker-orders.js"
     assert_includes source, "0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/checkout-feedback-state.js"
     assert_includes source, "createCheckoutFeedbackState"
     assert_includes source, "withCheckoutFeedback"
+    assert_includes source, "pickTelegramRecipient"
+    assert_includes source, "createRecipientPickerTransport"
     assert_includes source, "mountBrokerWorkspace({ document, transport, ...context })"
     assert_includes source, "mountBrokerOrders({"
     assert_includes source, "mountAdminWorkspace({"
@@ -28,6 +30,7 @@ class WebAppAdapterContractTest < Minitest::Test
     assert_includes html, "data-mobile-input-confirm"
     assert_includes html, 'href="./orb-controls.css"'
     assert_includes html, 'href="./fluid-controls.css"'
+    assert_includes html, 'href="./recipient-picker.css"'
   end
 
   def test_fluid_bar_keeps_keyboard_confirmation_clear_of_workspace_navigation
@@ -97,7 +100,7 @@ class WebAppAdapterContractTest < Minitest::Test
     assert_includes tokens, "--edge-control"
     refute_match(/:root\[data-daypart="\w+"\]\s*\{[^}]*--edge-control/m, tokens)
 
-    %w[styles.css admin-prices.css admin-products.css].each do |file|
+    %w[styles.css admin-prices.css admin-products.css recipient-picker.css].each do |file|
       css = File.read(File.join(ROOT, "webapp", file))
       inputs = css.scan(/^[^{}]*\binput[^{}]*\{[^}]*\}/m)
 
@@ -199,7 +202,8 @@ class WebAppAdapterContractTest < Minitest::Test
     "styles.css" => "layout",
     "orb-controls.css" => "circular controls and progress",
     "fluid-controls.css" => "material",
-    "fluid-core-markup.css" => "core-owned elements"
+    "fluid-core-markup.css" => "core-owned elements",
+    "recipient-picker.css" => "recipient picker presentation"
   }.freeze
 
   def test_no_two_adapter_stylesheets_declare_the_same_property
@@ -222,6 +226,8 @@ class WebAppAdapterContractTest < Minitest::Test
 
   def test_telegram_specifics_stay_in_adapter
     transport = File.read(File.join(ROOT, "webapp/adapter/telegram-transport.js"))
+    recipient = File.read(File.join(ROOT, "webapp/adapter/recipient-picker.js"))
+    recipient_transport = File.read(File.join(ROOT, "webapp/adapter/recipient-picker-transport.js"))
     shell_localization = File.read(File.join(ROOT, "webapp/adapter/shell-localization.js"))
 
     assert_includes transport, '"x-telegram-init-data"'
@@ -230,6 +236,8 @@ class WebAppAdapterContractTest < Minitest::Test
     assert_includes transport, "acceptBrokerOrder"
     assert_includes transport, "completeBrokerOrder"
     refute_includes transport, "actor_user_id"
+    assert_includes recipient, "telegram.requestChat"
+    assert_includes recipient_transport, '"x-telegram-init-data"'
     assert_includes shell_localization, "Завантаження товарів…"
     assert_includes shell_localization, "Підтвердити"
   end
