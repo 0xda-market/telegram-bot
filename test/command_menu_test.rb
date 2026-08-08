@@ -18,7 +18,7 @@ class CommandMenuTest < Minitest::Test
     menu = CommandMenu.admin(locale: "uk_UA")
 
     assert_equal %w[
-      buy apply_prices apply_price rates set_rate status servers users set_admin
+      buy apply_prices apply_price rates set_rate ready status servers users set_admin
     ], menu.map { |item| item.fetch(:command) }
     assert_equal %w[status servers users set_admin], menu.last(4).map { |item| item.fetch(:command) }
   end
@@ -29,14 +29,16 @@ class CommandMenuTest < Minitest::Test
       *CommandMenu.client,
       *CommandMenu.admin
     ].map { |item| "/#{item.fetch(:command)}" }.uniq.sort
+    dispatcher_commands = (Bot::SUPPORTED_COMMANDS + ["/ready"]).uniq.sort
 
-    assert_equal menu_commands, Bot::SUPPORTED_COMMANDS.sort
-    assert_includes Bot::SUPPORTED_COMMANDS, "/set_admin"
-    refute_includes Bot::SUPPORTED_COMMANDS, "/setadmin"
+    assert_equal menu_commands, dispatcher_commands
+    assert_includes dispatcher_commands, "/ready"
+    assert_includes dispatcher_commands, "/set_admin"
+    refute_includes dispatcher_commands, "/setadmin"
   end
 
-  def test_status_and_servers_delete_only_the_incoming_command
-    %w[status servers].each_with_index do |name, index|
+  def test_status_ready_and_servers_delete_only_the_incoming_command
+    %w[status ready servers].each_with_index do |name, index|
       telegram = FakeTelegramAPI.new
       bot = build_bot(telegram: telegram)
       message_id = 600 + index
@@ -51,6 +53,8 @@ class CommandMenuTest < Minitest::Test
           name
         )
       end
+      next if name == "ready"
+
       expected_callback = name == "status" ? "s:a" : "s:s"
       assert_equal(
         expected_callback,
@@ -58,6 +62,19 @@ class CommandMenuTest < Minitest::Test
         name
       )
     end
+  end
+
+  def test_ready_checks_authenticated_core_and_reports_both_runtime_boundaries
+    market = FakeMarketAPI.new
+    telegram = FakeTelegramAPI.new
+    bot = build_bot(market: market, telegram: telegram)
+
+    bot.handle(update(command: "/ready", message_id: 650))
+
+    assert_equal 1, market.requests.length
+    assert_equal 1, market.health_requests
+    assert_equal "✅ ready\n✅ Market core\n✅ Client bot", telegram.messages.last.fetch(:text)
+    assert_equal %w[buy status ready], telegram.commands.last.fetch(:commands).map { |item| item.fetch(:command) }
   end
 
   def test_users_and_work_commands_remain_visible
@@ -72,8 +89,9 @@ class CommandMenuTest < Minitest::Test
     end
   end
 
-  def test_client_menu_keeps_buy_and_status
-    assert_equal %w[buy status], CommandMenu.client(locale: "uk_UA").map { |item| item.fetch(:command) }
+  def test_client_menu_keeps_buy_status_and_ready
+    assert_equal %w[buy status ready], CommandMenu.client(locale: "uk_UA").map { |item| item.fetch(:command) }
+    assert_equal "✅ готовність", CommandMenu.client(locale: "uk_UA").last.fetch(:description)
   end
 
   private
