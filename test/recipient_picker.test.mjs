@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { pickTelegramRecipient } from "../webapp/adapter/recipient-picker.js";
+import { createRecipientPickerTransport } from "../webapp/adapter/recipient-picker-transport.js";
 import { createTelegramHost } from "../webapp/adapter/telegram-host.js";
 
 test("host exposes recipient picker only when Telegram requestChat is available", async () => {
@@ -12,6 +13,33 @@ test("host exposes recipient picker only when Telegram requestChat is available"
     { recipientPicker: async () => ({ username: "ada" }) }
   );
   assert.equal((await supported.pickRecipient()).username, "ada");
+});
+
+test("recipient picker transport uses the mounted webapp BFF routes", async () => {
+  const requests = [];
+  const transport = createRecipientPickerTransport({
+    telegram: { initData: "signed" },
+    apiBaseUrl: ".",
+    fetchImpl: async (url, options = {}) => {
+      requests.push([url, options.method || "GET"]);
+      return {
+        ok: true,
+        status: options.method === "POST" ? 201 : 200,
+        async json() {
+          return options.method === "POST"
+            ? { status: "ok", data: { prepared_id: "prepared-1", token: "token-1" } }
+            : { data: { status: "pending" } };
+        }
+      };
+    }
+  });
+
+  await transport.prepareRecipientPicker();
+  await transport.getRecipientPickerResult("token-1");
+  assert.deepEqual(requests, [
+    ["./webapp/recipient-picker", "POST"],
+    ["./webapp/recipient-picker/token-1", "GET"]
+  ]);
 });
 
 test("native recipient picker resolves the username sent by Telegram", async () => {
