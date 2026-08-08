@@ -1,5 +1,8 @@
-export function createTelegramHost(telegram = globalThis.Telegram?.WebApp) {
-  return {
+export function createTelegramHost(
+  telegram = globalThis.Telegram?.WebApp,
+  { recipientPicker } = {}
+) {
+  const host = {
     initialize() {
       telegram?.ready();
       telegram?.expand?.();
@@ -23,4 +26,10 @@ export function createTelegramHost(telegram = globalThis.Telegram?.WebApp) {
       telegram?.HapticFeedback?.selectionChanged?.();
     }
   };
+
+  if (typeof telegram?.requestChat === "function" && typeof recipientPicker === "function") {
+    host.pickRecipient = recipientPicker;
+  }
+
+  return host;
 }
