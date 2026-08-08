@@ -33,10 +33,10 @@ export function createRecipientPickerTransport({
 
   return {
     prepareRecipientPicker() {
-      return request("/webapp/recipient-picker", { method: "POST", body: "{}" });
+      return request("/recipient-picker", { method: "POST", body: "{}" });
     },
     getRecipientPickerResult(token) {
-      return request(`/webapp/recipient-picker/${encodeURIComponent(token)}`);
+      return request(`/recipient-picker/${encodeURIComponent(token)}`);
     }
   };
 }
