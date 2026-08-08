@@ -19,7 +19,7 @@ class BotTest < Minitest::Test
     assert_equal "s:a", card.dig(:reply_markup, :inline_keyboard, 0, 0, :callback_data)
     commands = @telegram.command_sets.first
     assert_equal({ type: "chat", chat_id: 770 }, commands.fetch(:scope))
-    assert_equal %w[buy status], commands.fetch(:commands).map { |item| item.fetch(:command) }
+    assert_equal %w[buy status ready], commands.fetch(:commands).map { |item| item.fetch(:command) }
     assert_empty @telegram.deleted_messages
   end
 
