@@ -38,6 +38,7 @@ jobs:
       name: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
     env:
       DEPLOY_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
+      WORKFLOW_REF: ${{ github.ref }}
       SELECTED_RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.pull_request.merge_commit_sha }}
       PRODUCTION_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.production_tag || '' }}
       FORCE_ACTIVATE: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
@@ -59,7 +60,7 @@ jobs:
               echo "::error::Production deployment is manual-only"
               exit 1
             fi
-            if [[ "${{ github.ref }}" != refs/heads/master ]]; then
+            if [[ "$WORKFLOW_REF" != refs/heads/master ]]; then
               echo "::error::Run the production workflow from master; select the release with Production tag"
               exit 1
             fi
