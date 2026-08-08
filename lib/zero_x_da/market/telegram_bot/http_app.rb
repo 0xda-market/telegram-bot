@@ -30,6 +30,7 @@ module ZeroXDA::Market::TelegramBot
         telegram_username:,
         mini_app: nil,
         dispatcher: AsyncDispatcher.new,
+        update_observer: nil,
         revision: ENV.fetch("RENDER_GIT_COMMIT", "unknown")
       )
         raise ArgumentError, "Webhook secret must not be empty" if webhook_secret.to_s.empty?
@@ -39,6 +40,7 @@ module ZeroXDA::Market::TelegramBot
         @telegram_username = TelegramBotIdentity.validate!(telegram_username)
         @mini_app = mini_app
         @dispatcher = dispatcher
+        @update_observer = update_observer
         @revision = revision.to_s.empty? ? "unknown" : revision.to_s
       end
 
@@ -60,6 +62,7 @@ module ZeroXDA::Market::TelegramBot
           return json_response(401, error: "unauthorized") unless authorized?(request)
 
           update = JSON.parse(request.body.read(1_048_577))
+          @update_observer&.capture(update)
           @dispatcher.call { @bot.handle(update) }
           return json_response(200, status: "accepted")
         end
