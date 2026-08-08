@@ -14,12 +14,13 @@ The repository has one `Deploy` workflow:
 | Invocation | Source | GitHub environment | Runtime directory |
 | --- | --- | --- | --- |
 | merged pull request into `master` | exact merge commit | `development` | `environments/development` |
-| manual dispatch | explicit branch, tag, or commit | `development` or `production` | matching environment directory |
+| manual development dispatch | exact commit selected by the workflow ref picker | `development` | `environments/development` |
+| manual production dispatch | explicit Git tag | `production` | `environments/production` |
 
 Synchronizing an open pull request no longer creates a deployment run. Closing a
 pull request without merging skips the deploy job. A manual production deployment
-uses the protected `production` GitHub Environment and must remain paired with a
-compatible core production release.
+uses the protected `production` GitHub Environment, must run the workflow from
+`master`, and must remain paired with a compatible core production release.
 
 `DEPLOY_ENV` is the only runtime environment marker. It must match the runtime
 file and its VPS directory.
@@ -109,12 +110,27 @@ Webhook and Mini App menu registration remain separate reviewed operations.
 A merged pull request into `master` deploys its exact merge commit to
 `development`. Pull-request CI events are not deployment triggers.
 
-A manual run requires both:
+For a manual development deployment:
 
-- `source_ref`: branch, tag, or commit to deploy;
-- `environment`: `development` or `production`.
+- select the branch, tag, or commit in GitHub's built-in workflow ref picker;
+- keep `environment` set to `development`;
+- do not repeat the source reference in another input.
 
-The selected reference is resolved to an immutable commit before upload.
+The workflow deploys the exact commit represented by that selected workflow ref.
+The optional `production_tag` input is ignored for development.
+
+For a manual production deployment:
+
+- run the workflow definition from `master`;
+- select `production`;
+- provide `production_tag` with the Git tag to release.
+
+Production resolves only `refs/tags/<production_tag>`; a branch or raw commit
+cannot be supplied through the production release input. GitHub's native
+`workflow_dispatch` form has static inputs, so the production tag field is visible
+for development too, but it has no effect there.
+
+The selected release is resolved to an immutable commit before upload.
 
 - an inactive automatic development release is built but not started;
 - the active development bot is refreshed and health-gated;

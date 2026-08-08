@@ -8,11 +8,6 @@ on:
       - closed
   workflow_dispatch:
     inputs:
-      source_ref:
-        description: Branch, tag, or commit to deploy
-        required: true
-        default: master
-        type: string
       environment:
         description: GitHub and VPS environment
         required: true
@@ -21,6 +16,10 @@ on:
         options:
           - development
           - production
+      production_tag:
+        description: Production tag (required only for production; ignored for development)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -39,7 +38,9 @@ jobs:
       name: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
     env:
       DEPLOY_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
-      RELEASE_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.source_ref || github.event.pull_request.merge_commit_sha }}
+      WORKFLOW_REF: ${{ github.ref }}
+      SELECTED_RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.pull_request.merge_commit_sha }}
+      PRODUCTION_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.production_tag || '' }}
       FORCE_ACTIVATE: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_USER: ${{ secrets.SSH_USER }}
@@ -49,6 +50,34 @@ jobs:
       VPS_RUNTIME_PATH: /opt/0xda-market-runtime
 
     steps:
+      - name: Resolve deployment source
+        run: |
+          set -Eeuo pipefail
+          case "$DEPLOY_ENV" in development|production) ;; *) exit 1 ;; esac
+
+          if [[ "$DEPLOY_ENV" == production ]]; then
+            if [[ "${{ github.event_name }}" != workflow_dispatch ]]; then
+              echo "::error::Production deployment is manual-only"
+              exit 1
+            fi
+            if [[ "$WORKFLOW_REF" != refs/heads/master ]]; then
+              echo "::error::Run the production workflow from master; select the release with Production tag"
+              exit 1
+            fi
+            if [[ -z "$PRODUCTION_TAG" ]]; then
+              echo "::error::Production tag is required for production deployment"
+              exit 1
+            fi
+            if ! git check-ref-format "refs/tags/$PRODUCTION_TAG"; then
+              echo "::error::Production tag is not a valid Git tag"
+              exit 1
+            fi
+            echo "RELEASE_REF=refs/tags/$PRODUCTION_TAG" >>"$GITHUB_ENV"
+          else
+            test -n "$SELECTED_RELEASE_SHA"
+            echo "RELEASE_REF=$SELECTED_RELEASE_SHA" >>"$GITHUB_ENV"
+          fi
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.RELEASE_REF }}
