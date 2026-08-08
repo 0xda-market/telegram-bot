@@ -53,6 +53,10 @@ module ZeroXDA::Market::TelegramBot
       post("deleteMessage", chat_id: chat_id, message_id: message_id)
     end
 
+    def save_prepared_keyboard_button(user_id:, button:)
+      post("savePreparedKeyboardButton", user_id: user_id, button: button)
+    end
+
     def set_webhook(url:, secret_token:)
       post(
         "setWebhook",
