@@ -9,11 +9,18 @@ require_relative "telegram_web_app_auth"
 
 module ZeroXDA::Market::TelegramBot
     class TelegramWebAppService
-      def initialize(market_api:, authentication:, purchase_flow: PurchaseFlow.new(market_api: market_api), environment: "development")
+      def initialize(
+        market_api:,
+        authentication:,
+        purchase_flow: PurchaseFlow.new(market_api: market_api),
+        environment: "development",
+        recipient_picker: nil
+      )
         @market_api = market_api
         @authentication = authentication
         @purchase_flow = purchase_flow
         @environment = environment.to_s
+        @recipient_picker = recipient_picker
       end
 
       def bootstrap(init_data:, locale:)
@@ -35,6 +42,20 @@ module ZeroXDA::Market::TelegramBot
             "telegram_auth_date" => session.auth_date.iso8601(6)
           )
         )
+      end
+
+      def prepare_recipient_picker(init_data:)
+        session = verified_session(init_data)
+        raise ArgumentError, "recipient picker is unavailable" unless @recipient_picker
+
+        { "data" => @recipient_picker.prepare(requester_id: session.user.fetch("id")) }
+      end
+
+      def recipient_picker_result(init_data:, token:)
+        session = verified_session(init_data)
+        raise ArgumentError, "recipient picker is unavailable" unless @recipient_picker
+
+        { "data" => @recipient_picker.result(token: token, requester_id: session.user.fetch("id")) }
       end
 
       def quote(init_data:, sku:, quantity:, locale:, recipient: nil)
@@ -141,8 +162,12 @@ module ZeroXDA::Market::TelegramBot
 
       private
 
+      def verified_session(init_data)
+        @authentication.verify(init_data)
+      end
+
       def authenticate(init_data)
-        session = @authentication.verify(init_data)
+        session = verified_session(init_data)
         user = @market_api.authenticate_telegram(user: session.user, chat: session.chat)
         [session, user]
       end
