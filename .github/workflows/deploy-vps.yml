@@ -67,6 +67,10 @@ jobs:
               echo "::error::Production tag is required for production deployment"
               exit 1
             fi
+            if ! git check-ref-format "refs/tags/$PRODUCTION_TAG"; then
+              echo "::error::Production tag is not a valid Git tag"
+              exit 1
+            fi
             echo "RELEASE_REF=refs/tags/$PRODUCTION_TAG" >>"$GITHUB_ENV"
           else
             test -n "$SELECTED_RELEASE_SHA"
