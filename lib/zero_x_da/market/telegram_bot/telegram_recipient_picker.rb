@@ -111,10 +111,11 @@ module ZeroXDA::Market::TelegramBot
       first_name = user["first_name"].to_s.strip
       last_name = user["last_name"].to_s.strip
       name = [first_name, last_name].reject(&:empty?).join(" ")
+      username = user["username"].to_s.sub(/\A@/, "").strip
       {
         "user_id" => Integer(user.fetch("user_id")).to_s,
         "name" => name.empty? ? nil : name,
-        "username" => user["username"].to_s.sub(/\A@/, "").presence
+        "username" => username.empty? ? nil : username
       }.compact
     end
 
