@@ -11,6 +11,8 @@ require_relative "lib/zero_x_da/market/telegram_bot/http_app"
 require_relative "lib/zero_x_da/market/telegram_bot/market_api"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_api"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_mini_app"
+require_relative "lib/zero_x_da/market/telegram_bot/recipient_picker_mini_app"
+require_relative "lib/zero_x_da/market/telegram_bot/telegram_recipient_picker"
 require_relative "lib/zero_x_da/market/telegram_bot/encoded_resource_identifiers"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_web_app_auth"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_web_app_service"
@@ -42,6 +44,9 @@ web_app_auth = ZeroXDA::Market::TelegramBot::TelegramWebAppAuth.new(
   bot_token: bot_token,
   max_age_seconds: Integer(ENV.fetch("TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS", "3600"))
 )
+recipient_picker = ZeroXDA::Market::TelegramBot::TelegramRecipientPicker.new(
+  telegram_api: telegram_api
+)
 broker_order_notifier = ZeroXDA::Market::TelegramBot::BrokerOrderNotifier.new(
   market_api: market_api,
   telegram_api: telegram_api
@@ -50,6 +55,7 @@ web_app_service = ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(
   market_api: market_api,
   authentication: web_app_auth,
   environment: deploy_environment,
+  recipient_picker: recipient_picker,
   broker_order_notifier: broker_order_notifier
 )
 mini_app = ZeroXDA::Market::TelegramBot::TelegramMiniApp.new(
@@ -73,5 +79,6 @@ run ZeroXDA::Market::TelegramBot::TelegramBotHTTPApp.new(
   bot: bot,
   webhook_secret: ENV.fetch("TELEGRAM_WEBHOOK_SECRET"),
   telegram_username: telegram_username,
-  mini_app: mini_app
+  mini_app: mini_app,
+  update_observer: recipient_picker
 )
