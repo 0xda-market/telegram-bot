@@ -15,7 +15,7 @@ test("host exposes recipient picker only when Telegram requestChat is available"
   assert.equal((await supported.pickRecipient()).username, "ada");
 });
 
-test("recipient picker transport uses the mounted webapp BFF routes", async () => {
+test("recipient picker transport stays relative to the mounted webapp base", async () => {
   const requests = [];
   const transport = createRecipientPickerTransport({
     telegram: { initData: "signed" },
@@ -37,8 +37,8 @@ test("recipient picker transport uses the mounted webapp BFF routes", async () =
   await transport.prepareRecipientPicker();
   await transport.getRecipientPickerResult("token-1");
   assert.deepEqual(requests, [
-    ["./webapp/recipient-picker", "POST"],
-    ["./webapp/recipient-picker/token-1", "GET"]
+    ["./recipient-picker", "POST"],
+    ["./recipient-picker/token-1", "GET"]
   ]);
 });
 
