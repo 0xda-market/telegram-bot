@@ -64,11 +64,11 @@ module ZeroXDA::Market::TelegramBot
           return json_response(401, error: "unauthorized") unless authorized?(request)
 
           update = JSON.parse(request.body.read(1_048_577))
-          @update_observer&.capture(update)
           if @payment_handler&.handles?(update)
             return process_payment_update(update)
           end
 
+          @update_observer&.capture(update)
           @dispatcher.call { @bot.handle(update) }
           return json_response(200, status: "accepted")
         end
