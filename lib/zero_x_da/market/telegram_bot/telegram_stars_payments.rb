@@ -10,10 +10,17 @@ module ZeroXDA::Market::TelegramBot
   class TelegramStarsPayments
     PROVIDER = "telegram_stars"
     CURRENCY = "XTR"
-    PAYLOAD_VERSION = "v1"
+    PAYLOAD_VERSION = "v2"
     MAX_PAYLOAD_BYTES = 128
     SIGNATURE_BYTES = 16
     MIN_SECRET_BYTES = 32
+    TERMS_VERSION_PATTERN = /\A[A-Za-z0-9_-]{1,24}\z/
+    LOCALE_CODES = {
+      "en_US" => "en",
+      "uk_UA" => "uk",
+      "ru_RU" => "ru"
+    }.freeze
+    LOCALES_BY_CODE = LOCALE_CODES.invert.freeze
     REFUNDABLE_REJECTION_CODES = %w[
       payment_expired
       payment_provider_mismatch
@@ -25,12 +32,14 @@ module ZeroXDA::Market::TelegramBot
 
     class InvalidPayload < StandardError; end
 
-    def initialize(telegram_api:, market_api:, signing_secret:, clock: -> { Time.now.utc })
+    def initialize(telegram_api:, market_api:, signing_secret:, payment_terms:, clock: -> { Time.now.utc })
       secret = signing_secret.to_s
       raise ArgumentError, "Telegram payment signing secret must be at least #{MIN_SECRET_BYTES} bytes" if secret.bytesize < MIN_SECRET_BYTES
+      raise ArgumentError, "payment_terms is required" unless payment_terms
 
       @telegram_api = telegram_api
       @market_api = market_api
+      @payment_terms = payment_terms
       @signing_secret = secret.b.freeze
       @clock = clock
     end
@@ -39,7 +48,7 @@ module ZeroXDA::Market::TelegramBot
       update.key?("pre_checkout_query") || update.dig("message", "successful_payment")
     end
 
-    def attach_invoice(order:, telegram_user:)
+    def attach_invoice(order:, telegram_user:, consent:)
       attributes = order.fetch("attributes")
       return order unless attributes.fetch("status") == "payment_pending"
 
@@ -52,12 +61,16 @@ module ZeroXDA::Market::TelegramBot
 
       expires_at = Time.iso8601(payment.fetch("expires_at"))
       raise InvalidPayload, "payment has expired" unless expires_at > current_time
+      consent_claims = validated_consent(consent, telegram_user_id: telegram_user.fetch("id"))
 
       payload = signed_payload(
         order_id: order.fetch("id"),
         telegram_user_id: telegram_user.fetch("id"),
         amount: amount,
-        expires_at: expires_at
+        expires_at: expires_at,
+        terms_version: consent_claims.fetch(:terms_version),
+        consented_at: consent_claims.fetch(:consented_at),
+        locale: consent_claims.fetch(:locale)
       )
       product_name = attributes.dig("payload", "product", "name").to_s.strip
       product_name = "0xda-market purchase" if product_name.empty?
@@ -70,6 +83,10 @@ module ZeroXDA::Market::TelegramBot
 
       copy = deep_copy(order)
       copy.fetch("attributes").fetch("payment")["invoice_link"] = invoice_link
+      copy.fetch("attributes").fetch("payment")["terms"] = {
+        "version" => consent_claims.fetch(:terms_version),
+        "accepted_at" => consent_claims.fetch(:consented_at).iso8601(6)
+      }
       copy
     end
 
@@ -89,6 +106,7 @@ module ZeroXDA::Market::TelegramBot
         verify_telegram_user!(claims, query.fetch("from").fetch("id"))
         verify_amount!(claims, query.fetch("total_amount"), query.fetch("currency"))
         raise InvalidPayload, "payment has expired" unless claims.fetch(:expires_at) > current_time
+        raise InvalidPayload, "terms consent timestamp is invalid" if claims.fetch(:consented_at) > current_time + 60
 
         @telegram_api.answer_pre_checkout_query(
           pre_checkout_query_id: query.fetch("id"),
@@ -125,7 +143,11 @@ module ZeroXDA::Market::TelegramBot
         data: {
           telegram_payment_charge_id: charge_id,
           provider_payment_charge_id: successful_payment["provider_payment_charge_id"],
-          invoice_payload: successful_payment.fetch("invoice_payload")
+          invoice_payload: successful_payment.fetch("invoice_payload"),
+          terms_version: claims.fetch(:terms_version),
+          terms_sha256: @payment_terms.digest(locale: claims.fetch(:locale)),
+          terms_accepted_at: claims.fetch(:consented_at).iso8601(6),
+          terms_locale: claims.fetch(:locale)
         }.compact
       )
     rescue MarketAPI::Error => error
@@ -172,12 +194,23 @@ module ZeroXDA::Market::TelegramBot
       nil
     end
 
-    def signed_payload(order_id:, telegram_user_id:, amount:, expires_at:)
+    def signed_payload(order_id:, telegram_user_id:, amount:, expires_at:, terms_version:, consented_at:, locale:)
       order = resource_id(order_id)
       user = telegram_user_id.to_s
       raise InvalidPayload, "Telegram user id is invalid" unless user.match?(/\A\d+\z/)
+      raise InvalidPayload, "terms version is invalid" unless terms_version.to_s.match?(TERMS_VERSION_PATTERN)
+      locale_code = LOCALE_CODES.fetch(locale.to_s, "en")
 
-      body = [PAYLOAD_VERSION, order, user, amount.to_s, expires_at.to_i.to_s].join(".")
+      body = [
+        PAYLOAD_VERSION,
+        order,
+        user,
+        amount.to_s,
+        expires_at.to_i.to_s,
+        terms_version.to_s,
+        consented_at.to_i.to_s,
+        locale_code
+      ].join(".")
       payload = "#{body}.#{signature(body)}"
       raise InvalidPayload, "Telegram invoice payload is too large" if payload.bytesize > MAX_PAYLOAD_BYTES
 
@@ -188,10 +221,13 @@ module ZeroXDA::Market::TelegramBot
       value = payload.to_s
       raise InvalidPayload, "Telegram invoice payload is invalid" if value.empty? || value.bytesize > MAX_PAYLOAD_BYTES
 
-      version, order_id, user_id, amount, expires_at, supplied_signature = value.split(".", 6)
+      version, order_id, user_id, amount, expires_at, terms_version, consented_at, locale_code, supplied_signature = value.split(".", 9)
       raise InvalidPayload, "Telegram invoice payload is invalid" unless supplied_signature && version == PAYLOAD_VERSION
+      raise InvalidPayload, "terms version is invalid" unless terms_version.to_s.match?(TERMS_VERSION_PATTERN)
+      locale = LOCALES_BY_CODE[locale_code]
+      raise InvalidPayload, "terms locale is invalid" unless locale
 
-      body = [version, order_id, user_id, amount, expires_at].join(".")
+      body = [version, order_id, user_id, amount, expires_at, terms_version, consented_at, locale_code].join(".")
       expected_signature = signature(body)
       raise InvalidPayload, "Telegram invoice payload signature is invalid" unless secure_compare(expected_signature, supplied_signature)
 
@@ -200,10 +236,30 @@ module ZeroXDA::Market::TelegramBot
         order_id: resource_id(order_id),
         telegram_user_id: user_id,
         amount: positive_integer(amount, "Telegram Stars amount"),
-        expires_at: Time.at(Integer(expires_at), in: "+00:00")
+        expires_at: Time.at(Integer(expires_at), in: "+00:00"),
+        terms_version: terms_version,
+        consented_at: Time.at(Integer(consented_at), in: "+00:00"),
+        locale: locale
       }
     rescue ArgumentError, TypeError
       raise InvalidPayload, "Telegram invoice payload is invalid"
+    end
+
+    def validated_consent(consent, telegram_user_id:)
+      unless consent.is_a?(Hash) && consent["accepted"] == true
+        raise InvalidPayload, "purchase terms must be accepted before invoice creation"
+      end
+      version = consent["terms_version"].to_s
+      raise InvalidPayload, "terms version is invalid" unless version == @payment_terms.version && version.match?(TERMS_VERSION_PATTERN)
+      raise InvalidPayload, "terms consent belongs to another user" unless consent["telegram_user_id"].to_s == telegram_user_id.to_s
+      locale = consent["locale"].to_s
+      locale = "en_US" unless LOCALE_CODES.key?(locale)
+      accepted_at = Time.iso8601(consent.fetch("accepted_at"))
+      raise InvalidPayload, "terms consent timestamp is invalid" if accepted_at > current_time + 60
+
+      { terms_version: version, consented_at: accepted_at, locale: locale }
+    rescue KeyError, ArgumentError
+      raise InvalidPayload, "purchase terms consent is invalid"
     end
 
     def verify_telegram_user!(claims, user_id)
