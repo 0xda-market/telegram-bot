@@ -81,6 +81,17 @@ function paymentUiError(locale) {
   return error;
 }
 
+function termsConsentError(locale, code = "payment_terms_not_accepted") {
+  const messages = {
+    uk_UA: "Перед оплатою потрібно прочитати та прийняти актуальні Умови покупки.",
+    ru_RU: "Перед оплатой необходимо прочитать и принять актуальные Условия покупки.",
+    en_US: "Read and accept the current Purchase Terms before paying."
+  };
+  const error = new Error(messages[normalizeLocale(locale)]);
+  error.code = code;
+  return error;
+}
+
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
@@ -93,6 +104,7 @@ export function createTelegramTransport({
   locale: defaultLocale = "en_US"
 } = {}) {
   let bootstrapPromise;
+  let paymentTerms = null;
 
   async function requestDocument(path, options = {}) {
     const initData = telegram?.initData || "";
@@ -145,6 +157,47 @@ export function createTelegramTransport({
     return order;
   }
 
+  async function requestTermsConsent(locale) {
+    if (!paymentTerms) return null;
+    if (typeof telegram?.showPopup !== "function" || typeof telegram?.openLink !== "function") {
+      throw termsConsentError(locale, "payment_terms_ui_unavailable");
+    }
+
+    while (true) {
+      const choice = await new Promise((resolve, reject) => {
+        try {
+          telegram.showPopup(
+            {
+              title: String(paymentTerms.title || "Purchase Terms").slice(0, 64),
+              message: String(paymentTerms.prompt || "Read and accept the Purchase Terms before paying.").slice(0, 256),
+              buttons: [
+                { id: "view", type: "default", text: String(paymentTerms.view_label || "View Terms").slice(0, 64) },
+                { id: "agree", type: "default", text: String(paymentTerms.agree_label || "I read & agree").slice(0, 64) },
+                { id: "cancel", type: "cancel" }
+              ]
+            },
+            resolve
+          );
+        } catch (error) {
+          reject(error);
+        }
+      });
+
+      if (choice === "view") {
+        telegram.openLink(paymentTerms.url);
+        continue;
+      }
+      if (choice === "agree") {
+        return {
+          accepted: true,
+          version: paymentTerms.version,
+          locale: paymentTerms.locale || normalizeLocale(locale)
+        };
+      }
+      throw termsConsentError(locale);
+    }
+  }
+
   async function openAuthoritativeInvoice(order, locale) {
     const invoiceLink = order?.attributes?.payment?.invoice_link;
     if (!invoiceLink) return order;
@@ -169,8 +222,14 @@ export function createTelegramTransport({
   return {
     bootstrap({ locale }) {
       bootstrapPromise ||= requestDocument(`/bootstrap?${new URLSearchParams({ locale })}`, { locale })
+        .then((document) => {
+          const terms = document?.meta?.payment_terms;
+          paymentTerms = terms ? Object.freeze({ ...terms }) : null;
+          return document;
+        })
         .catch((error) => {
           bootstrapPromise = undefined;
+          paymentTerms = null;
           throw error;
         });
       return bootstrapPromise;
@@ -180,7 +239,11 @@ export function createTelegramTransport({
     },
     quote({ sku, quantity, recipient, locale }) { return requestResource("/quotes", { method: "POST", body: JSON.stringify({ sku, quantity, recipient, locale }), locale }); },
     async acceptQuote({ quoteId }) {
-      const order = await requestResource(`/quotes/${encodeURIComponent(quoteId)}/accept`, { method: "POST", body: "{}" });
+      const consent = await requestTermsConsent(defaultLocale);
+      const order = await requestResource(`/quotes/${encodeURIComponent(quoteId)}/accept`, {
+        method: "POST",
+        body: JSON.stringify(consent ? { consent } : {})
+      });
       return openAuthoritativeInvoice(order, defaultLocale);
     },
     refreshOrder({ orderId }) { return requestResource(`/orders/${encodeURIComponent(orderId)}`); },
