@@ -78,7 +78,10 @@ module ZeroXDA::Market::TelegramBot
     def answer_pre_checkout_query(pre_checkout_query_id:, ok:, error_message: nil)
       payload = { pre_checkout_query_id: pre_checkout_query_id, ok: !!ok }
       payload[:error_message] = error_message if !ok && error_message
-      post("answerPreCheckoutQuery", payload)
+      # Telegram requires this answer within ten seconds. Keep our own network
+      # budget substantially below that deadline so a slow Bot API call fails
+      # visibly rather than consuming the entire protocol window.
+      post("answerPreCheckoutQuery", payload, read_timeout: 5)
     end
 
     def refund_star_payment(user_id:, telegram_payment_charge_id:)
@@ -87,6 +90,13 @@ module ZeroXDA::Market::TelegramBot
         user_id: user_id,
         telegram_payment_charge_id: telegram_payment_charge_id
       )
+    rescue Error => error
+      # Telegram reports an already-refunded charge as an RPC error. Treat that
+      # exact condition as success so repeated successful_payment delivery stays
+      # operationally idempotent.
+      return true if error.message.include?("CHARGE_ALREADY_REFUNDED")
+
+      raise
     end
 
     def set_webhook(url:, secret_token:)
@@ -124,14 +134,14 @@ module ZeroXDA::Market::TelegramBot
 
     private
 
-    def post(method, payload)
+    def post(method, payload, read_timeout: 10)
       uri = URI.join(@base_url, method)
       request = Net::HTTP::Post.new(uri)
       request["content-type"] = "application/json"
       request.body = JSON.generate(payload)
       response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
         http.open_timeout = 5
-        http.read_timeout = 10
+        http.read_timeout = read_timeout
         http.request(request)
       end
       document = JSON.parse(response.body)
