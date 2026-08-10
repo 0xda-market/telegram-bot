@@ -13,8 +13,10 @@ require_relative "lib/zero_x_da/market/telegram_bot/http_app"
 require_relative "lib/zero_x_da/market/telegram_bot/market_api"
 require_relative "lib/zero_x_da/market/telegram_bot/market_api_payment_confirmation"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_api"
+require_relative "lib/zero_x_da/market/telegram_bot/payment_terms"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_stars_payments"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_mini_app"
+require_relative "lib/zero_x_da/market/telegram_bot/telegram_mini_app_payment_terms"
 require_relative "lib/zero_x_da/market/telegram_bot/recipient_picker_mini_app"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_recipient_picker"
 require_relative "lib/zero_x_da/market/telegram_bot/encoded_resource_identifiers"
@@ -39,11 +41,15 @@ market_api = ZeroXDA::Market::TelegramBot::MarketAPI.new(
   base_url: ENV.fetch("MARKET_API_URL", "https://zeroxda-market.onrender.com"),
   token: ENV.fetch("MARKET_API_TOKEN")
 )
+payment_terms = if stars_payments_enabled
+                  ZeroXDA::Market::TelegramBot::PaymentTerms.new(public_url: public_url)
+                end
 payments = if stars_payments_enabled
              ZeroXDA::Market::TelegramBot::TelegramStarsPayments.new(
                telegram_api: telegram_api,
                market_api: market_api,
-               signing_secret: ENV.fetch("TELEGRAM_PAYMENT_SIGNING_SECRET")
+               signing_secret: ENV.fetch("TELEGRAM_PAYMENT_SIGNING_SECRET"),
+               payment_terms: payment_terms
              )
            end
 bot = ZeroXDA::Market::TelegramBot::Bot.new(
@@ -51,6 +57,7 @@ bot = ZeroXDA::Market::TelegramBot::Bot.new(
   telegram_api: telegram_api,
   web_app_url: "#{public_url}/webapp/",
   payments: payments,
+  payment_terms: payment_terms,
   payment_support_text: ENV["TELEGRAM_PAYMENT_SUPPORT_TEXT"]
 )
 bot.extend(ZeroXDA::Market::TelegramBot::PersistentRuntime)
@@ -71,11 +78,13 @@ web_app_service = ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(
   environment: deploy_environment,
   recipient_picker: recipient_picker,
   broker_order_notifier: broker_order_notifier,
-  payments: payments
+  payments: payments,
+  payment_terms: payment_terms
 )
 mini_app = ZeroXDA::Market::TelegramBot::TelegramMiniApp.new(
   service: web_app_service,
-  root: File.expand_path("webapp", __dir__)
+  root: File.expand_path("webapp", __dir__),
+  payment_terms: payment_terms
 )
 runtime_event_notifier = ZeroXDA::Market::TelegramBot::RuntimeEventNotifier.new(
   market_api: market_api,
