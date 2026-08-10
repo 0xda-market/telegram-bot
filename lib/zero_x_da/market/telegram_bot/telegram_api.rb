@@ -57,12 +57,44 @@ module ZeroXDA::Market::TelegramBot
       post("savePreparedKeyboardButton", user_id: user_id, button: button)
     end
 
+    # Telegram Stars invoices for digital goods intentionally omit
+    # provider_token. XTR prices must contain exactly one item.
+    def create_invoice_link(title:, description:, payload:, amount:)
+      stars = Integer(amount)
+      raise ArgumentError, "Telegram Stars amount must be a positive integer" unless stars.positive?
+
+      post(
+        "createInvoiceLink",
+        title: title,
+        description: description,
+        payload: payload,
+        currency: "XTR",
+        prices: [{ label: title, amount: stars }]
+      )
+    rescue TypeError
+      raise ArgumentError, "Telegram Stars amount must be a positive integer"
+    end
+
+    def answer_pre_checkout_query(pre_checkout_query_id:, ok:, error_message: nil)
+      payload = { pre_checkout_query_id: pre_checkout_query_id, ok: !!ok }
+      payload[:error_message] = error_message if !ok && error_message
+      post("answerPreCheckoutQuery", payload)
+    end
+
+    def refund_star_payment(user_id:, telegram_payment_charge_id:)
+      post(
+        "refundStarPayment",
+        user_id: user_id,
+        telegram_payment_charge_id: telegram_payment_charge_id
+      )
+    end
+
     def set_webhook(url:, secret_token:)
       post(
         "setWebhook",
         url: url,
         secret_token: secret_token,
-        allowed_updates: %w[message callback_query],
+        allowed_updates: %w[message callback_query pre_checkout_query],
         drop_pending_updates: false
       )
     end
