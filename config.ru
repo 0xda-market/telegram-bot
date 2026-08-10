@@ -32,6 +32,11 @@ bot_token = ENV.fetch("TELEGRAM_BOT_TOKEN")
 public_url = ENV.fetch("PUBLIC_URL").delete_suffix("/")
 deploy_environment = ENV.fetch("DEPLOY_ENV", "development")
 stars_payments_enabled = ENV.fetch("TELEGRAM_STARS_PAYMENTS_ENABLED", "0") == "1"
+payment_support_text = ENV["TELEGRAM_PAYMENT_SUPPORT_TEXT"].to_s.strip
+if stars_payments_enabled && payment_support_text.empty?
+  raise "TELEGRAM_PAYMENT_SUPPORT_TEXT is required when Telegram Stars payments are enabled"
+end
+
 telegram_api = ZeroXDA::Market::TelegramBot::TelegramAPI.new(token: bot_token)
 telegram_username = ZeroXDA::Market::TelegramBot::TelegramBotIdentity.resolve(
   configured_username: ENV["TELEGRAM_BOT_USERNAME"],
@@ -58,7 +63,7 @@ bot = ZeroXDA::Market::TelegramBot::Bot.new(
   web_app_url: "#{public_url}/webapp/",
   payments: payments,
   payment_terms: payment_terms,
-  payment_support_text: ENV["TELEGRAM_PAYMENT_SUPPORT_TEXT"]
+  payment_support_text: payment_support_text
 )
 bot.extend(ZeroXDA::Market::TelegramBot::PersistentRuntime)
 web_app_auth = ZeroXDA::Market::TelegramBot::TelegramWebAppAuth.new(
