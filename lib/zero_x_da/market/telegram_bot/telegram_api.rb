@@ -78,10 +78,9 @@ module ZeroXDA::Market::TelegramBot
     def answer_pre_checkout_query(pre_checkout_query_id:, ok:, error_message: nil)
       payload = { pre_checkout_query_id: pre_checkout_query_id, ok: !!ok }
       payload[:error_message] = error_message if !ok && error_message
-      # Telegram requires this answer within ten seconds. Keep our own network
-      # budget substantially below that deadline so a slow Bot API call fails
-      # visibly rather than consuming the entire protocol window.
-      post("answerPreCheckoutQuery", payload, read_timeout: 5)
+      # Telegram requires this answer within ten seconds. Reserve protocol
+      # margin by bounding connection + response time to seven seconds total.
+      post("answerPreCheckoutQuery", payload, open_timeout: 2, read_timeout: 5)
     end
 
     def refund_star_payment(user_id:, telegram_payment_charge_id:)
@@ -134,13 +133,13 @@ module ZeroXDA::Market::TelegramBot
 
     private
 
-    def post(method, payload, read_timeout: 10)
+    def post(method, payload, open_timeout: 5, read_timeout: 10)
       uri = URI.join(@base_url, method)
       request = Net::HTTP::Post.new(uri)
       request["content-type"] = "application/json"
       request.body = JSON.generate(payload)
       response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
-        http.open_timeout = 5
+        http.open_timeout = open_timeout
         http.read_timeout = read_timeout
         http.request(request)
       end
