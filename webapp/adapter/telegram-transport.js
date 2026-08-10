@@ -1,4 +1,6 @@
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
+const PAYMENT_REFRESH_ATTEMPTS = 6;
+const PAYMENT_REFRESH_DELAY_MS = 500;
 
 const ERROR_MESSAGES = Object.freeze({
   en_US: Object.freeze({
@@ -14,6 +16,7 @@ const ERROR_MESSAGES = Object.freeze({
     quote_reprice_required: "Умови пропозиції змінилися. Отримайте нову ціну.",
     concurrency_conflict: "Дані вже змінилися. Оновіть їх і спробуйте ще раз.",
     payment_required: "Потрібне підтвердження оплати.",
+    payment_method_unavailable: "Цей спосіб оплати наразі недоступний для продукту.",
     broker_acceptance_required: "Спочатку потрібно погодити замовлення.",
     fulfillment_not_ready: "Замовлення ще не готове до виконання.",
     fulfillment_incomplete: "Не вдалося завершити виконання замовлення.",
@@ -67,6 +70,21 @@ function timeoutError(milliseconds, locale) {
   return error;
 }
 
+function paymentUiError(locale) {
+  const messages = {
+    uk_UA: "Не вдалося відкрити безпечну оплату Telegram Stars.",
+    ru_RU: "Не удалось открыть безопасную оплату Telegram Stars.",
+    en_US: "Could not open the secure Telegram Stars payment."
+  };
+  const error = new Error(messages[normalizeLocale(locale)]);
+  error.code = "telegram_payment_ui_unavailable";
+  return error;
+}
+
+function delay(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 export function createTelegramTransport({
   telegram = globalThis.Telegram?.WebApp,
   apiBaseUrl = ".",
@@ -118,6 +136,36 @@ export function createTelegramTransport({
     return document.data;
   }
 
+  async function refreshAfterPayment(order) {
+    for (let attempt = 0; attempt < PAYMENT_REFRESH_ATTEMPTS; attempt += 1) {
+      const refreshed = await requestResource(`/orders/${encodeURIComponent(order.id)}`);
+      if (refreshed?.attributes?.payment_status !== "pending") return refreshed;
+      if (attempt + 1 < PAYMENT_REFRESH_ATTEMPTS) await delay(PAYMENT_REFRESH_DELAY_MS);
+    }
+    return order;
+  }
+
+  async function openAuthoritativeInvoice(order, locale) {
+    const invoiceLink = order?.attributes?.payment?.invoice_link;
+    if (!invoiceLink) return order;
+    if (typeof telegram?.openInvoice !== "function") throw paymentUiError(locale);
+
+    const status = await new Promise((resolve, reject) => {
+      try {
+        telegram.openInvoice(invoiceLink, resolve);
+      } catch (error) {
+        reject(error);
+      }
+    });
+    if (status === "failed") throw paymentUiError(locale);
+    if (status === "paid" || status === "pending") {
+      // The Mini App callback is UX-only. Core changes state exclusively after
+      // the bot receives Telegram's authoritative successful_payment update.
+      return refreshAfterPayment(order).catch(() => order);
+    }
+    return order;
+  }
+
   return {
     bootstrap({ locale }) {
       bootstrapPromise ||= requestDocument(`/bootstrap?${new URLSearchParams({ locale })}`, { locale })
@@ -131,7 +179,10 @@ export function createTelegramTransport({
       return requestDocument("/runtime-events", { method: "POST", body: JSON.stringify(event) });
     },
     quote({ sku, quantity, recipient, locale }) { return requestResource("/quotes", { method: "POST", body: JSON.stringify({ sku, quantity, recipient, locale }), locale }); },
-    acceptQuote({ quoteId }) { return requestResource(`/quotes/${encodeURIComponent(quoteId)}/accept`, { method: "POST", body: "{}" }); },
+    async acceptQuote({ quoteId }) {
+      const order = await requestResource(`/quotes/${encodeURIComponent(quoteId)}/accept`, { method: "POST", body: "{}" });
+      return openAuthoritativeInvoice(order, defaultLocale);
+    },
     refreshOrder({ orderId }) { return requestResource(`/orders/${encodeURIComponent(orderId)}`); },
     listBrokerListings() { return requestResource("/broker/listings"); },
     createBrokerListing({ sku, quantity, priceAmount, currency }) { return requestResource("/broker/listings", { method: "POST", body: JSON.stringify({ sku, quantity, price_amount: priceAmount, currency }) }); },
