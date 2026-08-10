@@ -47,7 +47,11 @@ module ZeroXDA::Market::TelegramBot
           "currencies" => @market_api.currencies(locale: selected_locale),
           "telegram_auth_date" => session.auth_date.iso8601(6)
         )
-        metadata["payment_terms"] = @payment_terms.metadata(locale: selected_locale) if @payment_terms
+        if @payment_terms
+          metadata["payment_terms"] = @payment_terms.metadata(locale: selected_locale).merge(
+            "locale" => selected_locale
+          )
+        end
         document.merge("meta" => metadata)
       end
 
@@ -81,7 +85,8 @@ module ZeroXDA::Market::TelegramBot
 
       def accept(init_data:, quote_id:, consent: nil)
         session, user = authenticate(init_data)
-        selected_locale = normalized_locale(session.user["language_code"])
+        consent_locale = consent.is_a?(Hash) ? consent["locale"] : nil
+        selected_locale = normalized_locale(consent_locale || session.user["language_code"])
         consent_proof = if @payments
                           @payment_terms.accept(
                             client_consent: consent,
