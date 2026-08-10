@@ -36,16 +36,18 @@ jobs:
       - name: Checkout without Marketplace actions
         shell: bash
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
           find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
           git -C "$GITHUB_WORKSPACE" init
           git -C "$GITHUB_WORKSPACE" remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          auth_header="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 -w0)"
           if [[ -n "${PR_NUMBER:-}" ]]; then
-            git -C "$GITHUB_WORKSPACE" fetch --no-tags --depth=1 origin "refs/pull/${PR_NUMBER}/merge"
+            git -C "$GITHUB_WORKSPACE" -c "http.extraheader=$auth_header" fetch --no-tags --depth=1 origin "refs/pull/${PR_NUMBER}/merge"
           else
-            git -C "$GITHUB_WORKSPACE" fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+            git -C "$GITHUB_WORKSPACE" -c "http.extraheader=$auth_header" fetch --no-tags --depth=1 origin "$GITHUB_SHA"
           fi
           git -C "$GITHUB_WORKSPACE" checkout --detach FETCH_HEAD
 
