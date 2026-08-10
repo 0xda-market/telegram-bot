@@ -15,7 +15,8 @@ module ZeroXDA::Market::TelegramBot
         purchase_flow: PurchaseFlow.new(market_api: market_api),
         environment: "development",
         recipient_picker: nil,
-        payments: nil
+        payments: nil,
+        payment_terms: nil
       )
         @market_api = market_api
         @authentication = authentication
@@ -23,6 +24,10 @@ module ZeroXDA::Market::TelegramBot
         @environment = environment.to_s
         @recipient_picker = recipient_picker
         @payments = payments
+        @payment_terms = payment_terms
+        if @payments && !@payment_terms
+          raise ArgumentError, "payment_terms is required when real payments are enabled"
+        end
       end
 
       def bootstrap(init_data:, locale:)
@@ -35,15 +40,15 @@ module ZeroXDA::Market::TelegramBot
           "subject" => session.subject,
           "environment" => @environment
         }
-        document.merge(
-          "meta" => document.fetch("meta").merge(
-            "channel" => "telegram",
-            "session" => public_session,
-            "user" => public_session.slice("role", "status"),
-            "currencies" => @market_api.currencies(locale: selected_locale),
-            "telegram_auth_date" => session.auth_date.iso8601(6)
-          )
+        metadata = document.fetch("meta").merge(
+          "channel" => "telegram",
+          "session" => public_session,
+          "user" => public_session.slice("role", "status"),
+          "currencies" => @market_api.currencies(locale: selected_locale),
+          "telegram_auth_date" => session.auth_date.iso8601(6)
         )
+        metadata["payment_terms"] = @payment_terms.metadata(locale: selected_locale) if @payment_terms
+        document.merge("meta" => metadata)
       end
 
       def prepare_recipient_picker(init_data:)
@@ -74,10 +79,22 @@ module ZeroXDA::Market::TelegramBot
         { "data" => quote }
       end
 
-      def accept(init_data:, quote_id:)
+      def accept(init_data:, quote_id:, consent: nil)
         session, user = authenticate(init_data)
+        selected_locale = normalized_locale(session.user["language_code"])
+        consent_proof = if @payments
+                          @payment_terms.accept(
+                            client_consent: consent,
+                            telegram_user_id: session.user.fetch("id"),
+                            locale: selected_locale
+                          )
+                        end
         order = @purchase_flow.accept(quote_id: quote_id, user: user)
-        order = @payments.attach_invoice(order: order, telegram_user: session.user) if @payments
+        order = @payments.attach_invoice(
+          order: order,
+          telegram_user: session.user,
+          consent: consent_proof
+        ) if @payments
         { "data" => order }
       end
 
