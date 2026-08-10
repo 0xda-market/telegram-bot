@@ -21,7 +21,10 @@ module ZeroXDA::Market::TelegramBot
 
       locale = user.dig("attributes", "locale") || @telegram_update_locale || Locale::DEFAULT
       commands = admin?(user) ? CommandMenu.admin(locale: locale) : CommandMenu.client(locale: locale)
-      commands = commands + [{ command: "paysupport", description: SUPPORT_COPY.fetch(Locale.normalize(locale), SUPPORT_COPY.fetch(Locale::DEFAULT)) }]
+      commands = commands + [
+        { command: "terms", description: @payment_terms.command_description(locale: locale) },
+        { command: "paysupport", description: SUPPORT_COPY.fetch(Locale.normalize(locale), SUPPORT_COPY.fetch(Locale::DEFAULT)) }
+      ]
       @telegram_api.set_commands(commands, scope: { type: "chat", chat_id: chat_id })
     rescue TelegramAPI::Error => error
       warn "command menu sync failed: #{error.message}"
