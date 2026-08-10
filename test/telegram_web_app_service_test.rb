@@ -55,8 +55,10 @@ class TelegramWebAppServiceTest < Minitest::Test
       ]
     end
 
-    def webapp_bootstrap(locale:, currency:)
+    def webapp_bootstrap(locale:, currency: nil)
       @bootstrap_requests << { locale: locale, currency: currency }
+      presentation_currency = currency || (locale == "uk_UA" ? "UAH" : "USDT")
+      presentation_amount = presentation_currency == "UAH" ? "550.0" : "13.25"
       {
         "data" => [
           {
@@ -64,7 +66,11 @@ class TelegramWebAppServiceTest < Minitest::Test
             "id" => "premium_3m",
             "attributes" => {
               "name" => "Telegram Premium 3 months",
-              "price" => { "amount_usdt" => "13.25", "amount" => "13.25", "currency" => "USDT" }
+              "price" => {
+                "amount_usdt" => "13.25",
+                "amount" => presentation_amount,
+                "currency" => presentation_currency
+              }
             }
           }
         ],
@@ -75,7 +81,7 @@ class TelegramWebAppServiceTest < Minitest::Test
           "count" => 1,
           "complete" => true,
           "pagination" => "client",
-          "currency" => currency,
+          "currency" => presentation_currency,
           "locale" => locale
         }
       }
@@ -182,7 +188,7 @@ class TelegramWebAppServiceTest < Minitest::Test
     )
   end
 
-  def test_bootstrap_returns_the_complete_core_snapshot_with_public_session_meta
+  def test_bootstrap_returns_locale_derived_currency_with_public_session_meta
     document = @service.bootstrap(init_data: "signed", locale: "uk")
 
     assert_equal "snapshot-1", document.dig("meta", "snapshot_id")
@@ -194,9 +200,11 @@ class TelegramWebAppServiceTest < Minitest::Test
     assert_equal "broker", document.dig("meta", "session", "role")
     assert_equal "opaque-subject", document.dig("meta", "session", "subject")
     assert_equal "development", document.dig("meta", "session", "environment")
+    assert_equal "UAH", document.dig("meta", "currency")
+    assert_equal "550.0", document.dig("data", 0, "attributes", "price", "amount")
     assert_equal "USDT", document.dig("meta", "currencies", 0, "id")
     refute document.dig("meta", "user").key?("id")
-    assert_equal [{ locale: "uk_UA", currency: "USDT" }], @market.bootstrap_requests
+    assert_equal [{ locale: "uk_UA", currency: nil }], @market.bootstrap_requests
     assert_equal 1, @market.authentications.length
   end
 

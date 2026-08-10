@@ -27,8 +27,10 @@ module ZeroXDA::Market::TelegramBot
       document.fetch("data")
     end
 
-    def webapp_bootstrap(locale: "en_US", currency: "USDT")
-      get("v1/webapp/bootstrap?#{URI.encode_www_form(locale: locale, currency: currency)}", authenticated: false)
+    def webapp_bootstrap(locale: "en_US", currency: nil)
+      query = { locale: locale }
+      query[:currency] = currency unless currency.to_s.strip.empty?
+      get("v1/webapp/bootstrap?#{URI.encode_www_form(query)}", authenticated: false)
     end
 
     def create_marketplace_quote(actor_user_id:, sku:, quantity:, context:, recipient: nil)
