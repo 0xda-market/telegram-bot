@@ -14,13 +14,15 @@ module ZeroXDA::Market::TelegramBot
         authentication:,
         purchase_flow: PurchaseFlow.new(market_api: market_api),
         environment: "development",
-        recipient_picker: nil
+        recipient_picker: nil,
+        payments: nil
       )
         @market_api = market_api
         @authentication = authentication
         @purchase_flow = purchase_flow
         @environment = environment.to_s
         @recipient_picker = recipient_picker
+        @payments = payments
       end
 
       def bootstrap(init_data:, locale:)
@@ -73,8 +75,10 @@ module ZeroXDA::Market::TelegramBot
       end
 
       def accept(init_data:, quote_id:)
-        _session, user = authenticate(init_data)
-        { "data" => @purchase_flow.accept(quote_id: quote_id, user: user) }
+        session, user = authenticate(init_data)
+        order = @purchase_flow.accept(quote_id: quote_id, user: user)
+        order = @payments.attach_invoice(order: order, telegram_user: session.user) if @payments
+        { "data" => order }
       end
 
       def refresh(init_data:, order_id:)
