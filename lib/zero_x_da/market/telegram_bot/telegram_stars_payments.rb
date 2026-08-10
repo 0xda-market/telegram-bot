@@ -132,12 +132,17 @@ module ZeroXDA::Market::TelegramBot
       handle_confirmation_failure(
         error,
         message: message,
+        successful_payment: successful_payment
+      )
+    rescue KeyError, ArgumentError, InvalidPayload => error
+      refund_unverifiable_payment(
+        message: message,
         successful_payment: successful_payment,
-        claims: claims
+        reason: error.class.name
       )
     end
 
-    def handle_confirmation_failure(error, message:, successful_payment:, claims:)
+    def handle_confirmation_failure(error, message:, successful_payment:)
       charge_id = successful_payment["telegram_payment_charge_id"].to_s
       if REFUNDABLE_REJECTION_CODES.include?(error.code) && !charge_id.empty?
         @telegram_api.refund_star_payment(
@@ -152,6 +157,19 @@ module ZeroXDA::Market::TelegramBot
       # Returning an error lets Telegram retry the same authoritative update;
       # idempotency is enforced by the signed payload and charge reference.
       raise error
+    end
+
+    def refund_unverifiable_payment(message:, successful_payment:, reason:)
+      charge_id = successful_payment["telegram_payment_charge_id"].to_s
+      currency = successful_payment["currency"].to_s
+      raise InvalidPayload, "unverifiable payment has no refundable Stars charge" if charge_id.empty? || currency != CURRENCY
+
+      @telegram_api.refund_star_payment(
+        user_id: message.fetch("from").fetch("id"),
+        telegram_payment_charge_id: charge_id
+      )
+      warn "refunded unverifiable Telegram Stars payment #{charge_id}: #{reason}"
+      nil
     end
 
     def signed_payload(order_id:, telegram_user_id:, amount:, expires_at:)
