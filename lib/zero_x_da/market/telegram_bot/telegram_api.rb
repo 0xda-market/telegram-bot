@@ -50,11 +50,11 @@ module ZeroXDA::Market::TelegramBot
     end
 
     def delete_message(chat_id:, message_id:)
-      post("deleteMessage", chat_id: chat_id, message_id: message_id)
+      post("deleteMessage", { chat_id: chat_id, message_id: message_id })
     end
 
     def save_prepared_keyboard_button(user_id:, button:)
-      post("savePreparedKeyboardButton", user_id: user_id, button: button)
+      post("savePreparedKeyboardButton", { user_id: user_id, button: button })
     end
 
     # Telegram Stars invoices for digital goods intentionally omit
@@ -65,11 +65,13 @@ module ZeroXDA::Market::TelegramBot
 
       post(
         "createInvoiceLink",
-        title: title,
-        description: description,
-        payload: payload,
-        currency: "XTR",
-        prices: [{ label: title, amount: stars }]
+        {
+          title: title,
+          description: description,
+          payload: payload,
+          currency: "XTR",
+          prices: [{ label: title, amount: stars }]
+        }
       )
     rescue TypeError
       raise ArgumentError, "Telegram Stars amount must be a positive integer"
@@ -86,8 +88,10 @@ module ZeroXDA::Market::TelegramBot
     def refund_star_payment(user_id:, telegram_payment_charge_id:)
       post(
         "refundStarPayment",
-        user_id: user_id,
-        telegram_payment_charge_id: telegram_payment_charge_id
+        {
+          user_id: user_id,
+          telegram_payment_charge_id: telegram_payment_charge_id
+        }
       )
     rescue Error => error
       # Telegram reports an already-refunded charge as an RPC error. Treat that
@@ -101,10 +105,12 @@ module ZeroXDA::Market::TelegramBot
     def set_webhook(url:, secret_token:)
       post(
         "setWebhook",
-        url: url,
-        secret_token: secret_token,
-        allowed_updates: %w[message callback_query pre_checkout_query],
-        drop_pending_updates: false
+        {
+          url: url,
+          secret_token: secret_token,
+          allowed_updates: %w[message callback_query pre_checkout_query],
+          drop_pending_updates: false
+        }
       )
     end
 
@@ -121,10 +127,12 @@ module ZeroXDA::Market::TelegramBot
 
       post(
         "setChatMenuButton",
-        menu_button: {
-          type: "web_app",
-          text: text.to_s.strip,
-          web_app: { url: uri.to_s }
+        {
+          menu_button: {
+            type: "web_app",
+            text: text.to_s.strip,
+            web_app: { url: uri.to_s }
+          }
         }
       )
     rescue URI::InvalidURIError
