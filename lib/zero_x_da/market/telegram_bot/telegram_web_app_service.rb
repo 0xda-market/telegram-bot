@@ -26,7 +26,7 @@ module ZeroXDA::Market::TelegramBot
       def bootstrap(init_data:, locale:)
         session, user = authenticate(init_data)
         selected_locale = normalized_locale(locale)
-        document = @market_api.webapp_bootstrap(locale: selected_locale, currency: "USDT")
+        document = @market_api.webapp_bootstrap(locale: selected_locale)
         public_session = {
           "role" => user.dig("attributes", "role"),
           "status" => user.dig("attributes", "status"),
