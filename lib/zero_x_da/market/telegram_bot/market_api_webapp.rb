@@ -48,7 +48,7 @@ module ZeroXDA::Market::TelegramBot
     end
 
     def confirm_marketplace_payment(actor_user_id:, order_id:, reference:, provider:, amount:, currency:, data: {})
-      post(
+      payment_confirmation_post(
         "v1/market/orders/#{resource_id(order_id)}/payment/confirm",
         actor_user_id: actor_user_id,
         reference: reference,
