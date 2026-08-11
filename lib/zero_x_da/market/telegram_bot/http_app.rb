@@ -31,6 +31,7 @@ module ZeroXDA::Market::TelegramBot
         mini_app: nil,
         dispatcher: AsyncDispatcher.new,
         update_observer: nil,
+        payment_handler: nil,
         revision: ENV.fetch("RENDER_GIT_COMMIT", "unknown")
       )
         raise ArgumentError, "Webhook secret must not be empty" if webhook_secret.to_s.empty?
@@ -41,6 +42,7 @@ module ZeroXDA::Market::TelegramBot
         @mini_app = mini_app
         @dispatcher = dispatcher
         @update_observer = update_observer
+        @payment_handler = payment_handler
         @revision = revision.to_s.empty? ? "unknown" : revision.to_s
       end
 
@@ -62,6 +64,10 @@ module ZeroXDA::Market::TelegramBot
           return json_response(401, error: "unauthorized") unless authorized?(request)
 
           update = JSON.parse(request.body.read(1_048_577))
+          if @payment_handler&.handles?(update)
+            return process_payment_update(update)
+          end
+
           @update_observer&.capture(update)
           @dispatcher.call { @bot.handle(update) }
           return json_response(200, status: "accepted")
@@ -73,6 +79,17 @@ module ZeroXDA::Market::TelegramBot
       end
 
       private
+
+      def process_payment_update(update)
+        @payment_handler.handle(update)
+        json_response(200, status: "accepted")
+      rescue StandardError => error
+        warn "payment update failed: #{error.class}: #{error.message}"
+        # Payment updates are never acknowledged before durable processing.
+        # A 5xx asks Telegram to retry the same authoritative update; core and
+        # the adapter both enforce idempotency by order and charge reference.
+        json_response(503, error: "payment_processing_unavailable")
+      end
 
       def mini_app_request?(path)
         path == "/webapp" || path.start_with?("/webapp/")

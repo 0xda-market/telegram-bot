@@ -50,20 +50,67 @@ module ZeroXDA::Market::TelegramBot
     end
 
     def delete_message(chat_id:, message_id:)
-      post("deleteMessage", chat_id: chat_id, message_id: message_id)
+      post("deleteMessage", { chat_id: chat_id, message_id: message_id })
     end
 
     def save_prepared_keyboard_button(user_id:, button:)
-      post("savePreparedKeyboardButton", user_id: user_id, button: button)
+      post("savePreparedKeyboardButton", { user_id: user_id, button: button })
+    end
+
+    # Telegram Stars invoices for digital goods intentionally omit
+    # provider_token. XTR prices must contain exactly one item.
+    def create_invoice_link(title:, description:, payload:, amount:)
+      stars = Integer(amount)
+      raise ArgumentError, "Telegram Stars amount must be a positive integer" unless stars.positive?
+
+      post(
+        "createInvoiceLink",
+        {
+          title: title,
+          description: description,
+          payload: payload,
+          currency: "XTR",
+          prices: [{ label: title, amount: stars }]
+        }
+      )
+    rescue TypeError
+      raise ArgumentError, "Telegram Stars amount must be a positive integer"
+    end
+
+    def answer_pre_checkout_query(pre_checkout_query_id:, ok:, error_message: nil)
+      payload = { pre_checkout_query_id: pre_checkout_query_id, ok: !!ok }
+      payload[:error_message] = error_message if !ok && error_message
+      # Telegram requires this answer within ten seconds. Reserve protocol
+      # margin by bounding connection + response time to seven seconds total.
+      post("answerPreCheckoutQuery", payload, open_timeout: 2, read_timeout: 5)
+    end
+
+    def refund_star_payment(user_id:, telegram_payment_charge_id:)
+      post(
+        "refundStarPayment",
+        {
+          user_id: user_id,
+          telegram_payment_charge_id: telegram_payment_charge_id
+        }
+      )
+    rescue Error => error
+      # Telegram reports an already-refunded charge as an RPC error. Treat that
+      # exact condition as success so repeated successful_payment delivery stays
+      # operationally idempotent.
+      return true if error.message.include?("CHARGE_ALREADY_REFUNDED")
+
+      raise
     end
 
     def set_webhook(url:, secret_token:)
       post(
         "setWebhook",
-        url: url,
-        secret_token: secret_token,
-        allowed_updates: %w[message callback_query],
-        drop_pending_updates: false
+        {
+          url: url,
+          secret_token: secret_token,
+          allowed_updates: %w[message callback_query pre_checkout_query],
+          drop_pending_updates: false
+        }
       )
     end
 
@@ -80,10 +127,12 @@ module ZeroXDA::Market::TelegramBot
 
       post(
         "setChatMenuButton",
-        menu_button: {
-          type: "web_app",
-          text: text.to_s.strip,
-          web_app: { url: uri.to_s }
+        {
+          menu_button: {
+            type: "web_app",
+            text: text.to_s.strip,
+            web_app: { url: uri.to_s }
+          }
         }
       )
     rescue URI::InvalidURIError
@@ -92,14 +141,14 @@ module ZeroXDA::Market::TelegramBot
 
     private
 
-    def post(method, payload)
+    def post(method, payload, open_timeout: 5, read_timeout: 10)
       uri = URI.join(@base_url, method)
       request = Net::HTTP::Post.new(uri)
       request["content-type"] = "application/json"
       request.body = JSON.generate(payload)
       response = Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
-        http.open_timeout = 5
-        http.read_timeout = 10
+        http.open_timeout = open_timeout
+        http.read_timeout = read_timeout
         http.request(request)
       end
       document = JSON.parse(response.body)

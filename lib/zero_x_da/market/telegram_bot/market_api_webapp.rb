@@ -47,6 +47,18 @@ module ZeroXDA::Market::TelegramBot
       get("v1/market/orders/#{resource_id(order_id)}?#{URI.encode_www_form(actor_user_id: actor_user_id)}", authenticated: true).fetch("data")
     end
 
+    def confirm_marketplace_payment(actor_user_id:, order_id:, reference:, provider:, amount:, currency:, data: {})
+      payment_confirmation_post(
+        "v1/market/orders/#{resource_id(order_id)}/payment/confirm",
+        actor_user_id: actor_user_id,
+        reference: reference,
+        provider: provider,
+        amount: amount,
+        currency: currency,
+        data: data
+      ).fetch("data")
+    end
+
     def execute_marketplace_order(actor_user_id:, order_id:)
       post("v1/market/orders/#{resource_id(order_id)}/execute", actor_user_id: actor_user_id).fetch("data")
     end
