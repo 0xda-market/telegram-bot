@@ -1,11 +1,6 @@
 name: Deploy
 
 on:
-  pull_request:
-    branches:
-      - master
-    types:
-      - closed
   workflow_dispatch:
     inputs:
       environment:
@@ -26,28 +21,25 @@ permissions:
   statuses: write
 
 concurrency:
-  group: vps-bot-${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
+  group: vps-bot-${{ inputs.environment }}
   cancel-in-progress: false
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
-      name: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
+      name: ${{ inputs.environment }}
     env:
-      DEPLOY_ENV: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'development' }}
+      DEPLOY_ENV: ${{ inputs.environment }}
       WORKFLOW_REF: ${{ github.ref }}
-      SELECTED_RELEASE_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.pull_request.merge_commit_sha }}
-      PRODUCTION_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.production_tag || '' }}
-      FORCE_ACTIVATE: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+      SELECTED_RELEASE_SHA: ${{ github.sha }}
+      PRODUCTION_TAG: ${{ inputs.production_tag || '' }}
       SSH_HOST: ${{ secrets.SSH_HOST }}
       SSH_USER: ${{ secrets.SSH_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
       SSH_PORT: ${{ vars.SSH_PORT }}
       SSH_DEPLOYMENT_PATH: ${{ vars.SSH_DEPLOYMENT_PATH }}
-      VPS_RUNTIME_PATH: /opt/0xda-market-runtime
 
     steps:
       - name: Resolve deployment source
@@ -56,10 +48,6 @@ jobs:
           case "$DEPLOY_ENV" in development|production) ;; *) exit 1 ;; esac
 
           if [[ "$DEPLOY_ENV" == production ]]; then
-            if [[ "${{ github.event_name }}" != workflow_dispatch ]]; then
-              echo "::error::Production deployment is manual-only"
-              exit 1
-            fi
             if [[ "$WORKFLOW_REF" != refs/heads/master ]]; then
               echo "::error::Run the production workflow from master; select the release with Production tag"
               exit 1
@@ -93,11 +81,6 @@ jobs:
         run: |
           set -Eeuo pipefail
           case "$DEPLOY_ENV" in development|production) ;; *) exit 1 ;; esac
-          case "$FORCE_ACTIVATE" in 0|1) ;; *) exit 1 ;; esac
-          if [[ "${{ github.event_name }}" != "workflow_dispatch" ]]; then
-            test "$DEPLOY_ENV" = development
-            test "$FORCE_ACTIVATE" = 0
-          fi
           missing=0
           for name in SSH_HOST SSH_USER SSH_PRIVATE_KEY SSH_DEPLOYMENT_PATH SSH_PORT; do
             if [[ -z "${!name:-}" ]]; then
@@ -124,11 +107,11 @@ jobs:
           tar --exclude=.git --exclude='deploy/vps/.env' -czf "$archive" .
           scp -P "$SSH_PORT" "$archive" "$SSH_USER@$SSH_HOST:/tmp/"
 
-      - name: Stage or activate environment
+      - name: Activate environment
         run: |
           set -Eeuo pipefail
           ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
-            "DEPLOY_PATH='$SSH_DEPLOYMENT_PATH' RUNTIME_PATH='$VPS_RUNTIME_PATH' DEPLOY_ENV='$DEPLOY_ENV' FORCE_ACTIVATE='$FORCE_ACTIVATE' RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
+            "DEPLOY_PATH='$SSH_DEPLOYMENT_PATH' DEPLOY_ENV='$DEPLOY_ENV' RELEASE_SHA='$RELEASE_SHA' bash -s" <<'REMOTE'
           set -Eeuo pipefail
 
           environment_root="$DEPLOY_PATH/environments/$DEPLOY_ENV"
@@ -136,12 +119,10 @@ jobs:
           release_dir="$environment_root/releases/$RELEASE_SHA"
           shared_env="$environment_root/shared/.env"
           current_link="$environment_root/current"
-          active_environment=""
           previous_release="$(readlink -f "$current_link" 2>/dev/null || true)"
 
           test -f "$shared_env"
           grep -qx "DEPLOY_ENV=$DEPLOY_ENV" "$shared_env"
-          case "$FORCE_ACTIVATE" in 0|1) ;; *) exit 1 ;; esac
 
           rm -rf "$release_dir"
           mkdir -p "$release_dir"
@@ -149,19 +130,11 @@ jobs:
           rm -f "$archive"
           ln -sfn "$shared_env" "$release_dir/deploy/vps/.env"
 
-          if [[ -f "$RUNTIME_PATH/active-environment" ]]; then
-            active_environment="$(<"$RUNTIME_PATH/active-environment")"
-          fi
-
-          if [[ "$FORCE_ACTIVATE" == "1" || "$active_environment" == "$DEPLOY_ENV" ]]; then
-            if ! DEPLOY_MODE=activate RELEASE_SHA="$RELEASE_SHA" bash "$release_dir/deploy/vps/deploy.sh"; then
-              if [[ -n "$previous_release" && -d "$previous_release/deploy/vps" ]]; then
-                DEPLOY_MODE=activate RELEASE_SHA="$(basename "$previous_release")" bash "$previous_release/deploy/vps/deploy.sh" || true
-              fi
-              exit 1
+          if ! RELEASE_SHA="$RELEASE_SHA" bash "$release_dir/deploy/vps/deploy.sh"; then
+            if [[ -n "$previous_release" && -d "$previous_release/deploy/vps" ]]; then
+              RELEASE_SHA="$(basename "$previous_release")" bash "$previous_release/deploy/vps/deploy.sh" || true
             fi
-          else
-            DEPLOY_MODE=stage RELEASE_SHA="$RELEASE_SHA" bash "$release_dir/deploy/vps/deploy.sh"
+            exit 1
           fi
 
           ln -sfn "$release_dir" "$current_link"

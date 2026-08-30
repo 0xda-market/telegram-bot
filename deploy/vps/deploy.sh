@@ -8,11 +8,12 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-deploy_mode="${DEPLOY_MODE:-activate}"
 deploy_environment="$(sed -n 's/^DEPLOY_ENV=//p' .env | tail -n 1)"
+core_environment="$(sed -n 's/^MARKET_CORE_ENV=//p' .env | tail -n 1)"
+core_environment="${core_environment:-$deploy_environment}"
 edge_network="${MARKET_EDGE_NETWORK:-nilx-edge}"
 release_sha="${RELEASE_SHA:-}"
-core_env="/opt/0xda-market/environments/${deploy_environment}/shared/.env"
+core_env="/opt/0xda-market/environments/${core_environment}/shared/.env"
 
 if [[ "$edge_network" != "nilx-edge" ]]; then
   echo "MARKET_EDGE_NETWORK must be nilx-edge" >&2
@@ -24,18 +25,18 @@ if [[ -z "$release_sha" ]]; then
   exit 1
 fi
 
-case "$deploy_mode" in
-  stage|activate) ;;
-  *)
-    echo "Unsupported DEPLOY_MODE: $deploy_mode" >&2
-    exit 1
-    ;;
-esac
-
 case "$deploy_environment" in
   development|production) ;;
   *)
     echo "DEPLOY_ENV must be development or production" >&2
+    exit 1
+    ;;
+esac
+
+case "$core_environment" in
+  development|production) ;;
+  *)
+    echo "MARKET_CORE_ENV must be development or production" >&2
     exit 1
     ;;
 esac
@@ -83,7 +84,7 @@ finally:
 PY
 unset core_api_token
 
-echo "Core API credential synchronized for $deploy_environment"
+echo "Core API credential synchronized from $core_environment for bot $deploy_environment"
 
 if ! docker network inspect "$edge_network" >/dev/null 2>&1; then
   docker network create "$edge_network" >/dev/null
@@ -92,22 +93,19 @@ fi
 export RELEASE_SHA="$release_sha"
 docker compose config --quiet
 docker compose build --pull bot
-
-if [[ "$deploy_mode" == "stage" ]]; then
-  echo "0xda-market bot $deploy_environment release $release_sha staged"
-  exit 0
-fi
-
 docker compose up -d --wait bot
 
-curl --fail --silent --show-error \
-  --retry 10 --retry-delay 3 --retry-connrefused \
-  http://127.0.0.1:10001/health >/dev/null
-
 container_id="$(docker compose ps -q bot)"
+test -n "$container_id"
 active_sha="$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$container_id")"
 if [[ "$active_sha" != "$release_sha" ]]; then
   echo "Active bot release mismatch: expected $release_sha, got $active_sha" >&2
+  exit 1
+fi
+
+network_alias="market-bot-${deploy_environment}"
+if ! docker inspect "$container_id" --format '{{range $network, $config := .NetworkSettings.Networks}}{{range $config.Aliases}}{{println .}}{{end}}{{end}}' | grep -qx "$network_alias"; then
+  echo "Expected edge alias is missing: $network_alias" >&2
   exit 1
 fi
 
@@ -148,4 +146,5 @@ docker compose exec -T bot bundle exec ruby -Ilib \
   '
 
 echo "0xda-market bot $deploy_environment release $release_sha is healthy"
+echo "Edge alias verified: $network_alias"
 echo "Telegram webhook reconciled and verified: $actual_webhook"
