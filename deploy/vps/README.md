@@ -1,29 +1,39 @@
 # VPS bot deployment
 
-The client bot runs on the same VPS as the provider-agnostic `0xda-market` core.
-Caddy in the core stack owns public HTTPS and forwards `/bot/*` over the private
-external network `nilx-edge` to the alias `market-bot`.
+The Telegram client runtime is deployed on the shared `nilx-edge` network. Production and development are independent runtime identities and may be active at the same time.
 
-The VPS is the canonical bot runtime. Render configuration is no longer part of
-the supported deployment path.
+## Runtime identities
 
-## Current deployment contract
-
-The repository has one `Deploy` workflow:
-
-| Invocation | Source | GitHub environment | Runtime directory |
+| Environment | Telegram identity | Edge alias | Public base URL |
 | --- | --- | --- | --- |
-| merged pull request into `master` | exact merge commit | `development` | `environments/development` |
-| manual development dispatch | exact commit selected by the workflow ref picker | `development` | `environments/development` |
-| manual production dispatch | explicit Git tag | `production` | `environments/production` |
+| `production` | `0xda-market` | `market-bot-production` | `https://0xda-market.nilx.one/bot` |
+| `development` | `0xda-market-test` | `market-bot-development` | `https://0xda-market.nilx.one/bot-test` |
 
-Synchronizing an open pull request no longer creates a deployment run. Closing a
-pull request without merging skips the deploy job. A manual production deployment
-uses the protected `production` GitHub Environment, must run the workflow from
-`master`, and must remain paired with a compatible core production release.
+Both containers listen on internal port `10000`. No host port is published; Caddy reaches them through the external Docker network. This avoids a shared host-port or Docker-DNS alias and allows both bots to stay online concurrently.
 
-`DEPLOY_ENV` is the only runtime environment marker. It must match the runtime
-file and its VPS directory.
+## Ownership boundary
+
+This repository owns the bot process, Telegram webhook/BFF behavior, release lifecycle, runtime secrets and its two Docker identities. `0x0sky/infra` owns public HTTPS routing and must route the two public prefixes to the matching aliases.
+
+The bot consumes `0xda-market/core`; it does not own the core runtime or its public edge.
+
+## GitHub delivery
+
+Deployment is manual-only through `.github/workflows/deploy-vps.yml`.
+
+- `development` deploys the exact commit selected by GitHub's workflow ref selector.
+- `production` must be dispatched from `master` and requires an explicit immutable Git tag.
+- Merge does not deploy either environment.
+- Each environment has an independent concurrency group, release directory and `current` symlink.
+- A failed activation attempts to restore the previous release of that same environment only.
+
+Required GitHub Environment configuration for both `development` and `production`:
+
+- secret `SSH_HOST`;
+- secret `SSH_USER`;
+- secret `SSH_PRIVATE_KEY`;
+- variable `SSH_DEPLOYMENT_PATH=/opt/0xda-market-bot`;
+- variable `SSH_PORT=22022`.
 
 ## VPS layout
 
@@ -37,168 +47,83 @@ file and its VPS directory.
     current -> releases/<sha>
     releases/
     shared/.env
-
-/opt/0xda-market-runtime/active-environment
 ```
 
-The unified workflow stages an automatically merged development release, refreshes
-it when development is active, and force-activates the explicitly selected
-environment for a manual dispatch. There is no separate environment-switch
-workflow.
-
-The bot binds to `127.0.0.1:10001` for local smoke checks and exposes internal
-port `10000` as `market-bot` on the shared edge network.
-
-## GitHub environments
-
-Configure each available environment with:
-
-- secret `SSH_HOST`;
-- secret `SSH_USER` (`deploy`);
-- secret `SSH_PRIVATE_KEY`;
-- variable `SSH_DEPLOYMENT_PATH=/opt/0xda-market-bot`;
-- variable `SSH_PORT=22022`.
-
-## Runtime file
+There is no global `active-environment` switch for the bot. Development and production are separate Compose projects:
 
 ```text
-/opt/0xda-market-bot/environments/development/shared/.env
+zero-x-da-market-bot-development
+zero-x-da-market-bot-production
 ```
 
-Example:
+## Runtime files
+
+Development uses:
 
 ```env
 DEPLOY_ENV=development
+MARKET_CORE_ENV=development
 MARKET_EDGE_NETWORK=nilx-edge
 PORT=10000
-TELEGRAM_BOT_TOKEN=<test bot value>
+TELEGRAM_BOT_TOKEN=<0xda-market-test token>
 TELEGRAM_BOT_USERNAME=<test bot username without @>
 TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS=3600
-TELEGRAM_WEBHOOK_SECRET=<development value>
-MARKET_API_URL=https://0xda-market.nilx.one
-MARKET_API_TOKEN=<development core API value>
+TELEGRAM_WEBHOOK_SECRET=<development secret>
+MARKET_API_URL=<development-compatible core URL>
+MARKET_API_TOKEN=<synchronized by deploy>
 REGISTER_TELEGRAM_WEBHOOK=0
 REGISTER_TELEGRAM_WEBAPP=0
+PUBLIC_URL=https://0xda-market.nilx.one/bot-test
+```
+
+Production uses the same schema with:
+
+```env
+DEPLOY_ENV=production
+MARKET_CORE_ENV=production
 PUBLIC_URL=https://0xda-market.nilx.one/bot
 ```
 
-`TELEGRAM_BOT_USERNAME` keeps Rack boot and the public root redirect independent
-from Telegram API availability. Existing environments without it remain
-compatible: the process calls `getMe` once during boot and then stores the
-validated username in memory. Request handling never calls `getMe`.
+`MARKET_CORE_ENV` selects which core environment supplies the server API credential. It defaults to `DEPLOY_ENV` when omitted. This keeps bot identity separate from the core environment contract without duplicating credentials in GitHub.
 
-`TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS` limits the age of signed
-`Telegram.WebApp.initData` accepted by the Mini App BFF. The default is one hour.
-The browser never receives `TELEGRAM_BOT_TOKEN` or `MARKET_API_TOKEN`.
+Protect runtime files with mode `0600`.
 
-`REGISTER_TELEGRAM_WEBAPP=1` configures the global private-chat menu button to
-open `${PUBLIC_URL}/webapp/`. Keep it `0` through deployment and smoke checks;
-enabling it mutates Telegram configuration and is a separate reviewed action.
+## Edge contract
 
-Protect the file:
+After both workloads are deployed, the shared edge should expose:
 
-```sh
-chown deploy:deploy /opt/0xda-market-bot/environments/*/shared/.env
-chmod 0600 /opt/0xda-market-bot/environments/*/shared/.env
+```text
+https://0xda-market.nilx.one/bot/*
+  -> market-bot-production:10000/*
+
+https://0xda-market.nilx.one/bot-test/*
+  -> market-bot-development:10000/*
 ```
 
-Keep both registration gates at `0` until local and public smoke checks pass.
-Webhook and Mini App menu registration remain separate reviewed operations.
+Caddy should strip the public prefix. Consequently:
 
-## Deployment behavior
-
-A merged pull request into `master` deploys its exact merge commit to
-`development`. Pull-request CI events are not deployment triggers.
-
-For a manual development deployment:
-
-- select the branch, tag, or commit in GitHub's built-in workflow ref picker;
-- keep `environment` set to `development`;
-- do not repeat the source reference in another input.
-
-The workflow deploys the exact commit represented by that selected workflow ref.
-The optional `production_tag` input is ignored for development.
-
-For a manual production deployment:
-
-- run the workflow definition from `master`;
-- select `production`;
-- provide `production_tag` with the Git tag to release.
-
-Production resolves only `refs/tags/<production_tag>`; a branch or raw commit
-cannot be supplied through the production release input. GitHub's native
-`workflow_dispatch` form has static inputs, so the production tag field is visible
-for development too, but it has no effect there.
-
-The selected release is resolved to an immutable commit before upload.
-
-- an inactive automatic development release is built but not started;
-- the active development bot is refreshed and health-gated;
-- a manual run force-activates the selected environment;
-- a failed active refresh attempts to restart the previous release;
-- only the active bot joins the edge network with the `market-bot` alias;
-- deployment never changes DNS, Caddy routing, Telegram webhook state or
-  Telegram Mini App menu settings.
-
-The matching core contract must be deployed before the bot adapter that consumes
-it.
-
-## Smoke checks
-
-```sh
-cat /opt/0xda-market-runtime/active-environment
-curl -i http://127.0.0.1:10001/
-curl -i http://127.0.0.1:10001/health
-curl -i http://127.0.0.1:10001/webapp/
-curl -i https://0xda-market.nilx.one/webapp-core/index.js
-curl -i https://0xda-market.nilx.one/v1/webapp/bootstrap?locale=uk_UA\&currency=USDT
-curl -i https://0xda-market.nilx.one/bot/
-curl -i https://0xda-market.nilx.one/bot/health
-curl -i https://0xda-market.nilx.one/bot/webapp/
-cd /opt/0xda-market-bot/environments/development/current/deploy/vps
-docker compose ps
-docker compose logs --tail 200 bot
+```text
+/bot/telegram/webhook      -> /telegram/webhook
+/bot/webapp/               -> /webapp/
+/bot-test/telegram/webhook -> /telegram/webhook
+/bot-test/webapp/          -> /webapp/
 ```
 
-The root route must return a static `302` to the configured environment bot. The
-Mini App shell must return `200`; its bootstrap BFF intentionally returns `401`
-without signed Telegram init data. Caddy strips the `/bot` prefix, so public
-`/bot/telegram/webhook` maps to internal `/telegram/webhook` and
-`/bot/webapp/` maps to internal `/webapp/`.
+The Mini App browser never receives `TELEGRAM_BOT_TOKEN` or `MARKET_API_TOKEN`.
 
-The complete cross-repository verifier lives in the active core release:
+## Deployment verification
 
-```sh
-sudo -u deploy \
-  bash /opt/0xda-market/environments/development/current/deploy/vps/verify.sh
-```
+`deploy.sh` verifies:
 
-## Scheduled price digest
+- the Compose contract;
+- container health;
+- immutable release SHA label;
+- the environment-specific edge alias;
+- Telegram bot identity and webhook URL;
+- authenticated core health and products access.
 
-The price digest is hosted on the VPS through systemd, not Render.
+The deployment does not mutate Caddy or DNS. Public-edge activation remains a separate `0x0sky/infra` deployment.
 
-Install or refresh the timer as root:
+## Telegram registration
 
-```sh
-cd /opt/0xda-market-bot/environments/development/current/deploy/vps
-sudo ./install-systemd.sh
-```
-
-The timer runs at 05:00 and 06:00 UTC. `run-price-digest.sh` executes only when
-production is active; `bin/send_price_digest` selects the run corresponding to
-07:00 CET/CEST.
-
-```sh
-systemctl list-timers 0xda-market-price-digest.timer
-journalctl -u 0xda-market-price-digest.service --since today
-```
-
-## Operations
-
-Reboot, HTTPS, health, logs, backups and rollback are documented centrally in
-`0xda-market/core`:
-
-- `deploy/vps/OPERATIONS.md`
-
-Do not disable or delete the previous host as part of an application deployment.
-That is a separate irreversible operation requiring explicit owner approval.
+`REGISTER_TELEGRAM_WEBAPP=1` configures the private-chat menu button to open `${PUBLIC_URL}/webapp/`. Keep registration disabled until the corresponding public edge route is live and healthy. Webhook and Mini App registration are external mutations and belong to the explicit deployment/rollout step.
