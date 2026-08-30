@@ -4,10 +4,10 @@ The Telegram client runtime is deployed on the shared `nilx-edge` network. Produ
 
 ## Runtime identities
 
-| Environment | Telegram identity | Edge alias | Public base URL |
-| --- | --- | --- | --- |
-| `production` | `0xda-market` | `market-bot-production` | `https://0xda-market.nilx.one/bot` |
-| `development` | `0xda-market-test` | `market-bot-development` | `https://0xda-market.nilx.one/bot-test` |
+| Environment | Telegram identity | Edge alias | Core target | Public base URL |
+| --- | --- | --- | --- | --- |
+| `production` | `0xda-market` | `market-bot-production` | `market-api-production:10000` | `https://0xda-market.nilx.one/bot` |
+| `development` | `0xda-market-test` | `market-bot-development` | `market-api-development:10000` | `https://0xda-market.nilx.one/bot-test` |
 
 Both containers listen on internal port `10000`. No host port is published; Caddy reaches them through the external Docker network. This avoids a shared host-port or Docker-DNS alias and allows both bots to stay online concurrently.
 
@@ -15,7 +15,7 @@ Both containers listen on internal port `10000`. No host port is published; Cadd
 
 This repository owns the bot process, Telegram webhook/BFF behavior, release lifecycle, runtime secrets and its two Docker identities. `0x0sky/infra` owns public HTTPS routing and must route the two public prefixes to the matching aliases.
 
-The bot consumes `0xda-market/core`; it does not own the core runtime or its public edge.
+The bot consumes `0xda-market/core`; it does not own the core runtime or its public edge. Server-side bot traffic reaches the matching core directly over `nilx-edge`, so the development API does not need a public hostname.
 
 ## GitHub delivery
 
@@ -69,7 +69,7 @@ TELEGRAM_BOT_TOKEN=<0xda-market-test token>
 TELEGRAM_BOT_USERNAME=<test bot username without @>
 TELEGRAM_WEBAPP_AUTH_MAX_AGE_SECONDS=3600
 TELEGRAM_WEBHOOK_SECRET=<development secret>
-MARKET_API_URL=<development-compatible core URL>
+MARKET_API_URL=http://market-api-development:10000
 MARKET_API_TOKEN=<synchronized by deploy>
 REGISTER_TELEGRAM_WEBHOOK=0
 REGISTER_TELEGRAM_WEBAPP=0
@@ -81,6 +81,7 @@ Production uses the same schema with:
 ```env
 DEPLOY_ENV=production
 MARKET_CORE_ENV=production
+MARKET_API_URL=http://market-api-production:10000
 PUBLIC_URL=https://0xda-market.nilx.one/bot
 ```
 
@@ -120,7 +121,7 @@ The Mini App browser never receives `TELEGRAM_BOT_TOKEN` or `MARKET_API_TOKEN`.
 - immutable release SHA label;
 - the environment-specific edge alias;
 - Telegram bot identity and webhook URL;
-- authenticated core health and products access.
+- authenticated access to the matching core environment.
 
 The deployment does not mutate Caddy or DNS. Public-edge activation remains a separate `0x0sky/infra` deployment.
 
