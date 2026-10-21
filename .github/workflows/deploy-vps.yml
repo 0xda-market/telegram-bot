@@ -168,8 +168,6 @@ jobs:
       - name: Encrypt producer credentials and dispatch the immutable image
         env:
           GH_TOKEN: ${{ secrets.INFRA_DEPLOY_TOKEN }}
-          GHCR_PULL_TOKEN: ${{ github.token }}
-          GHCR_PULL_USER: ${{ github.actor }}
           INFRA_RECIPIENT_PATH: ${{ env.INFRA_RECIPIENT_PATH }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
@@ -180,10 +178,10 @@ jobs:
         run: |
           set -Eeuo pipefail
           umask 077
-          test -n "$GH_TOKEN" && test -n "$GHCR_PULL_TOKEN"
+          test -n "$GH_TOKEN"
           test -s "$INFRA_RECIPIENT_PATH"
           for name in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET MARKET_API_TOKEN \
-                      TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL GHCR_PULL_USER GHCR_PULL_TOKEN; do
+                      TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL; do
             value="$(printenv "$name")"
             test -n "$value" || {
               echo "::error::Missing development credential/configuration $name." >&2
@@ -206,8 +204,7 @@ jobs:
           trap 'rm -f "$source_file" "$encrypted_file"; rm -rf "$RUNNER_TEMP/market-bot-recipient"' EXIT
           {
             for name in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET MARKET_API_TOKEN \
-                        TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL \
-                        GHCR_PULL_USER GHCR_PULL_TOKEN; do
+                        TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL; do
               printf '%s=%s\n' "$name" "$(printenv "$name")"
             done
           } > "$source_file"
