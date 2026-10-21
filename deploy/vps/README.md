@@ -19,21 +19,45 @@ The bot consumes `0xda-market/core`; it does not own the core runtime or its pub
 
 ## GitHub delivery
 
-Deployment is manual-only through `.github/workflows/deploy-vps.yml`.
+The **active development** deployment is manual-only through
+`.github/workflows/deploy-vps.yml` (`Deploy development via infra`). The product
+repository no longer uses SSH for this flow. It checks for successful push CI
+on the exact `master` commit, builds one GHCR image, and dispatches that
+immutable digest to `aiaiaiai-org/infra` as workload `market-bot-test`.
 
-- `development` deploys the exact commit selected by GitHub's workflow ref selector.
-- `production` must be dispatched from `master` and requires an explicit immutable Git tag.
-- Merge does not deploy either environment.
-- Each environment has an independent concurrency group, release directory and `current` symlink.
-- A failed activation attempts to restore the previous release of that same environment only.
+GitHub Environment: `development`. Keep its own
+`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `MARKET_API_TOKEN`
+secrets and `TELEGRAM_BOT_USERNAME`, `PUBLIC_URL`, `MARKET_API_URL`
+variables. The organization-level `INFRA_DEPLOY_TOKEN` must be scoped to
+the producer repositories and must have dispatch and recipient-read access
+on infra. Product repositories must **not** receive VPS `SSH_*` secrets.
 
-Required GitHub Environment configuration for both `development` and `production`:
+A public key issued by infra for the contracted server encrypts the per-run
+bot credentials, but **never GHCR registry credentials**. Registry access belongs
+to `aiaiaiai-org/infra`: the target `edge-prod-1` Environment needs its own
+`GHCR_PULL_TOKEN` with `read:packages` access to the private
+`ghcr.io/0xda-market/telegram-bot` package, and the matching `GHCR_PULL_USER`.
+The producer job's short-lived `github.token` must not be sent to infra.
+Only infra's target GitHub Environment holds the key to decrypt the envelope.
+Infra owns network, port, host selection, activation, rollback and health checks.
 
-- secret `SSH_HOST`;
-- secret `SSH_USER`;
-- secret `SSH_PRIVATE_KEY`;
-- variable `SSH_DEPLOYMENT_PATH=/opt/0xda-market-bot`;
-- variable `SSH_PORT=22022`.
+The configured test bot identity must be a username, not a `t.me` URL:
+`zeroxda_market_test_bot`; `PUBLIC_URL` is
+`https://0xda-market.nilx.one/bot-test` and `MARKET_API_URL` is
+`http://market-api-development:10000`. The Bot API token and its
+`MARKET_API_TOKEN` must match the development Core `PUBLIC_API_TOKEN`
+credential. No production values may be reused in development.
+
+Merge and successful CI do not activate the bot. Infra dispatch acceptance
+does not prove completion: inspect the infra workflow for the health result.
+Telegram webhook/menu registration remains a separate explicit operation.
+
+**Production deployment is temporarily frozen by this workflow change.**
+The old manual `production_tag` workflow is removed; already running production
+is not altered by merging, but another production release requires its own
+reviewed infra release contract and separately authorized activation. The old
+VPS-specific paths below are historical context only and must not be used to
+bypass infra.
 
 ## VPS layout
 

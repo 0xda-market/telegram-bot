@@ -13,24 +13,16 @@ class DeployWorkflowContractTest < Minitest::Test
     refute_includes @workflow, "github.event.pull_request"
   end
 
-  def test_development_uses_selected_workflow_ref_without_duplicate_source_input
-    refute_includes @workflow, "source_ref:"
-    assert_includes @workflow, 'SELECTED_RELEASE_SHA: ${{ github.sha }}'
-    assert_includes @workflow, 'echo "RELEASE_REF=$SELECTED_RELEASE_SHA"'
+  def test_development_uses_master_and_exact_ci
+    assert_includes @workflow, "refs/heads/master"
+    assert_includes @workflow, "head_sha=$GITHUB_SHA"
+    assert_includes @workflow, "aiaiaiai-org/infra"
   end
 
-  def test_environments_deploy_independently
-    assert_includes @workflow, 'group: vps-bot-${{ inputs.environment }}'
-    refute_includes @workflow, "active-environment"
-    refute_includes @workflow, "FORCE_ACTIVATE"
-  end
-
-  def test_production_requires_an_explicit_valid_tag_from_master
-    assert_includes @workflow, "production_tag:"
-    assert_includes @workflow, 'WORKFLOW_REF: ${{ github.ref }}'
-    assert_includes @workflow, 'if [[ "$WORKFLOW_REF" != refs/heads/master ]]'
-    assert_includes @workflow, 'if [[ -z "$PRODUCTION_TAG" ]]'
-    assert_includes @workflow, 'git check-ref-format "refs/tags/$PRODUCTION_TAG"'
-    assert_includes @workflow, 'echo "RELEASE_REF=refs/tags/$PRODUCTION_TAG"'
+  def test_environment_is_development_only
+    assert_includes @workflow, "group: market-bot-development-deploy"
+    assert_includes @workflow, "name: development"
+    assert_includes @workflow, "market-bot-test"
+    refute_includes @workflow, "production_tag:"
   end
 end
