@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/0xda-market/.github/master/profile/assets/0xda-market.gif" alt="0xda-market animated logo" width="256">
+</p>
+
 # 0xda-market Telegram Bot
 
 Telegram interface for the provider-agnostic [`0xda-market/core`](https://github.com/0xda-market/core).
