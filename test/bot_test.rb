@@ -86,6 +86,30 @@ class BotTest < Minitest::Test
     assert_empty @market.intents
   end
 
+  def test_0x1_subscription_remains_preview_only_even_if_upstream_marks_it_active
+    original_products = @market.method(:products)
+    @market.define_singleton_method(:products) do |**options|
+      original_products.call(**options).tap do |items|
+        entry = items.find { |item| item["id"] == "0x1_exclusive_1m" }
+        entry.fetch("attributes")["status"] = "active"
+        entry.fetch("attributes")["preview"] = false
+      end
+    end
+
+    @bot.handle(update("/buy"))
+    @bot.handle(callback("c:b:0x1_exclusive_1m"))
+    screen = @telegram.edited_messages.last
+    assert_includes screen.fetch(:text), "купівля ще недоступна"
+    assert_includes screen.dig(:reply_markup, :inline_keyboard).flatten.map { |b| b[:callback_data] },
+                    "v:0x1_exclusive_1m"
+
+    # A forged legacy buy callback must never reach marketplace settlement.
+    @bot.handle(callback("b:0x1_exclusive_1m"))
+    assert_includes @telegram.answered_callbacks.last.fetch(:text), "поки недоступна"
+    assert_empty @market.intents
+    assert_empty @market.orders
+  end
+
   def test_purchase_selection_creates_quote_then_explicit_acceptance_and_durable_pending_order
     @bot.handle(callback("b:premium_3m"))
 
