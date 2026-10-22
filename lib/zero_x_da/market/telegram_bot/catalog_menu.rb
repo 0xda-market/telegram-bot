@@ -139,11 +139,11 @@ module ZeroXDA::Market::TelegramBot
 
       def subscription_order(product)
         metadata = product.dig("attributes", "metadata") || {}
-        [
-          SUBSCRIPTION_TIERS.index(metadata["tier"]) || SUBSCRIPTION_TIERS.length,
-          SUBSCRIPTION_DURATIONS.index(metadata["duration_months"].to_i) || SUBSCRIPTION_DURATIONS.length,
-          product.dig("attributes", "position").to_i
-        ]
+        tier = SUBSCRIPTION_TIERS.index(metadata["tier"])
+        duration = SUBSCRIPTION_DURATIONS.index(metadata["duration_months"].to_i)
+        return [1, product.dig("attributes", "position").to_i] unless tier && duration
+
+        [0, tier, duration, product.dig("attributes", "position").to_i]
       end
 
       def subscription_rows(page, mode, locale)
