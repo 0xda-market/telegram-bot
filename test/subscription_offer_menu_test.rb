@@ -56,9 +56,9 @@ class SubscriptionOfferMenuTest < Minitest::Test
     assert_equal "aiaiaiai ecosystem × 0x1\n\nАвторизація поки недоступна.", screen.text
     assert_equal %w[v:0x1_special_1m h:b],
                  screen.reply_markup.fetch(:inline_keyboard).flatten.map { |item| item.fetch(:callback_data) }
-    refute screen.reply_markup.fetch(:inline_keyboard).flatten.any? do |button|
+    refute screen.reply_markup.fetch(:inline_keyboard).flatten.any? { |button|
       button.fetch(:callback_data).start_with?("q:")
-    end
+    }
   end
 
   private
