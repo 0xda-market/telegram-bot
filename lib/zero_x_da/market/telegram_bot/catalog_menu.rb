@@ -120,7 +120,7 @@ module ZeroXDA::Market::TelegramBot
                   family_label(family, locale)
                 end
         Screen.new(
-          title: title, family: family, has_previews: page.any? { |product| product.dig("attributes", "preview") },
+          title: title, family: family, has_previews: family == SUBSCRIPTION_FAMILY || page.any? { |product| product.dig("attributes", "preview") },
           reply_markup: { inline_keyboard: rows }
         )
       end
@@ -176,7 +176,7 @@ module ZeroXDA::Market::TelegramBot
           suffix = duration == 1 ? forms.first : forms.last
           label = "#{metadata.fetch("tier").capitalize} #{duration} #{suffix}"
         end
-        callback_mode = product.dig("attributes", "preview") ? "v" : mode
+        callback_mode = (family_for(product) == SUBSCRIPTION_FAMILY || product.dig("attributes", "preview")) ? "v" : mode
         { text: label, callback_data: "#{callback_mode}:#{product.fetch("id")}" }
       end
 
