@@ -29,7 +29,20 @@ class InfraDevelopmentDeployTest < Minitest::Test
   end
 
   def test_release_is_digest_pinned_and_exact_head_ci_gated
-    assert_includes @contents, "event=push&head_sha=$GITHUB_SHA"
+    gate = @workflow.fetch("jobs").fetch("package").fetch("steps")
+      .find { |step| step["name"] == "Require master and successful exact-head CI" }
+      .fetch("run")
+
+    assert_includes gate, "refs/heads/master"
+    assert_includes gate, 'actions/runs?head_sha=$GITHUB_SHA&per_page=100'
+    assert_match(/\.head_sha\s*==\s*\$sha/, gate)
+    assert_match(/\.head_branch\s*==\s*"master"/, gate)
+    assert_match(/\.path\s*==\s*"\.github\/workflows\/ci\.yml"/, gate)
+    assert_match(/\.event\s*==\s*"push"/, gate)
+    assert_match(/\.status\s*==\s*"completed"/, gate)
+    assert_match(/\.conclusion\s*==\s*"success"/, gate)
+    refute_includes gate, "event=push&head_sha=$GITHUB_SHA"
+
     assert_includes @contents, "docker/build-push-action@v6"
     assert_includes @contents, "ghcr.io/0xda-market/telegram-bot@$DIGEST"
     assert_includes @contents, "sha256:[0-9a-f]{64}"

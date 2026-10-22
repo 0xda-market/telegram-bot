@@ -29,11 +29,16 @@ jobs:
             echo "::error::Development deploy must run from master." >&2
             exit 1
           }
+          # GitHub's combined event/head_sha workflow-run filters may miss
+          # a successful exact-head push CI. Filter only by SHA at the API
+          # boundary, then verify the workflow identity and event locally.
           runs="$(gh api --method GET \
-            "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=push&head_sha=$GITHUB_SHA&per_page=30")"
+            "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$GITHUB_SHA&per_page=100")"
           jq -e --arg sha "$GITHUB_SHA" '
             [.workflow_runs[] | select(.head_sha == $sha
               and .head_branch == "master"
+              and .path == ".github/workflows/ci.yml"
+              and .event == "push"
               and .status == "completed"
               and .conclusion == "success")] | length > 0
           ' <<<"$runs" >/dev/null || {
