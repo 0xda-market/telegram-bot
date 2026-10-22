@@ -33,16 +33,16 @@ module ZeroXDA::Market::TelegramBot
       copy = COPY.fetch(Locale.normalize(locale))
       seed_price = metadata["seed_price"]
       amount = seed_price.is_a?(Hash) && seed_price["currency"] == "seeds" ? seed_price["amount"] : nil
-      seeds = valid_seed_amount(amount) ? "#{amount} ₴€£" : "— ₴€£"
+      seeds = valid_seed_amount(amount) ? "#{amount} #{seeds_noun(amount, locale)}" : "— ₴€£"
       localized_price = product.dig("attributes", "preview_price")
       money = formatted_money(localized_price)
       balance = valid_balance(seed_balance) ? seed_balance.to_s : "—"
 
       rows = [
         [
-          { text: "·", callback_data: "n" },
+          { text: "•", callback_data: "n" },
           { text: copy.fetch(:buy_for), callback_data: "n" },
-          { text: "·", callback_data: "n" }
+          { text: "•", callback_data: "n" }
         ],
         [
           { text: seeds, callback_data: "x:#{sku}" },
@@ -61,6 +61,24 @@ module ZeroXDA::Market::TelegramBot
     end
 
     private
+
+    def seeds_noun(amount, locale)
+      normalized = Locale.normalize(locale)
+      if normalized == "uk_UA" || normalized == "ru_RU"
+        remainder = amount % 100
+        many = (11..14).cover?(remainder)
+        form = if !many && amount % 10 == 1
+                 0
+               elsif !many && (2..4).cover?(amount % 10)
+                 1
+               else
+                 2
+               end
+        return (normalized == "uk_UA" ? %w[сід сіди сідів] : %w[сид сида сидов]).fetch(form)
+      end
+
+      normalized == "en_US" ? (amount == 1 ? "seed" : "seeds") : "₴€£"
+    end
 
     def formatted_money(price)
       return "— USDT" unless price.is_a?(Hash)
