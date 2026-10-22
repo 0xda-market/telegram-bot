@@ -22,6 +22,7 @@ module ZeroXDA::Market::TelegramBot
       SKU_PATTERN = /([a-z0-9][a-z0-9_-]{0,59})/
       RESOURCE_ID_PATTERN = /([A-Za-z0-9:_-]{1,61})/
       BUY_CALLBACK_PATTERN = /\Ab:#{SKU_PATTERN}\z/
+      PREVIEW_CALLBACK_PATTERN = /\Av:#{SKU_PATTERN}\z/
       LEGACY_BUY_CALLBACK_PATTERN = /\Abuy_#{SKU_PATTERN}\z/
       APPLY_PRICE_CALLBACK_PATTERN = /\Ap:#{SKU_PATTERN}\z/
       LEGACY_APPLY_PRICE_CALLBACK_PATTERN = /\Aapplyprice_#{SKU_PATTERN}\z/
@@ -158,6 +159,8 @@ module ZeroXDA::Market::TelegramBot
           show_catalog_root_callback(callback, Regexp.last_match(1))
         when CATEGORY_CALLBACK_PATTERN
           show_catalog_category_callback(callback, Regexp.last_match(1), Regexp.last_match(2))
+        when PREVIEW_CALLBACK_PATTERN
+          answer_callback(callback, text: t(:subscription_unavailable, locale: locale_for(callback)))
         when BUY_CALLBACK_PATTERN, LEGACY_BUY_CALLBACK_PATTERN
           handle_buy_callback(callback, Regexp.last_match(1))
         when APPLY_PRICE_CALLBACK_PATTERN, LEGACY_APPLY_PRICE_CALLBACK_PATTERN
@@ -202,7 +205,11 @@ module ZeroXDA::Market::TelegramBot
           anchor_sku: anchor_sku,
           locale: locale
         )
-        text = "#{catalog_root_title(mode, locale)}\n\n#{screen.title}"
+        text = if screen.family == CatalogMenu::SUBSCRIPTION_FAMILY
+                 [screen.title, (t(:subscription_preview_note, locale: locale) if screen.has_previews)].compact.join("\n\n")
+               else
+                 "#{catalog_root_title(mode, locale)}\n\n#{screen.title}"
+               end
         replace_callback_message(callback, text, reply_markup: screen.reply_markup)
         answer_callback(callback)
       end
@@ -214,6 +221,11 @@ module ZeroXDA::Market::TelegramBot
         sync_commands(message.fetch("chat").fetch("id"), user)
         product = find_product_by_sku(sku, locale: locale, mode: "b")
         raise ArgumentError, t(:product_unavailable, locale: locale) unless product
+        # 0x1 subscriptions use issuer-owned Seeds settlement, never marketplace/manual quotes.
+        if product.dig("attributes", "metadata", "family") == CatalogMenu::SUBSCRIPTION_FAMILY ||
+           product.dig("attributes", "preview") || product.dig("attributes", "status") != "active"
+          return answer_callback(callback, text: t(:subscription_unavailable, locale: locale))
+        end
 
         _intent, quote = @purchase_flow.quote(
           product: product,
@@ -274,7 +286,10 @@ module ZeroXDA::Market::TelegramBot
       end
 
       def catalog_products(mode:, locale:)
-        products = @market_api.products(locale: locale, currency: mode == "b" ? "USDT" : nil)
+        products = @market_api.products(
+          locale: locale, currency: mode == "b" ? "USDT" : nil,
+          preview_0x1: mode == "b"
+        )
         return products if mode == "b"
 
         (products + @market_api.currencies(locale: locale)).uniq { |product| product.fetch("id") }

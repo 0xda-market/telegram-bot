@@ -67,9 +67,10 @@ module ZeroXDA::Market::TelegramBot
         raw_active_users.map { |profile| adapt_user_profile(profile) }
       end
 
-      def products(locale: "en_US", currency: nil)
+      def products(locale: "en_US", currency: nil, preview_0x1: false)
         query = { locale: locale }
         query[:currency] = currency if currency
+        query[:preview_0x1] = "true" if preview_0x1
         get(
           "v1/products?#{URI.encode_www_form(query)}",
           authenticated: true

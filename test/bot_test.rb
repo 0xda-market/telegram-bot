@@ -52,8 +52,9 @@ class BotTest < Minitest::Test
     root = @telegram.messages.last
     assert_equal "обери продукт для купівлі:", root.fetch(:text)
     category_buttons = root.dig(:reply_markup, :inline_keyboard).flatten
-    assert_equal 3, category_buttons.length
-    assert_equal %w[c:b:premium_3m c:b:stars_500 c:b:ton], category_buttons.map { |button| button.fetch(:callback_data) }
+    assert_equal 4, category_buttons.length
+    assert_equal %w[c:b:premium_3m c:b:stars_500 c:b:ton c:b:0x1_exclusive_1m],
+                 category_buttons.map { |button| button.fetch(:callback_data) }
 
     category_buttons.each do |button|
       @bot.handle(callback(button.fetch(:callback_data)))
@@ -63,6 +64,50 @@ class BotTest < Minitest::Test
     end.compact.grep(/\Ab:/)
 
     assert_equal FakeMarketAPI::PRODUCTS.map(&:first).sort, product_callbacks.map { |data| data.delete_prefix("b:") }.sort
+  end
+
+  def test_0x1_preview_is_visible_but_does_not_create_quote_or_order
+    @bot.handle(update("/buy"))
+    @bot.handle(callback("c:b:0x1_exclusive_1m"))
+    screen = @telegram.edited_messages.last
+    assert_includes screen.fetch(:text), "Обери підписку 0x1:"
+    assert_includes screen.fetch(:text), "купівля ще недоступна"
+    rows = screen.dig(:reply_markup, :inline_keyboard)
+    assert_equal 8, rows.flatten.count { |b| b.fetch(:callback_data).start_with?("v:") }
+
+    @bot.handle(callback("v:0x1_exclusive_1m"))
+    assert_includes @telegram.answered_callbacks.last.fetch(:text), "поки недоступна"
+    assert_empty @market.intents
+    assert_empty @market.orders
+
+    # Forged purchase callbacks must also be rejected before quote creation.
+    @bot.handle(callback("b:0x1_exclusive_1m"))
+    assert_includes @telegram.answered_callbacks.last.fetch(:text), "поки недоступна"
+    assert_empty @market.intents
+  end
+
+  def test_0x1_subscription_remains_preview_only_even_if_upstream_marks_it_active
+    original_products = @market.method(:products)
+    @market.define_singleton_method(:products) do |**options|
+      original_products.call(**options).tap do |items|
+        entry = items.find { |item| item["id"] == "0x1_exclusive_1m" }
+        entry.fetch("attributes")["status"] = "active"
+        entry.fetch("attributes")["preview"] = false
+      end
+    end
+
+    @bot.handle(update("/buy"))
+    @bot.handle(callback("c:b:0x1_exclusive_1m"))
+    screen = @telegram.edited_messages.last
+    assert_includes screen.fetch(:text), "купівля ще недоступна"
+    assert_includes screen.dig(:reply_markup, :inline_keyboard).flatten.map { |b| b[:callback_data] },
+                    "v:0x1_exclusive_1m"
+
+    # A forged legacy buy callback must never reach marketplace settlement.
+    @bot.handle(callback("b:0x1_exclusive_1m"))
+    assert_includes @telegram.answered_callbacks.last.fetch(:text), "поки недоступна"
+    assert_empty @market.intents
+    assert_empty @market.orders
   end
 
   def test_purchase_selection_creates_quote_then_explicit_acceptance_and_durable_pending_order
