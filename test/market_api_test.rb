@@ -46,6 +46,18 @@ class MarketAPITest < Minitest::Test
     assert_equal "locale=uk_UA", api.uris.first.query
   end
 
+  def test_explicitly_opts_into_staged_0x1_subscription_previews
+    api = api_with(response("200", '{"data":[]}'))
+
+    api.products(locale: "uk_UA", currency: "USDT", preview_0x1: true)
+
+    assert_equal "/v1/products", api.uris.first.path
+    assert_equal(
+      { "locale" => "uk_UA", "currency" => "USDT", "preview_0x1" => "true" },
+      URI.decode_www_form(api.uris.first.query).to_h
+    )
+  end
+
   def test_preserves_the_core_currency_resource_without_an_fx_rate_adapter_type
     payload = JSON.generate(
       "data" => [
