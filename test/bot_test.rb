@@ -76,7 +76,15 @@ class BotTest < Minitest::Test
     assert_equal 8, rows.flatten.count { |b| b.fetch(:callback_data).start_with?("v:") }
 
     @bot.handle(callback("v:0x1_exclusive_1m"))
-    assert_includes @telegram.answered_callbacks.last.fetch(:text), "поки недоступна"
+    detail = @telegram.edited_messages.last
+    assert_includes detail.fetch(:text), "0x1 Exclusive 1 months"
+    offer_rows = detail.dig(:reply_markup, :inline_keyboard)
+    assert_equal ["·", "Купити за:", "·"], offer_rows.first.map { |button| button.fetch(:text) }
+    assert_equal ["— ₴€£", "5.49 USDT"], offer_rows[1].map { |button| button.fetch(:text) }
+    assert_equal %w[c:b:0x1_exclusive_1m h:b z:0x1_exclusive_1m],
+                 offer_rows[2].map { |button| button.fetch(:callback_data) }
+    assert_equal "Баланс: — ₴€£", offer_rows[2][2].fetch(:text)
+    refute offer_rows.flatten.any? { |button| button.fetch(:callback_data).start_with?("q:") }
     assert_empty @market.intents
     assert_empty @market.orders
 
@@ -84,6 +92,70 @@ class BotTest < Minitest::Test
     @bot.handle(callback("b:0x1_exclusive_1m"))
     assert_includes @telegram.answered_callbacks.last.fetch(:text), "поки недоступна"
     assert_empty @market.intents
+  end
+
+  def test_special_subscription_offer_shows_seeds_and_usdt_then_returns_to_the_catalog
+    @bot.handle(callback("v:0x1_special_1m"))
+    detail = @telegram.edited_messages.last
+    rows = detail.dig(:reply_markup, :inline_keyboard)
+
+    assert_equal ["400 ₴€£", "2.49 USDT"], rows[1].map { |b| b.fetch(:text) }
+    assert_equal "c:b:0x1_special_1m", rows[2][0].fetch(:callback_data)
+    assert_equal "h:b", rows[2][1].fetch(:callback_data)
+    assert_equal "Баланс: — ₴€£", rows[2][2].fetch(:text)
+    assert rows.flatten.all? { |b| b.fetch(:callback_data).bytesize <= 64 }
+
+    %w[x:0x1_special_1m y:0x1_special_1m].each do |action|
+      @bot.handle(callback(action))
+      assert_includes @telegram.answered_callbacks.last.fetch(:text), "поки недоступна"
+    end
+    @bot.handle(callback("z:0x1_special_1m"))
+    assert_equal "— ₴€£", @telegram.answered_callbacks.last.fetch(:text)
+    assert_empty @market.intents
+    assert_empty @market.orders
+
+    @bot.handle(callback(rows[2][0].fetch(:callback_data)))
+    assert_includes @telegram.edited_messages.last.fetch(:text), "Обери підписку 0x1:"
+    @bot.handle(callback(rows[2][1].fetch(:callback_data)))
+    assert_equal "обери продукт для купівлі:", @telegram.edited_messages.last.fetch(:text)
+  end
+
+  def test_subscription_balance_uses_only_a_trusted_reader_when_injected
+    verified = []
+    reader = ->(market_user:, telegram_user:) do
+      verified << [market_user.fetch("id"), telegram_user.fetch("id")]
+      1250
+    end
+    bot = ZeroXDA::Market::TelegramBot::Bot.new(
+      market_api: @market, telegram_api: @telegram,
+      seed_balance_reader: reader, status_message_ttl: 0
+    )
+
+    bot.handle(callback("v:0x1_special_1m"))
+    assert_equal "Баланс: 1250 ₴€£",
+                 @telegram.edited_messages.last.dig(:reply_markup, :inline_keyboard, 2, 2, :text)
+    bot.handle(callback("z:0x1_special_1m"))
+    assert_equal "1250 ₴€£", @telegram.answered_callbacks.last.fetch(:text)
+    assert_equal [[ACTOR_USER_ID, 77], [ACTOR_USER_ID, 77]], verified
+    assert_empty @market.intents
+  end
+
+  def test_offer_uses_market_localized_price_when_available
+    original = @market.method(:products)
+    @market.define_singleton_method(:products) do |**options|
+      original.call(**options).tap do |items|
+        if options[:preview_0x1] && options[:currency].nil?
+          entry = items.find { |item| item["id"] == "0x1_special_1m" }
+          entry.fetch("attributes")["preview_price"] = {
+            "amount" => "109", "currency" => "UAH", "amount_usdt" => "2.49"
+          }
+        end
+      end
+    end
+
+    @bot.handle(callback("v:0x1_special_1m"))
+    buttons = @telegram.edited_messages.last.dig(:reply_markup, :inline_keyboard, 1)
+    assert_equal ["400 ₴€£", "109 UAH"], buttons.map { |b| b.fetch(:text) }
   end
 
   def test_0x1_subscription_remains_preview_only_even_if_upstream_marks_it_active
