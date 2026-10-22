@@ -83,7 +83,7 @@ class FakeMarketAPI
     ]
   end
 
-  def products(locale: "en_US", currency: nil)
+  def products(locale: "en_US", currency: nil, preview_0x1: false)
     @product_requests += 1
     @product_locales << locale
     PRODUCTS.each_with_index.map do |(sku, short_name, english_name, ukrainian_name, ukrainian_button, family), index|
@@ -103,6 +103,27 @@ class FakeMarketAPI
         "amount_usdt" => "7.45"
       } if currency
       { "type" => "product", "id" => sku, "attributes" => attributes }
+    end.tap do |results|
+      if preview_0x1
+        %w[exclusive special].each_with_index do |tier, tier_index|
+          [1, 3, 6, 12].each_with_index do |months, index|
+            results << {
+              "type" => "product",
+              "id" => "0x1_#{tier}_#{months}m",
+              "attributes" => {
+                "name" => "0x1 #{tier.capitalize} #{months} months",
+                "button_label" => "#{tier.capitalize} #{months}m",
+                "locale" => locale,
+                "metadata" => {
+                  "family" => "0x1_subscription", "tier" => tier, "duration_months" => months
+                },
+                "status" => "inactive", "preview" => true, "available" => false,
+                "position" => 50 + tier_index * 4 + index, "price" => nil
+              }
+            }
+          end
+        end
+      end
     end
   end
 
