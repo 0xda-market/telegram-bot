@@ -67,6 +67,16 @@ class CatalogMenuTest < Minitest::Test
     assert rows.flatten.all? { |b| b.fetch(:callback_data).bytesize <= 64 }
   end
 
+  def test_0x1_subscription_callback_remains_preview_only_when_upstream_marks_active
+    entry = subscription("exclusive", 1)
+    entry.fetch("attributes")["status"] = "active"
+    entry.fetch("attributes")["preview"] = false
+    screen = CatalogMenu.new.category(products: [entry], mode: "b", anchor_sku: entry.fetch("id"))
+    assert screen.has_previews
+    assert_equal "v:0x1_exclusive_1m",
+                 screen.reply_markup.dig(:inline_keyboard, 0, 0, :callback_data)
+  end
+
   def test_ninth_0x1_product_moves_to_next_page
     menu = CatalogMenu.new
     products = %w[exclusive special].flat_map do |tier|
