@@ -42,9 +42,9 @@ class SubscriptionOfferMenuTest < Minitest::Test
     product.fetch("attributes").fetch("metadata").delete("seed_price")
     result = @menu.build(product: product, locale: "uk_UA")
     assert_equal "— ₴€£", result.reply_markup.dig(:inline_keyboard, 1, 0, :text)
-    refute result.reply_markup.fetch(:inline_keyboard).flatten.any? do |button|
+    refute result.reply_markup.fetch(:inline_keyboard).flatten.any? { |button|
       button.fetch(:callback_data).start_with?("q:")
-    end
+    }
   end
 
   private
