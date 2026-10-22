@@ -83,7 +83,7 @@ class BotTest < Minitest::Test
     assert_equal ["— ₴€£", "5.49 USDT"], offer_rows[1].map { |button| button.fetch(:text) }
     assert_equal %w[c:b:0x1_exclusive_1m h:b z:0x1_exclusive_1m],
                  offer_rows[2].map { |button| button.fetch(:callback_data) }
-    assert_equal "Баланс: — ₴€£", offer_rows[2][2].fetch(:text)
+    assert_equal "Авторизуватися у 0x1", offer_rows[2][2].fetch(:text)
     refute offer_rows.flatten.any? { |button| button.fetch(:callback_data).start_with?("q:") }
     assert_empty @market.intents
     assert_empty @market.orders
@@ -102,7 +102,7 @@ class BotTest < Minitest::Test
     assert_equal ["400 сідів", "2.49 USDT"], rows[1].map { |b| b.fetch(:text) }
     assert_equal "c:b:0x1_special_1m", rows[2][0].fetch(:callback_data)
     assert_equal "h:b", rows[2][1].fetch(:callback_data)
-    assert_equal "Баланс: — ₴€£", rows[2][2].fetch(:text)
+    assert_equal "Авторизуватися у 0x1", rows[2][2].fetch(:text)
     assert rows.flatten.all? { |b| b.fetch(:callback_data).bytesize <= 64 }
 
     %w[x:0x1_special_1m y:0x1_special_1m].each do |action|
@@ -110,7 +110,13 @@ class BotTest < Minitest::Test
       assert_includes @telegram.answered_callbacks.last.fetch(:text), "поки недоступна"
     end
     @bot.handle(callback("z:0x1_special_1m"))
-    assert_equal "— ₴€£", @telegram.answered_callbacks.last.fetch(:text)
+    authorization = @telegram.edited_messages.last
+    assert_equal "aiaiaiai ecosystem × 0x1\n\nАвторизація поки недоступна.", authorization.fetch(:text)
+    assert_equal %w[v:0x1_special_1m h:b],
+                 authorization.dig(:reply_markup, :inline_keyboard).flatten.map { |b| b.fetch(:callback_data) }
+    @bot.handle(callback("v:0x1_special_1m"))
+    assert_equal "Авторизуватися у 0x1",
+                 @telegram.edited_messages.last.dig(:reply_markup, :inline_keyboard, 2, 2, :text)
     assert_empty @market.intents
     assert_empty @market.orders
 
@@ -138,6 +144,21 @@ class BotTest < Minitest::Test
     assert_equal "1250 ₴€£", @telegram.answered_callbacks.last.fetch(:text)
     assert_equal [[ACTOR_USER_ID, 77], [ACTOR_USER_ID, 77]], verified
     assert_empty @market.intents
+  end
+
+  def test_balance_reader_outage_does_not_claim_user_logged_out
+    failing = ->(market_user:, telegram_user:) { raise IOError, "offline" }
+    bot = ZeroXDA::Market::TelegramBot::Bot.new(
+      market_api: @market, telegram_api: @telegram,
+      seed_balance_reader: failing, status_message_ttl: 0
+    )
+
+    bot.handle(callback("v:0x1_special_1m"))
+    assert_equal "Баланс недоступний",
+                 @telegram.edited_messages.last.dig(:reply_markup, :inline_keyboard, 2, 2, :text)
+    bot.handle(callback("z:0x1_special_1m"))
+    assert_equal "Баланс недоступний", @telegram.answered_callbacks.last.fetch(:text)
+    assert_empty @market.orders
   end
 
   def test_offer_uses_market_localized_price_when_available
