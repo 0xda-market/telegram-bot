@@ -221,7 +221,9 @@ module ZeroXDA::Market::TelegramBot
         sync_commands(message.fetch("chat").fetch("id"), user)
         product = find_product_by_sku(sku, locale: locale, mode: "b")
         raise ArgumentError, t(:product_unavailable, locale: locale) unless product
-        if product.dig("attributes", "preview") || product.dig("attributes", "status") != "active"
+        # 0x1 subscriptions use issuer-owned Seeds settlement, never marketplace/manual quotes.
+        if product.dig("attributes", "metadata", "family") == CatalogMenu::SUBSCRIPTION_FAMILY ||
+           product.dig("attributes", "preview") || product.dig("attributes", "status") != "active"
           return answer_callback(callback, text: t(:subscription_unavailable, locale: locale))
         end
 
