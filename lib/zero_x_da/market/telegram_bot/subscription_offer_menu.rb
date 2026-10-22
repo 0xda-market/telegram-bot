@@ -25,6 +25,33 @@ module ZeroXDA::Market::TelegramBot
                    unavailable: "Nicht verfügbar", preview: "Vorschau · Kauf derzeit nicht möglich." }
     }.freeze
 
+    # Authorization is a deliberately non-operational entry point until
+    # aiaiaiai ecosystem × 0x1 account binding is implemented.
+    AUTH_COPY = {
+      "en_US" => { sign_in: "Sign in to 0x1", pending: "Authorization is not available yet.", offline: "Balance unavailable" },
+      "uk_UA" => { sign_in: "Авторизуватися у 0x1", pending: "Авторизація поки недоступна.", offline: "Баланс недоступний" },
+      "ru_RU" => { sign_in: "Авторизоваться в 0x1", pending: "Авторизация пока недоступна.", offline: "Баланс недоступен" },
+      "fr_FR" => { sign_in: "Se connecter à 0x1", pending: "L'autorisation est indisponible pour le moment.", offline: "Solde indisponible" },
+      "es_ES" => { sign_in: "Iniciar sesión en 0x1", pending: "La autorización aún no está disponible.", offline: "Saldo no disponible" },
+      "de_DE" => { sign_in: "Bei 0x1 anmelden", pending: "Die Anmeldung ist noch nicht verfügbar.", offline: "Guthaben nicht verfügbar" }
+    }.freeze
+
+    def authorization(sku:, locale: Locale::DEFAULT)
+      copy = COPY.fetch(Locale.normalize(locale))
+      auth = AUTH_COPY.fetch(Locale.normalize(locale))
+      Screen.new(
+        text: "aiaiaiai ecosystem × 0x1\n\n#{auth.fetch(:pending)}",
+        reply_markup: { inline_keyboard: [[
+          { text: copy.fetch(:back), callback_data: "v:#{sku}" },
+          { text: copy.fetch(:home), callback_data: "h:b" }
+        ]] }
+      )
+    end
+
+    def balance_unavailable(locale:)
+      AUTH_COPY.fetch(Locale.normalize(locale)).fetch(:offline)
+    end
+
     def build(product:, locale: Locale::DEFAULT, seed_balance: nil)
       metadata = product.dig("attributes", "metadata") || {}
       raise ArgumentError, "not a 0x1 subscription" unless metadata["family"] == "0x1_subscription"
@@ -36,7 +63,13 @@ module ZeroXDA::Market::TelegramBot
       seeds = valid_seed_amount(amount) ? "#{amount} #{seeds_noun(amount, locale)}" : "— ₴€£"
       localized_price = product.dig("attributes", "preview_price")
       money = formatted_money(localized_price)
-      balance = valid_balance(seed_balance) ? seed_balance.to_s : "—"
+      balance_button = if valid_balance(seed_balance)
+                         { text: "#{copy.fetch(:balance)}: #{seed_balance} ₴€£", callback_data: "z:#{sku}" }
+                       elsif seed_balance == :unavailable
+                         { text: balance_unavailable(locale: locale), callback_data: "z:#{sku}" }
+                       else
+                         { text: AUTH_COPY.fetch(Locale.normalize(locale)).fetch(:sign_in), callback_data: "z:#{sku}" }
+                       end
 
       rows = [
         [
@@ -51,7 +84,7 @@ module ZeroXDA::Market::TelegramBot
         [
           { text: copy.fetch(:back), callback_data: "c:b:#{sku}" },
           { text: copy.fetch(:home), callback_data: "h:b" },
-          { text: "#{copy.fetch(:balance)}: #{balance} ₴€£", callback_data: "z:#{sku}" }
+          balance_button
         ]
       ]
       Screen.new(
