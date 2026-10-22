@@ -257,8 +257,15 @@ module ZeroXDA::Market::TelegramBot
 
         if action == "z"
           balance = subscription_seed_balance(callback, user)
-          text = balance.is_a?(Integer) && balance >= 0 ? "#{balance} ₴€£" : "— ₴€£"
-          answer_callback(callback, text: text)
+          if balance.nil?
+            screen = @subscription_offer_menu.authorization(sku: sku, locale: locale)
+            replace_callback_message(callback, screen.text, reply_markup: screen.reply_markup)
+            answer_callback(callback)
+          elsif balance == :unavailable
+            answer_callback(callback, text: @subscription_offer_menu.balance_unavailable(locale: locale))
+          else
+            answer_callback(callback, text: "#{balance} ₴€£")
+          end
         else
           # Both payment paths remain deliberately disabled until the issuer
           # has authenticated Bond ownership, idempotent debit and grant.
@@ -269,10 +276,15 @@ module ZeroXDA::Market::TelegramBot
       def subscription_seed_balance(callback, user)
         return nil unless @seed_balance_reader
 
-        @seed_balance_reader.call(market_user: user, telegram_user: callback.fetch("from"))
+        value = @seed_balance_reader.call(market_user: user, telegram_user: callback.fetch("from"))
+        return nil if value.nil? # An explicit, unlinked Bond.
+        return value if value.is_a?(Integer) && value >= 0
+
+        :unavailable
       rescue StandardError => error
+        # An unreachable authority is not evidence the account is signed out.
         warn "0x1 Seeds balance provider unavailable: #{error.class}"
-        nil
+        :unavailable
       end
 
       def handle_buy_callback(callback, sku)
