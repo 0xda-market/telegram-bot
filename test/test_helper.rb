@@ -115,10 +115,23 @@ class FakeMarketAPI
                 "button_label" => "#{tier.capitalize} #{months}m",
                 "locale" => locale,
                 "metadata" => {
-                  "family" => "0x1_subscription", "tier" => tier, "duration_months" => months
+                  "family" => "0x1_subscription", "tier" => tier, "duration_months" => months,
+                  **(tier == "special" ? {
+                    "seed_price" => {
+                      "amount" => { 1 => 400, 3 => 1020, 6 => 1800, 12 => 2400 }.fetch(months),
+                      "currency" => "seeds", "symbol" => "₴€£"
+                    }
+                  } : {})
                 },
                 "status" => "inactive", "preview" => true, "available" => false,
-                "position" => 50 + tier_index * 4 + index, "price" => nil
+                "position" => 50 + tier_index * 4 + index, "price" => nil,
+                "preview_price" => {
+                  "amount" => ({
+                    "special" => { 1 => "2.49", 3 => "6.29", 6 => "11.49", 12 => "14.99" },
+                    "exclusive" => { 1 => "5.49", 3 => "13.99", 6 => "24.49", 12 => "32.99" }
+                  }.fetch(tier).fetch(months)),
+                  "currency" => "USDT"
+                }
               }
             }
           end
