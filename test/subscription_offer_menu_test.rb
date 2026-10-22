@@ -26,12 +26,16 @@ class SubscriptionOfferMenuTest < Minitest::Test
 
     missing = @menu.build(product: special(400), locale: "uk_UA")
     assert_equal "— USDT", missing.reply_markup.dig(:inline_keyboard, 1, 1, :text)
-    assert_equal "Баланс: — ₴€£", missing.reply_markup.dig(:inline_keyboard, 2, 2, :text)
+    assert_equal "Авторизуватися у 0x1", missing.reply_markup.dig(:inline_keyboard, 2, 2, :text)
+    assert_equal "z:0x1_special_1m", missing.reply_markup.dig(:inline_keyboard, 2, 2, :callback_data)
     assert_equal "Баланс: 0 ₴€£",
                  @menu.build(product: special(400), locale: "uk_UA", seed_balance: 0)
                       .reply_markup.dig(:inline_keyboard, 2, 2, :text)
-    assert_equal "Баланс: — ₴€£",
-                 @menu.build(product: special(400), locale: "uk_UA", seed_balance: "500")
+    assert_equal "Баланс недоступний",
+                 @menu.build(product: special(400), locale: "uk_UA", seed_balance: :unavailable)
+                      .reply_markup.dig(:inline_keyboard, 2, 2, :text)
+    assert_equal "Авторизуватися у 0x1",
+                 @menu.build(product: special(400), locale: "uk_UA", seed_balance: nil)
                       .reply_markup.dig(:inline_keyboard, 2, 2, :text)
   end
 
@@ -45,6 +49,16 @@ class SubscriptionOfferMenuTest < Minitest::Test
     refute result.reply_markup.fetch(:inline_keyboard).flatten.any? { |button|
       button.fetch(:callback_data).start_with?("q:")
     }
+  end
+
+  def test_ecosystem_authorization_placeholder_has_back_and_home
+    screen = @menu.authorization(sku: "0x1_special_1m", locale: "uk_UA")
+    assert_equal "aiaiaiai ecosystem × 0x1\n\nАвторизація поки недоступна.", screen.text
+    assert_equal %w[v:0x1_special_1m h:b],
+                 screen.reply_markup.fetch(:inline_keyboard).flatten.map { |item| item.fetch(:callback_data) }
+    refute screen.reply_markup.fetch(:inline_keyboard).flatten.any? do |button|
+      button.fetch(:callback_data).start_with?("q:")
+    end
   end
 
   private
