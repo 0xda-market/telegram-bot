@@ -79,7 +79,7 @@ class BotTest < Minitest::Test
     detail = @telegram.edited_messages.last
     assert_includes detail.fetch(:text), "0x1 Exclusive 1 months"
     offer_rows = detail.dig(:reply_markup, :inline_keyboard)
-    assert_equal ["·", "Купити за:", "·"], offer_rows.first.map { |button| button.fetch(:text) }
+    assert_equal ["•", "Купити за:", "•"], offer_rows.first.map { |button| button.fetch(:text) }
     assert_equal ["— ₴€£", "5.49 USDT"], offer_rows[1].map { |button| button.fetch(:text) }
     assert_equal %w[c:b:0x1_exclusive_1m h:b z:0x1_exclusive_1m],
                  offer_rows[2].map { |button| button.fetch(:callback_data) }
@@ -99,7 +99,7 @@ class BotTest < Minitest::Test
     detail = @telegram.edited_messages.last
     rows = detail.dig(:reply_markup, :inline_keyboard)
 
-    assert_equal ["400 ₴€£", "2.49 USDT"], rows[1].map { |b| b.fetch(:text) }
+    assert_equal ["400 сідів", "2.49 USDT"], rows[1].map { |b| b.fetch(:text) }
     assert_equal "c:b:0x1_special_1m", rows[2][0].fetch(:callback_data)
     assert_equal "h:b", rows[2][1].fetch(:callback_data)
     assert_equal "Баланс: — ₴€£", rows[2][2].fetch(:text)
@@ -155,7 +155,7 @@ class BotTest < Minitest::Test
 
     @bot.handle(callback("v:0x1_special_1m"))
     buttons = @telegram.edited_messages.last.dig(:reply_markup, :inline_keyboard, 1)
-    assert_equal ["400 ₴€£", "109 UAH"], buttons.map { |b| b.fetch(:text) }
+    assert_equal ["400 сідів", "109 UAH"], buttons.map { |b| b.fetch(:text) }
   end
 
   def test_0x1_subscription_remains_preview_only_even_if_upstream_marks_it_active
