@@ -9,6 +9,7 @@ require_relative "price_messages"
 require_relative "locale"
 require_relative "i18n"
 require_relative "catalog_menu"
+require_relative "subscription_offer_menu"
 require_relative "purchase_flow"
 require_relative "purchase_messages"
 
@@ -23,6 +24,7 @@ module ZeroXDA::Market::TelegramBot
       RESOURCE_ID_PATTERN = /([A-Za-z0-9:_-]{1,61})/
       BUY_CALLBACK_PATTERN = /\Ab:#{SKU_PATTERN}\z/
       PREVIEW_CALLBACK_PATTERN = /\Av:#{SKU_PATTERN}\z/
+      SUBSCRIPTION_ACTION_PATTERN = /\A([xyz]):#{SKU_PATTERN}\z/
       LEGACY_BUY_CALLBACK_PATTERN = /\Abuy_#{SKU_PATTERN}\z/
       APPLY_PRICE_CALLBACK_PATTERN = /\Ap:#{SKU_PATTERN}\z/
       LEGACY_APPLY_PRICE_CALLBACK_PATTERN = /\Aapplyprice_#{SKU_PATTERN}\z/
@@ -42,7 +44,8 @@ module ZeroXDA::Market::TelegramBot
         telegram_api:,
         clock: -> { Time.now.utc },
         server_start_notice_delay: SERVER_START_NOTICE_DELAY,
-        status_message_ttl: STATUS_MESSAGE_TTL
+        status_message_ttl: STATUS_MESSAGE_TTL,
+        seed_balance_reader: nil
       )
         @market_api = market_api
         @telegram_api = telegram_api
@@ -50,6 +53,9 @@ module ZeroXDA::Market::TelegramBot
         @server_start_notice_delay = server_start_notice_delay
         @status_message_ttl = status_message_ttl
         @catalog_menu = CatalogMenu.new
+        @subscription_offer_menu = SubscriptionOfferMenu.new
+        # Optional trusted 0x1 Bond balance adapter; Telegram identity is not Bond identity.
+        @seed_balance_reader = seed_balance_reader
         @purchase_flow = PurchaseFlow.new(market_api: market_api)
       end
 
@@ -160,7 +166,9 @@ module ZeroXDA::Market::TelegramBot
         when CATEGORY_CALLBACK_PATTERN
           show_catalog_category_callback(callback, Regexp.last_match(1), Regexp.last_match(2))
         when PREVIEW_CALLBACK_PATTERN
-          answer_callback(callback, text: t(:subscription_unavailable, locale: locale_for(callback)))
+          show_subscription_offer_callback(callback, Regexp.last_match(1))
+        when SUBSCRIPTION_ACTION_PATTERN
+          handle_subscription_action_callback(callback, Regexp.last_match(1), Regexp.last_match(2))
         when BUY_CALLBACK_PATTERN, LEGACY_BUY_CALLBACK_PATTERN
           handle_buy_callback(callback, Regexp.last_match(1))
         when APPLY_PRICE_CALLBACK_PATTERN, LEGACY_APPLY_PRICE_CALLBACK_PATTERN
@@ -212,6 +220,71 @@ module ZeroXDA::Market::TelegramBot
                end
         replace_callback_message(callback, text, reply_markup: screen.reply_markup)
         answer_callback(callback)
+      end
+
+      # Preview navigation never calls quote, debit, payment or entitlement APIs.
+      def show_subscription_offer_callback(callback, sku)
+        locale = locale_for(callback)
+        user = authenticate_callback_user(callback)
+        products = begin
+          @market_api.products(locale: locale, preview_0x1: true)
+        rescue MarketAPI::Error => error
+          # If an active catalog entry cannot be localized because its FX rate
+          # is stale, retry the whole read in the market's USDT base currency.
+          raise unless error.code == "validation_error" &&
+                       error.message.include?("currency is not supported or its rate is stale:")
+
+          @market_api.products(locale: locale, currency: "USDT", preview_0x1: true)
+        end
+        product = products.find { |item| item["id"] == sku }
+        unless product&.dig("attributes", "metadata", "family") == CatalogMenu::SUBSCRIPTION_FAMILY
+          raise ArgumentError, t(:product_unavailable, locale: locale)
+        end
+
+        balance = subscription_seed_balance(callback, user)
+        screen = @subscription_offer_menu.build(product: product, locale: locale, seed_balance: balance)
+        replace_callback_message(callback, screen.text, reply_markup: screen.reply_markup)
+        answer_callback(callback)
+      end
+
+      def handle_subscription_action_callback(callback, action, sku)
+        locale = locale_for(callback)
+        user = authenticate_callback_user(callback)
+        product = find_product_by_sku(sku, locale: locale, mode: "b")
+        unless product&.dig("attributes", "metadata", "family") == CatalogMenu::SUBSCRIPTION_FAMILY
+          raise ArgumentError, t(:product_unavailable, locale: locale)
+        end
+
+        if action == "z"
+          balance = subscription_seed_balance(callback, user)
+          if balance.nil?
+            screen = @subscription_offer_menu.authorization(sku: sku, locale: locale)
+            replace_callback_message(callback, screen.text, reply_markup: screen.reply_markup)
+            answer_callback(callback)
+          elsif balance == :unavailable
+            answer_callback(callback, text: @subscription_offer_menu.balance_unavailable(locale: locale))
+          else
+            answer_callback(callback, text: "#{balance} ₴€£")
+          end
+        else
+          # Both payment paths remain deliberately disabled until the issuer
+          # has authenticated Bond ownership, idempotent debit and grant.
+          answer_callback(callback, text: t(:subscription_unavailable, locale: locale))
+        end
+      end
+
+      def subscription_seed_balance(callback, user)
+        return nil unless @seed_balance_reader
+
+        value = @seed_balance_reader.call(market_user: user, telegram_user: callback.fetch("from"))
+        return nil if value.nil? # An explicit, unlinked Bond.
+        return value if value.is_a?(Integer) && value >= 0
+
+        :unavailable
+      rescue StandardError => error
+        # An unreachable authority is not evidence the account is signed out.
+        warn "0x1 Seeds balance provider unavailable: #{error.class}"
+        :unavailable
       end
 
       def handle_buy_callback(callback, sku)
