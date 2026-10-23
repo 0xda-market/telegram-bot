@@ -35,6 +35,11 @@ class TelegramMiniAppTest < Minitest::Test
       }
     end
 
+    def paper_replay(init_data:, events:, options: {})
+      @requests << [:paper_replay, init_data, events, options]
+      { "data" => { "equity" => "1000.0", "net_pnl" => "0.0" } }
+    end
+
     def quote(init_data:, sku:, quantity:, locale:, recipient: nil)
       @requests << [:quote, init_data, sku, quantity, recipient, locale]
       {
@@ -252,4 +257,16 @@ class TelegramMiniAppTest < Minitest::Test
     )
     assert_equal [:withdraw_broker_listing, "signed-init-data", "listing-1", 1], @service.requests[3]
   end
+  def test_paper_replay_uses_existing_signed_transport_path
+    response = @client.post(
+      "/webapp/trading/replays",
+      "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data",
+      "CONTENT_TYPE" => "application/json",
+      input: JSON.generate(events: [], options: { starting_cash: "1000" })
+    )
+    assert_equal 200, response.status
+    assert_equal "ok", JSON.parse(response.body).fetch("status")
+    assert_equal [[:paper_replay, "signed-init-data", [], { "starting_cash" => "1000" }]], @service.requests
+  end
+
 end

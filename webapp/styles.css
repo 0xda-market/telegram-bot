@@ -313,3 +313,15 @@ dialog { width: min(calc(100% - var(--space-5)), 460px); border: 0; border-radiu
 @media (orientation: landscape) {
   .admin-capability-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
+
+/* Existing Telegram shell hosts the shared, paper-only trading workspace. */
+.trading-workspace { max-width: 800px; margin: 0 auto; padding: var(--space-4) var(--space-3); display: grid; gap: var(--space-4); }
+.trading-header { display: grid; gap: var(--space-2); }
+.trading-header p, .trading-status { font-size: 13px; color: var(--text-secondary); }
+.trading-form { display: grid; gap: var(--space-3); }
+.trading-form label { display: grid; gap: var(--space-2); font-size: 13px; color: var(--text-secondary); }
+.trading-form input, .trading-form textarea { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--edge-control); border-radius: var(--radius-control); background: var(--surface-recessed); color: var(--text-primary); }
+.trading-form textarea { min-height: 160px; font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
+.trading-form button { min-height: var(--target-min); }
+.trading-result { display: grid; gap: var(--space-2); font-variant-numeric: tabular-nums; }
+.trading-result p { padding: var(--space-2); border: 1px solid var(--edge-control); border-radius: var(--radius-control); }
