@@ -234,6 +234,7 @@ export function createTelegramTransport({
         });
       return bootstrapPromise;
     },
+    replayTrading({ events, options = {} }) { return requestResource("/trading/replays", { method: "POST", body: JSON.stringify({ events, options }) }); },
     reportRuntimeEvent(event) {
       return requestDocument("/runtime-events", { method: "POST", body: JSON.stringify(event) });
     },

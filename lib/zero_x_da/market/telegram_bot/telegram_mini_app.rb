@@ -7,6 +7,7 @@ require "rack"
 require_relative "market_api"
 require_relative "purchase_flow"
 require_relative "telegram_web_app_auth"
+require_relative "trading_lab_api"
 
 module ZeroXDA::Market::TelegramBot
     class TelegramMiniApp
@@ -34,6 +35,7 @@ module ZeroXDA::Market::TelegramBot
         request = Rack::Request.new(environment)
         return redirect_to_index if request.get? && request.path_info == "/webapp"
         return bootstrap(request) if request.get? && request.path_info == "/webapp/bootstrap"
+        return paper_replay(request) if request.post? && request.path_info == "/webapp/trading/replays"
         return quote(request) if request.post? && request.path_info == "/webapp/quotes"
         return broker_listings(request) if request.get? && request.path_info == "/webapp/broker/listings"
         return create_broker_listing(request) if request.post? && request.path_info == "/webapp/broker/listings"
@@ -78,6 +80,8 @@ module ZeroXDA::Market::TelegramBot
         json_response(403, status: "error", error: "access_denied", message: error.message)
       rescue PurchaseFlow::UnpricedProduct, ArgumentError => error
         json_response(422, status: "error", error: "invalid_request", message: error.message)
+      rescue TradingLabAPI::Error => error
+        json_response(502, status: "error", error: "trading_lab_unavailable", message: error.message)
       rescue MarketAPI::Error => error
         json_response(error.status, status: "error", error: error.code, message: error.message)
       rescue JSON::ParserError
@@ -92,6 +96,12 @@ module ZeroXDA::Market::TelegramBot
           locale: request.params["locale"]
         )
         json_document(200, document)
+      end
+
+      def paper_replay(request)
+        body = request_document(request)
+        document = @service.paper_replay(init_data: init_data(request), events: body.fetch("events"), options: body.fetch("options", {}))
+        post_document(200, document)
       end
 
       def quote(request)

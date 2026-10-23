@@ -154,3 +154,17 @@ test("pins and mounts the current webapp-core contracts", () => {
   assert.match(source, /mountWorkspaceNavigation/);
   assert.doesNotMatch(source, /webapp-core@master/);
 });
+
+
+test("paper replay uses the verified Telegram transport without exposing a service token", async () => {
+  const calls = [];
+  const transport = createTelegramTransport({
+    telegram: { initData: "signed" },
+    fetchImpl: async (url, options) => { calls.push([url, options]); return response({ status: "ok", data: { equity: "1000.0" } }); }
+  });
+  assert.deepEqual(await transport.replayTrading({ events: [], options: { starting_cash: "1000" } }), { equity: "1000.0" });
+  assert.match(calls[0][0], /trading\/replays$/);
+  assert.equal(calls[0][1].headers["x-telegram-init-data"], "signed");
+  assert.deepEqual(JSON.parse(calls[0][1].body), { events: [], options: { starting_cash: "1000" } });
+  assert.equal(JSON.stringify(calls).includes("TRADING_LAB_TOKEN"), false);
+});

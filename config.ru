@@ -22,6 +22,7 @@ require_relative "lib/zero_x_da/market/telegram_bot/telegram_recipient_picker"
 require_relative "lib/zero_x_da/market/telegram_bot/encoded_resource_identifiers"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_web_app_auth"
 require_relative "lib/zero_x_da/market/telegram_bot/telegram_web_app_service"
+require_relative "lib/zero_x_da/market/telegram_bot/trading_lab_api"
 require_relative "lib/zero_x_da/market/telegram_bot/broker_order_notifier"
 require_relative "lib/zero_x_da/market/telegram_bot/broker_order_web_app_service"
 require_relative "lib/zero_x_da/market/telegram_bot/broker_order_mini_app"
@@ -77,10 +78,17 @@ broker_order_notifier = ZeroXDA::Market::TelegramBot::BrokerOrderNotifier.new(
   market_api: market_api,
   telegram_api: telegram_api
 )
+lab_origin = ENV["TRADING_LAB_ORIGIN"].to_s.strip
+lab_token = ENV["TRADING_LAB_TOKEN"].to_s
+raise "TRADING_LAB_ORIGIN and TRADING_LAB_TOKEN must both be present" if lab_origin.empty? != lab_token.empty?
+trading_lab_api = unless lab_origin.empty?
+                    ZeroXDA::Market::TelegramBot::TradingLabAPI.new(origin: lab_origin, token: lab_token)
+                  end
 web_app_service = ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(
   market_api: market_api,
   authentication: web_app_auth,
   environment: deploy_environment,
+  trading_lab_api: trading_lab_api,
   recipient_picker: recipient_picker,
   broker_order_notifier: broker_order_notifier,
   payments: payments,
