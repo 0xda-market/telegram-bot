@@ -8,7 +8,7 @@ class WebappFluidCoreMarkupTest < Minitest::Test
   def test_pins_the_merged_core_markup_revision
     app = File.read(File.join(ROOT, "webapp/app.js"))
 
-    assert_includes app, 'const WEBAPP_CORE_REVISION = "e966e3c109440c293ef2a307b2461e93fa56e2a6"'
+    assert_includes app, 'const WEBAPP_CORE_REVISION = "92fb324f1f8f580f112442d7be87500c930be3ff"'
   end
 
   def test_loads_adapter_styles_after_the_fluid_material
