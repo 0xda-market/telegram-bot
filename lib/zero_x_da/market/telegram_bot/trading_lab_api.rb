@@ -16,7 +16,9 @@ module ZeroXDA::Market::TelegramBot
       @base = URI.parse(origin.to_s)
       raise ArgumentError, "Trading Lab origin must not include credentials or a query" if @base.userinfo || @base.query || @base.fragment
       local = %w[127.0.0.1 localhost ::1].include?(@base.hostname)
-      raise ArgumentError, "Trading Lab origin must use HTTPS outside localhost" unless @base.scheme == "https" || (@base.scheme == "http" && local)
+      docker_service = @base.hostname == "market-trading-lab" && @base.port == 1927 && @base.path.match?(%r{\A/?\z})
+      raise ArgumentError, "Trading Lab origin must use HTTPS outside approved private hosts" unless
+        @base.scheme == "https" || (@base.scheme == "http" && (local || docker_service))
       raise ArgumentError, "Trading Lab token is required" if token.to_s.strip.empty?
       @token = token.to_s
     end
