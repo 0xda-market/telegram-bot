@@ -6,7 +6,7 @@ import { localizeTelegramShell } from "./adapter/shell-localization.js";
 import { createStartupController } from "./adapter/startup-controller.js";
 import { createTelegramTransport } from "./adapter/telegram-transport.js";
 
-const WEBAPP_CORE_REVISION = "799a1374929f3dd72b9bae2b612bf833e352d7ff";
+const WEBAPP_CORE_REVISION = "92fb324f1f8f580f112442d7be87500c930be3ff";
 const runtime = globalThis.__ZERO_X_DA_MARKET__ || {};
 const webappCoreModuleUrl = runtime.webappCoreModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js`;
@@ -57,8 +57,13 @@ async function initializeApplication({ host, transport }) {
   });
   const admin = webappCore.mountAdminWorkspace({ document, container: document.body, transport, ...context });
   await admin?.ready;
+  const trading = context.session?.paper_trading_enabled
+    ? webappCore.mountTradingWorkspace({ document, transport, locale: context.locale })
+    : null;
+  if (trading?.root) document.body.append(trading.root);
   const sections = [
     { id: "market", root: marketRoot },
+    { id: "trading", root: trading?.root },
     { id: "listings", root: broker?.root || brokerOrders?.root },
     { id: "admin", root: admin?.root }
   ].filter((entry) => entry.root);

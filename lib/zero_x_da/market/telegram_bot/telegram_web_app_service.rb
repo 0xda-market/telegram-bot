@@ -16,7 +16,8 @@ module ZeroXDA::Market::TelegramBot
         environment: "development",
         recipient_picker: nil,
         payments: nil,
-        payment_terms: nil
+        payment_terms: nil,
+        trading_lab_api: nil
       )
         @market_api = market_api
         @authentication = authentication
@@ -25,6 +26,7 @@ module ZeroXDA::Market::TelegramBot
         @recipient_picker = recipient_picker
         @payments = payments
         @payment_terms = payment_terms
+        @trading_lab_api = trading_lab_api
         if @payments && !@payment_terms
           raise ArgumentError, "payment_terms is required when real payments are enabled"
         end
@@ -38,7 +40,8 @@ module ZeroXDA::Market::TelegramBot
           "role" => user.dig("attributes", "role"),
           "status" => user.dig("attributes", "status"),
           "subject" => session.subject,
-          "environment" => @environment
+          "environment" => @environment,
+          "paper_trading_enabled" => !!@trading_lab_api && user.dig("attributes", "status") == "active"
         }
         metadata = document.fetch("meta").merge(
           "channel" => "telegram",
@@ -67,6 +70,13 @@ module ZeroXDA::Market::TelegramBot
         raise ArgumentError, "recipient picker is unavailable" unless @recipient_picker
 
         { "data" => @recipient_picker.result(token: token, requester_id: session.user.fetch("id")) }
+      end
+
+      def paper_replay(init_data:, events:, options: {})
+        raise PurchaseFlow::AccessDenied, "paper trading unavailable" unless @trading_lab_api
+        _session, user = authenticate(init_data)
+        raise PurchaseFlow::AccessDenied, "inactive market account" unless user.dig("attributes", "status") == "active"
+        { "data" => @trading_lab_api.replay(events: events, options: options) }
       end
 
       def quote(init_data:, sku:, quantity:, locale:, recipient: nil)

@@ -143,7 +143,7 @@ test("rejects a nominal HTTP success carrying status error", async () => {
 
 test("pins and mounts the current webapp-core contracts", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /799a1374929f3dd72b9bae2b612bf833e352d7ff/);
+  assert.match(source, /92fb324f1f8f580f112442d7be87500c930be3ff/);
   assert.match(source, /checkout-feedback-state\.js/);
   assert.match(source, /createCheckoutFeedbackState/);
   assert.match(source, /withCheckoutFeedback/);
@@ -153,4 +153,18 @@ test("pins and mounts the current webapp-core contracts", () => {
   assert.match(source, /mountAdminWorkspace/);
   assert.match(source, /mountWorkspaceNavigation/);
   assert.doesNotMatch(source, /webapp-core@master/);
+});
+
+
+test("paper replay uses the verified Telegram transport without exposing a service token", async () => {
+  const calls = [];
+  const transport = createTelegramTransport({
+    telegram: { initData: "signed" },
+    fetchImpl: async (url, options) => { calls.push([url, options]); return response({ status: "ok", data: { equity: "1000.0" } }); }
+  });
+  assert.deepEqual(await transport.replayTrading({ events: [], options: { starting_cash: "1000" } }), { equity: "1000.0" });
+  assert.match(calls[0][0], /trading\/replays$/);
+  assert.equal(calls[0][1].headers["x-telegram-init-data"], "signed");
+  assert.deepEqual(JSON.parse(calls[0][1].body), { events: [], options: { starting_cash: "1000" } });
+  assert.equal(JSON.stringify(calls).includes("TRADING_LAB_TOKEN"), false);
 });
