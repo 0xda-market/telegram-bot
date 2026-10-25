@@ -168,6 +168,37 @@ Telegram force-reply prompt containing the selected SKU context. A reply remains
 recoverable after a restart, while an unmatched numeric message receives an
 explicit instruction to start or resume the pricing command.
 
+## One-click development stack deployment
+
+The manual GitHub Actions **Deploy complete Market development stack** workflow in
+`.github/workflows/deploy-stack.yml` coordinates three existing producer-owned,
+manual deployments in dependency order:
+
+1. `core`: API, migrations, FX and pricing workers;
+2. `webapp-core`: its isolated, private static service through infra;
+3. `telegram-bot`: the Telegram Mini App host through infra.
+
+Before any activation, the orchestrator checks each repository's current
+`master` commit and successful **push-triggered Full CI for that exact SHA**. It
+also refuses deployment unless `webapp/app.js` pins the exact `webapp-core`
+master SHA. Each dispatch carries a per-run correlation ID; the orchestrator
+waits for that particular downstream workflow to complete successfully before
+proceeding. The existing manual producer workflows remain usable individually.
+
+Configure GitHub Environment `development` in `telegram-bot` with the secret
+`MARKET_ORCHESTRATION_TOKEN`: a fine-grained GitHub token with **Actions:
+read/write** on all three `0xda-market` repositories and necessary repository
+metadata visibility. No VPS SSH secret is used by this orchestrator. Each
+producer continues to own its scoped `INFRA_DEPLOY_TOKEN` and delegates
+activation to `aiaiaiai-org/infra`, which owns the target server and SSH
+credentials.
+
+**Required merge order:** infra workload/correlation support → Core and WebApp
+producer workflows → this orchestrator. Refresh and review the pinned WebApp
+revision in `webapp/app.js` after merging the WebApp changes. Deployment
+remains an explicit, separate, manual operation and currently targets
+**development only**; production release activation is out of scope.
+
 ## VPS deployment
 
 The VPS is the canonical runtime. The old Render Blueprint is not part of the
