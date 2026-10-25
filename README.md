@@ -186,9 +186,9 @@ waits for that particular downstream workflow to complete successfully before
 proceeding. The existing manual producer workflows remain usable individually.
 
 Configure GitHub Environment `development` in `telegram-bot` with the secret
-`MARKET_ORCHESTRATION_TOKEN`: a fine-grained GitHub token with **Actions:
-read/write** on all three `0xda-market` repositories and necessary repository
-metadata visibility. No VPS SSH secret is used by this orchestrator. Each
+`MARKET_ORCHESTRATION_TOKEN`: a fine-grained GitHub token with **Actions: read/write** and **Contents: read** on all three
+`0xda-market` repositories. GitHub supplies repository metadata access
+implicitly. No VPS SSH secret is used by this orchestrator. Each
 producer continues to own its scoped `INFRA_DEPLOY_TOKEN` and delegates
 activation to `aiaiaiai-org/infra`, which owns the target server and SSH
 credentials.
