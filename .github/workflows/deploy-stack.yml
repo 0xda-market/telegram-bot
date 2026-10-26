@@ -1,0 +1,31 @@
+# © 2026 aiaiaiai · aiaiaiai.org
+# SPDX-License-Identifier: MIT
+name: Deploy complete Market development stack
+run-name: Deploy Market stack ${{ github.run_id }}
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: market-development-stack-deploy
+  cancel-in-progress: false
+
+jobs:
+  orchestrate:
+    name: Verify and deploy Core, WebApp, Telegram Bot
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    environment:
+      name: development
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify each release and deploy in dependency order
+        env:
+          GH_TOKEN: ${{ secrets.MARKET_ORCHESTRATION_TOKEN }}
+        run: bash scripts/deploy-development-stack.sh
