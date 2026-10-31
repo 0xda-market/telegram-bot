@@ -4,6 +4,7 @@ require "bundler/setup"
 require "rack/common_logger"
 require_relative "lib/zero_x_da/market/telegram_bot/bot"
 require_relative "lib/zero_x_da/market/telegram_bot/bot_stars_payments"
+require_relative "lib/zero_x_da/market/telegram_bot/bot_special_checkout"
 require_relative "lib/zero_x_da/market/telegram_bot/persistent_runtime"
 require_relative "lib/zero_x_da/market/telegram_bot/bot_identity"
 require_relative "lib/zero_x_da/market/telegram_bot/command_menu"
@@ -58,7 +59,28 @@ payments = if stars_payments_enabled
                payment_terms: payment_terms
              )
            end
+# Special for seeds: 0x1 Identity's partner surface, the 0x1 sign-in page that
+# connects a Telegram account, and the key that signs verified customers to
+# Market's issuer-order routes. All or nothing; without them Special stays a
+# preview.
+special_settings = %w[NILX_IDENTITY_URL NILX_PARTNER_TOKEN NILX_LINK_URL CHANNEL_ASSERTION_SECRET]
+                   .to_h { |name| [name, ENV[name].to_s.strip] }
+special_checkout = if special_settings.values.all?(&:empty?)
+                     nil
+                   elsif special_settings.values.any?(&:empty?)
+                     raise "Special checkout needs #{special_settings.keys.join(", ")} together"
+                   else
+                     market_api.customer_assertions(secret: special_settings.fetch("CHANNEL_ASSERTION_SECRET"))
+                     ZeroXDA::Market::TelegramBot::BotSpecialCheckout::Configuration.new(
+                       identity: ZeroXDA::Market::TelegramBot::NilxIdentityAPI.new(
+                         base_url: special_settings.fetch("NILX_IDENTITY_URL"),
+                         token: special_settings.fetch("NILX_PARTNER_TOKEN")
+                       ),
+                       link_url: special_settings.fetch("NILX_LINK_URL")
+                     )
+                   end
 bot = ZeroXDA::Market::TelegramBot::Bot.new(
+  special_checkout: special_checkout,
   market_api: market_api,
   telegram_api: telegram_api,
   web_app_url: "#{public_url}/webapp/",

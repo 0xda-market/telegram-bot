@@ -122,6 +122,27 @@ The initial catalog contains Telegram Premium 3/6/12 months, Telegram Stars
 500/1000/3000, TON, BTC and ETH. Currency rows are exposed separately by the core
 and are included in the administrator pricing catalog.
 
+## 0x1 Special for seeds
+
+With `NILX_IDENTITY_URL`, `NILX_PARTNER_TOKEN`, `NILX_LINK_URL` and
+`CHANNEL_ASSERTION_SECRET` set, a Special term in the 0x1 subscriptions
+category can be bought with seeds from the chat:
+
+```text
+offer   -> 0x1 Identity partner account (Telegram account that pressed it)
+           sign in / "Bond already has another Telegram" / Bond, wallet, Special
+buy     -> only when Identity opens a Special purchase and wallet >= Market price
+confirm -> Market issuer order, signed as this verified customer (one per tap)
+status  -> pending (refresh / cancel) -> processing -> fulfilled = "Paid"
+```
+
+The bot never holds or computes a balance, never debits and never grants. 0x1
+Identity's issuer worker claims the order, debits the wallet and grants
+Special in one transaction, and refuses a Bond that already holds Special.
+Market's issuer-order routes trust a customer only through the short-lived
+`X-Market-Customer-Assertion` the bot signs after verifying the Telegram update.
+Exclusive and the USDT path stay preview-only.
+
 ## Telegram Mini App
 
 The Mini App imports `webapp-core` from an exact reviewed Git commit. Opening the
