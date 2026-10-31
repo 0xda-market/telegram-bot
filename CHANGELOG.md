@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 0x1 Special for seeds in the chat. The offer asks 0x1 Identity about the
+  Telegram account that pressed it: an unconnected account is sent to sign in to
+  0x1, and is told when its Bond already has another Telegram account; a
+  connected one sees its Bond, wallet and Special. Buy appears only while 0x1
+  opens a Special purchase for the Bond and the wallet covers Market's seeds
+  price. Confirming places one Market issuer order signed as the verified
+  customer; it can be refreshed, or cancelled until 0x1 claims it, and shows
+  "Paid" only once Market reports it fulfilled. Exclusive stays a preview.
 - Mini App design token layer (`webapp/design-tokens.css`) declaring surfaces,
   edges, text tones, geometry, spacing, motion and accessibility targets, so the
   fluid design direction references named values instead of adjectives.

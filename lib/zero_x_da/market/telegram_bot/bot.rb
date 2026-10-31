@@ -25,6 +25,8 @@ module ZeroXDA::Market::TelegramBot
       BUY_CALLBACK_PATTERN = /\Ab:#{SKU_PATTERN}\z/
       PREVIEW_CALLBACK_PATTERN = /\Av:#{SKU_PATTERN}\z/
       SUBSCRIPTION_ACTION_PATTERN = /\A([xyz]):#{SKU_PATTERN}\z/
+      # Issuer checkout: k = place the confirmed order, w = refresh it, u = cancel it.
+      ISSUER_CHECKOUT_CALLBACK_PATTERN = /\A([kwu]):([A-Za-z0-9:_-]{1,61})\z/
       LEGACY_BUY_CALLBACK_PATTERN = /\Abuy_#{SKU_PATTERN}\z/
       APPLY_PRICE_CALLBACK_PATTERN = /\Ap:#{SKU_PATTERN}\z/
       LEGACY_APPLY_PRICE_CALLBACK_PATTERN = /\Aapplyprice_#{SKU_PATTERN}\z/
@@ -169,6 +171,8 @@ module ZeroXDA::Market::TelegramBot
           show_subscription_offer_callback(callback, Regexp.last_match(1))
         when SUBSCRIPTION_ACTION_PATTERN
           handle_subscription_action_callback(callback, Regexp.last_match(1), Regexp.last_match(2))
+        when ISSUER_CHECKOUT_CALLBACK_PATTERN
+          handle_issuer_checkout_callback(callback, Regexp.last_match(1), Regexp.last_match(2))
         when BUY_CALLBACK_PATTERN, LEGACY_BUY_CALLBACK_PATTERN
           handle_buy_callback(callback, Regexp.last_match(1))
         when APPLY_PRICE_CALLBACK_PATTERN, LEGACY_APPLY_PRICE_CALLBACK_PATTERN
@@ -271,6 +275,11 @@ module ZeroXDA::Market::TelegramBot
           # has authenticated Bond ownership, idempotent debit and grant.
           answer_callback(callback, text: t(:subscription_unavailable, locale: locale))
         end
+      end
+
+      # Issuer checkout is off unless a checkout module is configured.
+      def handle_issuer_checkout_callback(callback, _action, _argument)
+        answer_callback(callback, text: t(:subscription_unavailable, locale: locale_for(callback)))
       end
 
       def subscription_seed_balance(callback, user)

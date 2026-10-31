@@ -3,6 +3,7 @@
 require_relative "namespace"
 
 require "json"
+require "openssl"
 require "net/http"
 require "timeout"
 require "uri"
@@ -75,6 +76,52 @@ module ZeroXDA::Market::TelegramBot
           "v1/products?#{URI.encode_www_form(query)}",
           authenticated: true
         ).fetch("data")
+      end
+
+      # Goods the market sells in an issuer denomination right now, with the
+      # current price. Only these can be ordered.
+      def denomination_prices(code, locale: "en_US")
+        get(
+          "v1/denominations/#{resource_id(code)}/prices?#{URI.encode_www_form(locale: locale)}",
+          authenticated: true
+        ).fetch("data")
+      end
+
+      # Customer issuer-order routes. Each call carries a short-lived signed
+      # assertion that this market user is the Telegram account the bot has
+      # just verified (`X-Market-Customer-Assertion`, see core
+      # docs/architecture/issuer-orders.md).
+      def create_issuer_order(customer:, sku:, denomination:, idempotency_key:)
+        write_request(Net::HTTP::Post, "v1/issuer-orders",
+                      { sku: sku, denomination: denomination, idempotency_key: idempotency_key },
+                      customer: customer).fetch("data")
+      end
+
+      def issuer_order(id, customer:)
+        uri = URI.join(@base_url, "v1/issuer-orders/#{resource_id(id)}")
+        request = Net::HTTP::Get.new(uri)
+        request["authorization"] = "Bearer #{@token}"
+        sign_customer(request, customer)
+        perform(uri, request).fetch("data")
+      end
+
+      def cancel_issuer_order(id, customer:)
+        write_request(Net::HTTP::Post, "v1/issuer-orders/#{resource_id(id)}/cancel", {}, customer: customer)
+          .fetch("data")
+      end
+
+      # The signing key for customer assertions. Without it the bot never
+      # calls customer issuer-order routes.
+      def customer_assertions(secret:, clock: -> { Time.now.utc })
+        raise ArgumentError, "customer assertion secret must be at least 32 bytes" if secret.to_s.bytesize < 32
+
+        @assertion_secret = secret.to_s
+        @assertion_clock = clock
+        self
+      end
+
+      def customer_assertions?
+        !@assertion_secret.nil?
       end
 
       def currencies(locale: "en_US")
@@ -270,13 +317,31 @@ module ZeroXDA::Market::TelegramBot
         write_request(Net::HTTP::Delete, path, payload)
       end
 
-      def write_request(request_class, path, payload)
+      def write_request(request_class, path, payload, customer: nil)
         uri = URI.join(@base_url, path)
         request = request_class.new(uri)
         request["authorization"] = "Bearer #{@token}"
         request["content-type"] = "application/json"
+        sign_customer(request, customer) if customer
         request.body = JSON.generate(payload)
         perform(uri, request)
+      end
+
+      ASSERTION_DOMAIN = "zero-x-da-market-customer-v1."
+      ASSERTION_LIFETIME = 60
+
+      # customer: { user_id:, telegram_user_id: } for a Telegram identity the
+      # bot verified in this same update.
+      def sign_customer(request, customer)
+        raise Error.new("customer assertions are not configured", code: "issuer_orders_unavailable") unless @assertion_secret
+
+        now = @assertion_clock.call.to_i
+        claims = { "user_id" => customer.fetch(:user_id).to_s, "provider" => TELEGRAM_PROVIDER,
+                   "provider_user_id" => customer.fetch(:telegram_user_id).to_s,
+                   "iat" => now, "exp" => now + ASSERTION_LIFETIME }
+        payload = [JSON.generate(claims)].pack("m0").tr("+/", "-_").delete("=")
+        mac = OpenSSL::HMAC.hexdigest("SHA256", @assertion_secret, ASSERTION_DOMAIN + payload)
+        request["x-market-customer-assertion"] = "v1.#{payload}.#{mac}"
       end
 
       def perform(uri, request, allow_error_status: false)

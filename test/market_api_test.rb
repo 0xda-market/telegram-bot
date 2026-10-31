@@ -29,6 +29,38 @@ class MarketAPITest < Minitest::Test
     end
   end
 
+  def test_issuer_orders_carry_a_signed_customer_assertion_core_can_verify
+    secret = "s" * 32
+    api = api_with(response("201", '{"data":{"id":"order-1"}}'))
+    api.customer_assertions(secret: secret, clock: -> { Time.at(1_800_000_000) })
+
+    order = api.create_issuer_order(customer: { user_id: "user-1", telegram_user_id: 77 },
+                                    sku: "0x1_special_1m", denomination: "seeds", idempotency_key: "tg.77.a.0x1_special_1m")
+    assert_equal "order-1", order.fetch("id")
+    request = api.requests.last
+    assert_equal "/v1/issuer-orders", api.uris.last.path
+    assert_equal "Bearer token", request["authorization"]
+    version, payload, mac = request["x-market-customer-assertion"].split(".")
+    assert_equal "v1", version
+    # The exact scheme core's ChannelCustomerAssertion verifies.
+    assert_equal OpenSSL::HMAC.hexdigest("SHA256", secret, "zero-x-da-market-customer-v1.#{payload}"), mac
+    padded = payload.tr("-_", "+/") + ("=" * (-payload.length % 4))
+    assert_equal({ "user_id" => "user-1", "provider" => "telegram", "provider_user_id" => "77",
+                   "iat" => 1_800_000_000, "exp" => 1_800_000_060 }, JSON.parse(padded.unpack1("m0")))
+    assert_equal({ "sku" => "0x1_special_1m", "denomination" => "seeds", "idempotency_key" => "tg.77.a.0x1_special_1m" },
+                 JSON.parse(request.body))
+  end
+
+  def test_issuer_orders_are_never_sent_unsigned
+    api = api_with
+    error = assert_raises(ZeroXDA::Market::TelegramBot::MarketAPI::Error) do
+      api.issuer_order("order-1", customer: { user_id: "user-1", telegram_user_id: 77 })
+    end
+    assert_equal "issuer_orders_unavailable", error.code
+    assert_equal 0, api.attempts
+    assert_raises(ArgumentError) { api.customer_assertions(secret: "short") }
+  end
+
   def test_retries_a_cold_start_timeout
     api = api_with(Timeout::Error.new("cold start"), json_response)
 
