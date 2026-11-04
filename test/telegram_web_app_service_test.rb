@@ -2,6 +2,7 @@
 
 require_relative "test_helper"
 require "time"
+require "zero_x_da/market/telegram_bot/nilx_identity_api"
 require "zero_x_da/market/telegram_bot/telegram_web_app_service"
 
 class TelegramWebAppServiceTest < Minitest::Test
@@ -186,6 +187,31 @@ class TelegramWebAppServiceTest < Minitest::Test
       authentication: @authentication,
       purchase_flow: @purchase
     )
+  end
+
+  def test_special_summary_uses_the_verified_telegram_id_in_development_only
+    ids = []
+    identity = Object.new
+    identity.define_singleton_method(:telegram_account) do |id|
+      ids << id
+      ZeroXDA::Market::TelegramBot::NilxIdentityAPI::Account.new(
+        state: "linked", pub_dress: "0x1buyer", seeds: 640, special_held: true,
+        special_ends_at: nil, purchase_open: false, link_refusal: nil
+      )
+    end
+    configuration = Struct.new(:identity).new(identity)
+    read = lambda do |environment|
+      service = ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(
+        market_api: Market.new, authentication: Authentication.new, environment: environment,
+        special_checkout: configuration
+      )
+      service.bootstrap(init_data: "signed", locale: "en_US").dig("meta", "session", "special_account")
+    end
+
+    assert_equal({ "state" => "linked", "bond" => "0x1buyer", "seeds" => "640",
+                   "held" => true, "purchase_open" => false }, read.call("development"))
+    assert_nil read.call("production")
+    assert_equal [99], ids
   end
 
   def test_bootstrap_returns_locale_derived_currency_with_public_session_meta
