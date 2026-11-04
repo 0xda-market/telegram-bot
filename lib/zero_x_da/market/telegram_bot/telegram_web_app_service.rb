@@ -17,6 +17,7 @@ module ZeroXDA::Market::TelegramBot
         recipient_picker: nil,
         payments: nil,
         payment_terms: nil,
+        special_checkout: nil,
         trading_lab_api: nil
       )
         @market_api = market_api
@@ -26,6 +27,7 @@ module ZeroXDA::Market::TelegramBot
         @recipient_picker = recipient_picker
         @payments = payments
         @payment_terms = payment_terms
+        @special_checkout = special_checkout
         @trading_lab_api = trading_lab_api
         if @payments && !@payment_terms
           raise ArgumentError, "payment_terms is required when real payments are enabled"
@@ -43,6 +45,9 @@ module ZeroXDA::Market::TelegramBot
           "environment" => @environment,
           "paper_trading_enabled" => !!@trading_lab_api && user.dig("attributes", "status") == "active"
         }
+        if @special_checkout && @environment == "development" && user.dig("attributes", "status") == "active"
+          public_session["special_account"] = special_account(session.user.fetch("id"))
+        end
         metadata = document.fetch("meta").merge(
           "channel" => "telegram",
           "session" => public_session,
@@ -197,6 +202,17 @@ module ZeroXDA::Market::TelegramBot
       end
 
       private
+
+      def special_account(telegram_id)
+        account = @special_checkout.identity.telegram_account(telegram_id)
+        return { "state" => account.state, "link_url" => @special_checkout.link_url,
+                 "link_refusal" => account.link_refusal } unless account.linked?
+
+        { "state" => "linked", "bond" => account.pub_dress, "seeds" => account.seeds.to_s,
+          "held" => account.special_held, "purchase_open" => account.purchase_open }
+      rescue NilxIdentityAPI::Error
+        { "state" => "unavailable" }
+      end
 
       def verified_session(init_data)
         @authentication.verify(init_data)
