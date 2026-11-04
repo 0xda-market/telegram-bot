@@ -37,6 +37,20 @@ module ZeroXDA::Market::TelegramBot
 
     private
 
+    # A Mini App link selects an offer. Only the existing confirm callback can pay.
+    def dispatch_command(command, message, argument)
+      return super unless command == "/start" && special_checkout?(argument.to_s)
+      chat = message.fetch("chat")
+      return super unless chat["type"] == "private" && chat["id"] == message.dig("from", "id")
+
+      authenticate_user(message)
+      locale = locale_for(message)
+      screen = special_account_screen(message, argument, locale) do |account, price, name|
+        SpecialCheckoutMessages.offer(name: name, sku: argument, account: account, price: price, locale: locale)
+      end
+      send_message(chat.fetch("id"), screen.text, reply_markup: screen.reply_markup)
+    end
+
     # v: and z: on a Special open the account-aware offer; x: confirms it.
     def show_subscription_offer_callback(callback, sku)
       return super unless special_checkout?(sku)

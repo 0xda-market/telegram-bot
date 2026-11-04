@@ -119,8 +119,15 @@ class SpecialCheckoutTest < Minitest::Test
     @bot.handle(callback("w:order-1"))
     paid = screen
     assert_includes paid.fetch(:text), "Оплачено ✅ 0x1 Special 1 months — твоя."
-    assert_includes paid.fetch(:text), "xPing летить до 0xda-market"
-    assert_includes paid.fetch(:text), "лишиться «Оплачено»"
+    refute_includes paid.fetch(:text), "xPing"
+  end
+
+  def test_mini_app_private_link_opens_the_offer_without_placing_an_order
+    message = { "text" => "/start 0x1_special_1m", "chat" => { "type" => "private", "id" => 77 },
+                "from" => callback("")["callback_query"]["from"] }
+    @bot.handle("message" => message)
+    assert_equal [77], @identity.asked
+    assert_nil @market.issuer_orders
   end
 
   def test_a_bond_that_holds_special_is_never_offered_a_purchase

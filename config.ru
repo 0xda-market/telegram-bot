@@ -70,6 +70,10 @@ special_checkout = if special_settings.values.all?(&:empty?)
                    elsif special_settings.values.any?(&:empty?)
                      raise "Special checkout needs #{special_settings.keys.join(", ")} together"
                    else
+                     actual_bot = telegram_api.get_me.fetch("username")
+                     unless ENV["DEPLOY_ENV"] == "development" && actual_bot.casecmp?("zeroxda_market_test_bot")
+                       raise "Special checkout requires the development Market test bot"
+                     end
                      market_api.customer_assertions(secret: special_settings.fetch("CHANNEL_ASSERTION_SECRET"))
                      ZeroXDA::Market::TelegramBot::BotSpecialCheckout::Configuration.new(
                        identity: ZeroXDA::Market::TelegramBot::NilxIdentityAPI.new(
@@ -111,6 +115,7 @@ web_app_service = ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(
   authentication: web_app_auth,
   environment: deploy_environment,
   trading_lab_api: trading_lab_api,
+  special_checkout: special_checkout,
   recipient_picker: recipient_picker,
   broker_order_notifier: broker_order_notifier,
   payments: payments,
