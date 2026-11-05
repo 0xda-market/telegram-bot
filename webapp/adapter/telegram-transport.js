@@ -235,6 +235,12 @@ export function createTelegramTransport({
       return bootstrapPromise;
     },
     replayTrading({ events, options = {} }) { return requestResource("/trading/replays", { method: "POST", body: JSON.stringify({ events, options }) }); },
+    // Read-only OKX leaderboard through the bot's private Trading Lab adapter.
+    tradingLeaders(query = {}) {
+      const params = new URLSearchParams(Object.entries(query).map(([key, value]) => [key, String(value)]));
+      const suffix = params.toString();
+      return requestResource(`/trading/leaders${suffix ? `?${suffix}` : ""}`);
+    },
     reportRuntimeEvent(event) {
       return requestDocument("/runtime-events", { method: "POST", body: JSON.stringify(event) });
     },

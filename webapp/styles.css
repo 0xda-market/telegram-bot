@@ -325,3 +325,10 @@ dialog { width: min(calc(100% - var(--space-5)), 460px); border: 0; border-radiu
 .trading-form button { min-height: var(--target-min); }
 .trading-result { display: grid; gap: var(--space-2); font-variant-numeric: tabular-nums; }
 .trading-result p { padding: var(--space-2); border: 1px solid var(--edge-control); border-radius: var(--radius-control); }
+.trading-leaders { display: grid; gap: var(--space-3); }
+.trading-leaders h3 { font-size: 15px; }
+.trading-hint { font-size: 13px; color: var(--text-secondary); }
+.trading-form select { width: 100%; min-width: 0; min-height: var(--target-min); padding: 0 12px; border: 1px solid var(--edge-control); border-radius: var(--radius-control); background: var(--surface-recessed); color: var(--text-primary); }
+.trading-leader-list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.trading-leader { display: grid; gap: 2px; padding: var(--space-2) var(--space-3); border: 1px solid var(--edge-control); border-radius: var(--radius-control); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.trading-leader p { font-size: 13px; color: var(--text-secondary); }
