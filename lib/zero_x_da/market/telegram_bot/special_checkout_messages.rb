@@ -26,7 +26,7 @@ module ZeroXDA::Market::TelegramBot
         confirm: "Pay %<price>s ₴€£ from the wallet of %<bond>s for %<name>s?",
         confirm_button: "Pay %<price>s ₴€£", back: "‹ Back", home: "⌂ Home",
         pending: "Order placed. 0x1 is charging the wallet…", refresh: "↻ Refresh", cancel: "Cancel order",
-        paid: "Paid ✅ %<name>s is yours.",
+        paid: "Paid ✅ %<name>s is yours.", open_world: "Open 0x1",
         cancelled: "Order cancelled. Nothing was charged.",
         expired: "The order was not confirmed in time. Nothing was charged.",
         rejected: "0x1 did not accept the payment (%<reason>s). Nothing was charged.",
@@ -48,7 +48,7 @@ module ZeroXDA::Market::TelegramBot
         confirm: "Сплатити %<price>s ₴€£ з гаманця %<bond>s за %<name>s?",
         confirm_button: "Сплатити %<price>s ₴€£", back: "‹ Назад", home: "⌂ Головна",
         pending: "Замовлення створено. 0x1 списує з гаманця…", refresh: "↻ Оновити", cancel: "Скасувати замовлення",
-        paid: "Оплачено ✅ %<name>s — твоя.",
+        paid: "Оплачено ✅ %<name>s — твоя.", open_world: "Відкрити 0x1",
         cancelled: "Замовлення скасовано. Нічого не списано.",
         expired: "Замовлення не підтвердилось вчасно. Нічого не списано.",
         rejected: "0x1 не прийняв оплату (%<reason>s). Нічого не списано.",
@@ -70,7 +70,7 @@ module ZeroXDA::Market::TelegramBot
         confirm: "Оплатить %<price>s ₴€£ из кошелька %<bond>s за %<name>s?",
         confirm_button: "Оплатить %<price>s ₴€£", back: "‹ Назад", home: "⌂ Главная",
         pending: "Заказ создан. 0x1 списывает с кошелька…", refresh: "↻ Обновить", cancel: "Отменить заказ",
-        paid: "Оплачено ✅ %<name>s — твоя.",
+        paid: "Оплачено ✅ %<name>s — твоя.", open_world: "Открыть 0x1",
         cancelled: "Заказ отменён. Ничего не списано.",
         expired: "Заказ не подтвердился вовремя. Ничего не списано.",
         rejected: "0x1 не принял оплату (%<reason>s). Ничего не списано.",
@@ -92,7 +92,7 @@ module ZeroXDA::Market::TelegramBot
         confirm: "Payer %<price>s ₴€£ depuis le portefeuille de %<bond>s pour %<name>s ?",
         confirm_button: "Payer %<price>s ₴€£", back: "‹ Retour", home: "⌂ Accueil",
         pending: "Commande créée. 0x1 débite le portefeuille…", refresh: "↻ Actualiser", cancel: "Annuler la commande",
-        paid: "Payé ✅ %<name>s est à vous.",
+        paid: "Payé ✅ %<name>s est à vous.", open_world: "Ouvrir 0x1",
         cancelled: "Commande annulée. Rien n'a été débité.",
         expired: "La commande n'a pas été confirmée à temps. Rien n'a été débité.",
         rejected: "0x1 a refusé le paiement (%<reason>s). Rien n'a été débité.",
@@ -112,7 +112,7 @@ module ZeroXDA::Market::TelegramBot
         confirm: "¿Pagar %<price>s ₴€£ de la billetera de %<bond>s por %<name>s?",
         confirm_button: "Pagar %<price>s ₴€£", back: "‹ Volver", home: "⌂ Inicio",
         pending: "Pedido creado. 0x1 está cobrando de la billetera…", refresh: "↻ Actualizar", cancel: "Cancelar pedido",
-        paid: "Pagado ✅ %<name>s es tuyo.",
+        paid: "Pagado ✅ %<name>s es tuyo.", open_world: "Abrir 0x1",
         cancelled: "Pedido cancelado. No se cobró nada.",
         expired: "El pedido no se confirmó a tiempo. No se cobró nada.",
         rejected: "0x1 no aceptó el pago (%<reason>s). No se cobró nada.",
@@ -133,7 +133,7 @@ module ZeroXDA::Market::TelegramBot
         confirm_button: "%<price>s ₴€£ zahlen", back: "‹ Zurück", home: "⌂ Start",
         pending: "Bestellung erstellt. 0x1 bucht von der Wallet ab…", refresh: "↻ Aktualisieren",
         cancel: "Bestellung stornieren",
-        paid: "Bezahlt ✅ %<name>s gehört dir.",
+        paid: "Bezahlt ✅ %<name>s gehört dir.", open_world: "0x1 öffnen",
         cancelled: "Bestellung storniert. Nichts wurde abgebucht.",
         expired: "Die Bestellung wurde nicht rechtzeitig bestätigt. Nichts wurde abgebucht.",
         rejected: "0x1 hat die Zahlung abgelehnt (%<reason>s). Nichts wurde abgebucht.",
@@ -217,7 +217,10 @@ module ZeroXDA::Market::TelegramBot
         Screen.new(text: "#{name}\n\n#{text(:pending, locale: locale)}", reply_markup: { inline_keyboard: rows })
       when "fulfilled"
         Screen.new(text: text(:paid, locale: locale, name: name),
-                   reply_markup: { inline_keyboard: [[{ text: text(:home, locale: locale), callback_data: "h:b" }]] })
+                   reply_markup: { inline_keyboard: [
+                     [{ text: text(:open_world, locale: locale), url: "https://nilx.one/" }],
+                     [{ text: text(:home, locale: locale), callback_data: "h:b" }]
+                   ] })
       else
         Screen.new(text: "#{name}\n\n#{ended(attributes, locale)}",
                    reply_markup: { inline_keyboard: [nav(sku, locale)] })
