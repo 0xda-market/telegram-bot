@@ -54,6 +54,13 @@ module ZeroXDA::Market::TelegramBot
 
     private
 
+    # Trading Lab 422 messages describe the caller's own filters (e.g. "limit must be between 1 and 20").
+    # Pass through only short plain text; anything else falls back to a generic message.
+    def safe_message(document)
+      message = document.is_a?(Hash) ? document["message"] : nil
+      message if message.is_a?(String) && message.match?(/\A[\w .,:()<>=-]{1,120}\z/)
+    end
+
     def endpoint(path)
       uri = @base.dup
       uri.path = "#{@base.path.delete_suffix("/")}#{path}"
@@ -66,7 +73,7 @@ module ZeroXDA::Market::TelegramBot
         http.request(request)
       end
       document = JSON.parse(response.body)
-      raise ArgumentError, "invalid #{label} request" if response.code == "422"
+      raise ArgumentError, safe_message(document) || "invalid #{label} request" if response.code == "422"
       raise Error, "Trading Lab #{label} is unavailable (HTTP #{response.code})" unless response.code == "200" && document["status"] == "ok" && document["data"].is_a?(Hash)
       document.fetch("data")
     rescue JSON::ParserError, IOError, SystemCallError, Timeout::Error, OpenSSL::SSL::SSLError => error

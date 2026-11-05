@@ -262,6 +262,28 @@ class TelegramMiniAppTest < Minitest::Test
     )
     assert_equal [:withdraw_broker_listing, "signed-init-data", "listing-1", 1], @service.requests[3]
   end
+  def leaders_failing_with(error)
+    service = Object.new
+    service.define_singleton_method(:trading_leaders) { |**| raise error }
+    Rack::MockRequest.new(ZeroXDA::Market::TelegramBot::TelegramMiniApp.new(service: service, root: @directory))
+                     .get("/webapp/trading/leaders?limit=50", "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data")
+  end
+
+  def test_trading_leaders_http_error_mapping
+    cases = {
+      ArgumentError.new("limit must be between 1 and 20") => [422, "invalid_request"],
+      ZeroXDA::Market::TelegramBot::TradingLabAPI::Error.new("Trading Lab leaderboard is unavailable (HTTP 503)") => [502, "trading_lab_unavailable"],
+      ZeroXDA::Market::TelegramBot::PurchaseFlow::AccessDenied.new("inactive market account") => [403, "access_denied"],
+      ZeroXDA::Market::TelegramBot::TelegramWebAppAuth::Invalid.new("invalid Telegram init data") => [401, "invalid_telegram_session"]
+    }
+    cases.each do |error, (status, code)|
+      response = leaders_failing_with(error)
+      document = JSON.parse(response.body)
+      assert_equal [status, code, error.message], [response.status, document["error"], document["message"]], error.class.name
+      refute_includes response.body, "Bearer"
+    end
+  end
+
   def test_trading_leaders_uses_signed_session_and_query
     response = @client.get(
       "/webapp/trading/leaders?sort=pnl_ratio&limit=20",

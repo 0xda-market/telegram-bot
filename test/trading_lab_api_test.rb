@@ -72,8 +72,13 @@ class TradingLabAPITest < Minitest::Test
   end
 
   def test_leaders_maps_lab_errors
-    with_lab(422, JSON.generate(status: "error", error: "invalid_request")) do |client, _|
-      assert_raises(ArgumentError) { client.leaders(options: { "sort" => "luck" }) }
+    with_lab(422, JSON.generate(status: "error", error: "invalid_request", message: "limit must be between 1 and 20")) do |client, _|
+      error = assert_raises(ArgumentError) { client.leaders(options: { "limit" => "50" }) }
+      assert_equal "limit must be between 1 and 20", error.message
+    end
+    with_lab(422, JSON.generate(status: "error", message: "<script>\n#{'x' * 200}")) do |client, _|
+      error = assert_raises(ArgumentError) { client.leaders(options: { "sort" => "luck" }) }
+      assert_equal "invalid leaderboard request", error.message
     end
     with_lab(503, JSON.generate(status: "error", error: "upstream_rate_limited")) do |client, _|
       assert_raises(ZeroXDA::Market::TelegramBot::TradingLabAPI::Error) { client.leaders }
