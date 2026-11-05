@@ -4,6 +4,7 @@
 
 require_relative "test_helper"
 require "zero_x_da/market/telegram_bot/trading_lab_api"
+require "socket"
 
 class TradingLabAPITest < Minitest::Test
   def build(origin, token = "fake-replay-token")
@@ -40,5 +41,50 @@ class TradingLabAPITest < Minitest::Test
     assert_raises(ArgumentError) { client.replay(events: "not an array") }
     assert_raises(ArgumentError) { client.replay(events: [{}] * 501) }
     assert_raises(ArgumentError) { client.replay(events: [], options: "not an object") }
+  end
+
+  # Serves one HTTP response on 127.0.0.1 and records the raw request head.
+  def with_lab(status, body)
+    server = TCPServer.new("127.0.0.1", 0)
+    seen = []
+    thread = Thread.new do
+      client = server.accept
+      while (line = client.gets) && line != "\r\n"
+        seen << line.chomp
+      end
+      client.write "HTTP/1.1 #{status} X\r\nContent-Type: application/json\r\nContent-Length: #{body.bytesize}\r\nConnection: close\r\n\r\n#{body}"
+      client.close
+    end
+    yield build("http://127.0.0.1:#{server.addr[1]}"), seen
+  ensure
+    thread&.join(2)
+    server&.close
+  end
+
+  def test_leaders_forwards_sorted_filters_with_service_token
+    body = JSON.generate(status: "ok", data: { "traders" => [], "data_version" => "20261105150001" })
+    with_lab(200, body) do |client, seen|
+      data = client.leaders(options: { "sort" => "pnl_ratio", "limit" => "20", min_lead_days: "90" })
+      assert_equal "20261105150001", data["data_version"]
+      assert_equal "GET /v1/leaders/okx?limit=20&min_lead_days=90&sort=pnl_ratio HTTP/1.1", seen.first
+      assert(seen.any? { |line| line.casecmp?("authorization: Bearer fake-replay-token") })
+    end
+  end
+
+  def test_leaders_maps_lab_errors
+    with_lab(422, JSON.generate(status: "error", error: "invalid_request")) do |client, _|
+      assert_raises(ArgumentError) { client.leaders(options: { "sort" => "luck" }) }
+    end
+    with_lab(503, JSON.generate(status: "error", error: "upstream_rate_limited")) do |client, _|
+      assert_raises(ZeroXDA::Market::TelegramBot::TradingLabAPI::Error) { client.leaders }
+    end
+  end
+
+  def test_leaders_options_are_checked_before_transport
+    client = build("http://market-trading-lab:1927")
+    assert_raises(ArgumentError) { client.leaders(options: "sort=pnl") }
+    assert_raises(ArgumentError) { client.leaders(options: { "api_key" => "x" }) }
+    assert_raises(ArgumentError) { client.leaders(options: { "sort" => "pnl&limit=1" }) }
+    assert_raises(ArgumentError) { client.leaders(options: { "sort" => "a" * 33 }) }
   end
 end
