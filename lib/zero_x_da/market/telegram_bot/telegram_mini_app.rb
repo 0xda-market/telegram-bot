@@ -36,6 +36,7 @@ module ZeroXDA::Market::TelegramBot
         return redirect_to_index if request.get? && request.path_info == "/webapp"
         return bootstrap(request) if request.get? && request.path_info == "/webapp/bootstrap"
         return paper_replay(request) if request.post? && request.path_info == "/webapp/trading/replays"
+        return trading_leaders(request) if request.get? && request.path_info == "/webapp/trading/leaders"
         return quote(request) if request.post? && request.path_info == "/webapp/quotes"
         return broker_listings(request) if request.get? && request.path_info == "/webapp/broker/listings"
         return create_broker_listing(request) if request.post? && request.path_info == "/webapp/broker/listings"
@@ -101,6 +102,11 @@ module ZeroXDA::Market::TelegramBot
       def paper_replay(request)
         body = request_document(request)
         document = @service.paper_replay(init_data: init_data(request), events: body.fetch("events"), options: body.fetch("options", {}))
+        post_document(200, document)
+      end
+
+      def trading_leaders(request)
+        document = @service.trading_leaders(init_data: init_data(request), options: request.GET)
         post_document(200, document)
       end
 

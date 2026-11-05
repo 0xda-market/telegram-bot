@@ -40,6 +40,11 @@ class TelegramMiniAppTest < Minitest::Test
       { "data" => { "equity" => "1000.0", "net_pnl" => "0.0" } }
     end
 
+    def trading_leaders(init_data:, options: {})
+      @requests << [:trading_leaders, init_data, options]
+      { "data" => { "data_version" => "20261105150001", "traders" => [] } }
+    end
+
     def quote(init_data:, sku:, quantity:, locale:, recipient: nil)
       @requests << [:quote, init_data, sku, quantity, recipient, locale]
       {
@@ -257,6 +262,39 @@ class TelegramMiniAppTest < Minitest::Test
     )
     assert_equal [:withdraw_broker_listing, "signed-init-data", "listing-1", 1], @service.requests[3]
   end
+  def leaders_failing_with(error)
+    service = Object.new
+    service.define_singleton_method(:trading_leaders) { |**| raise error }
+    Rack::MockRequest.new(ZeroXDA::Market::TelegramBot::TelegramMiniApp.new(service: service, root: @directory))
+                     .get("/webapp/trading/leaders?limit=50", "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data")
+  end
+
+  def test_trading_leaders_http_error_mapping
+    cases = {
+      ArgumentError.new("limit must be between 1 and 20") => [422, "invalid_request"],
+      ZeroXDA::Market::TelegramBot::TradingLabAPI::Error.new("Trading Lab leaderboard is unavailable (HTTP 503)") => [502, "trading_lab_unavailable"],
+      ZeroXDA::Market::TelegramBot::PurchaseFlow::AccessDenied.new("inactive market account") => [403, "access_denied"],
+      ZeroXDA::Market::TelegramBot::TelegramWebAppAuth::Invalid.new("invalid Telegram init data") => [401, "invalid_telegram_session"]
+    }
+    cases.each do |error, (status, code)|
+      response = leaders_failing_with(error)
+      document = JSON.parse(response.body)
+      assert_equal [status, code, error.message], [response.status, document["error"], document["message"]], error.class.name
+      refute_includes response.body, "Bearer"
+    end
+  end
+
+  def test_trading_leaders_uses_signed_session_and_query
+    response = @client.get(
+      "/webapp/trading/leaders?sort=pnl_ratio&limit=20",
+      "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data"
+    )
+    assert_equal 200, response.status
+    document = JSON.parse(response.body)
+    assert_equal ["ok", "20261105150001"], [document["status"], document.dig("data", "data_version")]
+    assert_equal [[:trading_leaders, "signed-init-data", { "sort" => "pnl_ratio", "limit" => "20" }]], @service.requests
+  end
+
   def test_paper_replay_uses_existing_signed_transport_path
     response = @client.post(
       "/webapp/trading/replays",

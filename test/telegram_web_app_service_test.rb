@@ -309,4 +309,68 @@ class TelegramWebAppServiceTest < Minitest::Test
     assert_equal "inactive", request.dig(:attributes, "status")
     assert_equal "uk_UA", request.dig(:localization, "locale")
   end
+
+  class TradingLab
+    attr_reader :calls
+
+    def initialize
+      @calls = []
+    end
+
+    def leaders(options:)
+      @calls << options
+      { "data_version" => "20261105150001", "traders" => [] }
+    end
+  end
+
+  class InactiveMarket < Market
+    def authenticate_telegram(user:, chat:)
+      super.tap { |account| account["attributes"]["status"] = "suspended" }
+    end
+  end
+
+  class RejectingAuthentication < Authentication
+    def verify(init_data)
+      @requests << init_data
+      raise ZeroXDA::Market::TelegramBot::TelegramWebAppAuth::Invalid, "invalid Telegram init data"
+    end
+  end
+
+  def trading_service(market: Market.new, authentication: Authentication.new, lab: TradingLab.new)
+    ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(market_api: market, authentication: authentication, trading_lab_api: lab)
+  end
+
+  def test_trading_leaders_for_active_verified_account
+    lab = TradingLab.new
+    result = trading_service(lab: lab).trading_leaders(init_data: "signed", options: { "sort" => "pnl_ratio" })
+    assert_equal "20261105150001", result.dig("data", "data_version")
+    assert_equal [{ "sort" => "pnl_ratio" }], lab.calls
+  end
+
+  def test_trading_leaders_rejects_invalid_init_data_before_market_or_lab
+    lab = TradingLab.new
+    market = Market.new
+    assert_raises(ZeroXDA::Market::TelegramBot::TelegramWebAppAuth::Invalid) do
+      trading_service(market: market, authentication: RejectingAuthentication.new, lab: lab).trading_leaders(init_data: "", options: {})
+    end
+    assert_empty market.authentications
+    assert_empty lab.calls
+  end
+
+  def test_trading_leaders_rejects_inactive_account
+    lab = TradingLab.new
+    error = assert_raises(ZeroXDA::Market::TelegramBot::PurchaseFlow::AccessDenied) do
+      trading_service(market: InactiveMarket.new, lab: lab).trading_leaders(init_data: "signed", options: {})
+    end
+    assert_equal "inactive market account", error.message
+    assert_empty lab.calls
+  end
+
+  def test_trading_leaders_unavailable_without_trading_lab
+    authentication = Authentication.new
+    assert_raises(ZeroXDA::Market::TelegramBot::PurchaseFlow::AccessDenied) do
+      trading_service(authentication: authentication, lab: nil).trading_leaders(init_data: "signed", options: {})
+    end
+    assert_empty authentication.requests
+  end
 end
