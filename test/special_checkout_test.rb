@@ -120,6 +120,8 @@ class SpecialCheckoutTest < Minitest::Test
     paid = screen
     assert_includes paid.fetch(:text), "Оплачено ✅ 0x1 Special 1 months — твоя."
     refute_includes paid.fetch(:text), "xPing"
+    assert_includes paid.dig(:reply_markup, :inline_keyboard).flatten,
+      { text: "Відкрити 0x1", url: "https://nilx.one/" }
   end
 
   def test_mini_app_private_link_opens_the_offer_without_placing_an_order
