@@ -220,6 +220,24 @@ revision in `webapp/app.js` after merging the WebApp changes. Deployment
 remains an explicit, separate, manual operation and currently targets
 **development only**; production release activation is out of scope.
 
+## Automatic development delivery
+
+`market-bot-test` is delivered by infra on its own (`aiaiaiai-org/infra`
+`docs/automatic-delivery.md`); the bot needs no `INFRA_DEPLOY_TOKEN` for it.
+
+- After push CI passes on `master`, the `publish-development` job in `ci.yml`
+  (Environment `development`) pushes `ghcr.io/0xda-market/telegram-bot:<sha>` and the
+  envelope `:<sha>.secrets`, and attests both.
+- The envelope holds exactly the names in the `market-bot-test` contract:
+  `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `MARKET_API_TOKEN`, `TRADING_LAB_TOKEN`,
+  `TELEGRAM_BOT_USERNAME`, `PUBLIC_URL` and `MARKET_API_URL`. It is encrypted with `age` to
+  the `edge-prod-1` `encryptionRecipient`.
+- One-time setup: in the package settings, under *Manage Actions access*, give
+  `aiaiaiai-org/infra` **Read**.
+- **Reconcile deliveries** in infra deploys the head every 15 minutes, or on dispatch.
+- The manual `deploy-vps.yml` is kept only as a legacy fallback that still needs a valid
+  token.
+
 ## VPS deployment
 
 The VPS is the canonical runtime. The old Render Blueprint is not part of the
