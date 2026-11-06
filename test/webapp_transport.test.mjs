@@ -143,7 +143,7 @@ test("rejects a nominal HTTP success carrying status error", async () => {
 
 test("pins and mounts the current webapp-core contracts", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /92fb324f1f8f580f112442d7be87500c930be3ff/);
+  assert.match(source, /2b150a54eb40d718270cd15371c5a8ed3d9d6b23/);
   assert.match(source, /checkout-feedback-state\.js/);
   assert.match(source, /createCheckoutFeedbackState/);
   assert.match(source, /withCheckoutFeedback/);
@@ -166,5 +166,21 @@ test("paper replay uses the verified Telegram transport without exposing a servi
   assert.match(calls[0][0], /trading\/replays$/);
   assert.equal(calls[0][1].headers["x-telegram-init-data"], "signed");
   assert.deepEqual(JSON.parse(calls[0][1].body), { events: [], options: { starting_cash: "1000" } });
+  assert.equal(JSON.stringify(calls).includes("TRADING_LAB_TOKEN"), false);
+});
+
+test("leaderboard is a signed GET with encoded read-only filters", async () => {
+  const calls = [];
+  const transport = createTelegramTransport({
+    telegram: { initData: "signed" },
+    fetchImpl: async (url, options) => { calls.push([url, options]); return response({ status: "ok", data: { data_version: "20261105150001", traders: [] } }); }
+  });
+  assert.deepEqual(await transport.tradingLeaders({ sort: "pnl_ratio", limit: "20", min_lead_days: "90" }), { data_version: "20261105150001", traders: [] });
+  assert.match(calls[0][0], /\/trading\/leaders\?sort=pnl_ratio&limit=20&min_lead_days=90$/);
+  assert.equal(calls[0][1].method ?? "GET", "GET");
+  assert.equal(calls[0][1].body, undefined);
+  assert.equal(calls[0][1].headers["x-telegram-init-data"], "signed");
+  await transport.tradingLeaders();
+  assert.match(calls[1][0], /\/trading\/leaders$/);
   assert.equal(JSON.stringify(calls).includes("TRADING_LAB_TOKEN"), false);
 });
