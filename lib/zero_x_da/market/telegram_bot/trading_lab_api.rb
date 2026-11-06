@@ -54,6 +54,22 @@ module ZeroXDA::Market::TelegramBot
       perform(uri, Net::HTTP::Get.new(uri.request_uri), "leaderboard")
     end
 
+    # Paper copy of one OKX lead trader's real closed positions; no copy or order action.
+    # Trading Lab may read up to 3 throttled OKX pages, so this call allows a longer read,
+    # still below the Mini App transport timeout (15 s).
+    def copy_replay(unique_code:, options: {})
+      raise ArgumentError, "unique_code is invalid" unless unique_code.is_a?(String) && unique_code.match?(/\A(?:[0-9A-Za-z]{16}|[0-9]{18})\z/)
+      raise ArgumentError, "options must be an object" unless options.is_a?(Hash)
+      body = JSON.generate(unique_code: unique_code, options: options)
+      raise ArgumentError, "copy replay request is too large" if body.bytesize > 4096
+
+      uri = endpoint("/v1/paper/copy-replays")
+      request = Net::HTTP::Post.new(uri.request_uri)
+      request["content-type"] = "application/json"
+      request.body = body
+      perform(uri, request, "copy replay", read_timeout: 12)
+    end
+
     private
 
     # Trading Lab 422 messages describe the caller's own filters (e.g. "limit must be between 1 and 20").
@@ -69,9 +85,9 @@ module ZeroXDA::Market::TelegramBot
       uri
     end
 
-    def perform(uri, request, label)
+    def perform(uri, request, label, read_timeout: 8)
       request["authorization"] = "Bearer #{@token}"
-      response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https", open_timeout: 3, read_timeout: 8) do |http|
+      response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https", open_timeout: 3, read_timeout: read_timeout) do |http|
         http.request(request)
       end
       document = JSON.parse(response.body)

@@ -235,6 +235,10 @@ export function createTelegramTransport({
       return bootstrapPromise;
     },
     replayTrading({ events, options = {} }) { return requestResource("/trading/replays", { method: "POST", body: JSON.stringify({ events, options }) }); },
+    // Paper copy of one lead trader's real closed OKX positions; no order is placed.
+    copyTrading({ uniqueCode, options = {} }) {
+      return requestResource("/trading/copy-replays", { method: "POST", body: JSON.stringify({ unique_code: uniqueCode, options }) });
+    },
     // Read-only OKX leaderboard through the bot's private Trading Lab adapter.
     tradingLeaders(query = {}) {
       const params = new URLSearchParams(Object.entries(query).map(([key, value]) => [key, String(value)]));

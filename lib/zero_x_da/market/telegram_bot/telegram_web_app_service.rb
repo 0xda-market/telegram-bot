@@ -91,6 +91,13 @@ module ZeroXDA::Market::TelegramBot
         { "data" => @trading_lab_api.leaders(options: options) }
       end
 
+      def trading_copy_replay(init_data:, unique_code:, options: {})
+        raise PurchaseFlow::AccessDenied, "paper trading unavailable" unless @trading_lab_api
+        _session, user = authenticate(init_data)
+        raise PurchaseFlow::AccessDenied, "inactive market account" unless user.dig("attributes", "status") == "active"
+        { "data" => @trading_lab_api.copy_replay(unique_code: unique_code, options: options) }
+      end
+
       def quote(init_data:, sku:, quantity:, locale:, recipient: nil)
         session, user = authenticate(init_data)
         quote = @purchase_flow.quote(

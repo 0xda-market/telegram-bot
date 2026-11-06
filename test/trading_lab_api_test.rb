@@ -89,6 +89,20 @@ class TradingLabAPITest < Minitest::Test
     end
   end
 
+  def test_copy_replay_posts_code_and_options_with_service_token
+    body = JSON.generate(status: "ok", data: { "unique_code" => "9A8534AB09862774", "copied" => 3 })
+    with_lab(200, body) do |client, seen|
+      data = client.copy_replay(unique_code: "9A8534AB09862774", options: { "trade_notional" => "50" })
+      assert_equal 3, data["copied"]
+      assert_equal "POST /v1/paper/copy-replays HTTP/1.1", seen.first
+      assert(seen.any? { |line| line.casecmp?("authorization: Bearer fake-replay-token") })
+    end
+    client = build("http://market-trading-lab:1927")
+    assert_raises(ArgumentError) { client.copy_replay(unique_code: "../x") }
+    assert_raises(ArgumentError) { client.copy_replay(unique_code: "9A8534AB09862774", options: "x") }
+    assert_raises(ArgumentError) { client.copy_replay(unique_code: "9A8534AB09862774", options: { "x" => "y" * 5000 }) }
+  end
+
   def test_leaders_options_are_checked_before_transport
     client = build("http://market-trading-lab:1927")
     assert_raises(ArgumentError) { client.leaders(options: "sort=pnl") }
