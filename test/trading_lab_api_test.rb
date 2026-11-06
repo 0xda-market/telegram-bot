@@ -15,6 +15,8 @@ class TradingLabAPITest < Minitest::Test
     assert_instance_of ZeroXDA::Market::TelegramBot::TradingLabAPI,
                        build("http://market-trading-lab:1927")
     assert_instance_of ZeroXDA::Market::TelegramBot::TradingLabAPI,
+                       build("http://market-trading-lab-development:1703")
+    assert_instance_of ZeroXDA::Market::TelegramBot::TradingLabAPI,
                        build("http://localhost:9293")
     assert_instance_of ZeroXDA::Market::TelegramBot::TradingLabAPI,
                        build("https://trading-lab.example.test")
@@ -22,6 +24,8 @@ class TradingLabAPITest < Minitest::Test
 
   def test_arbitrary_cleartext_origins_are_refused
     %w[http://market-trading-lab:1928 http://market-trading-lab:1927/other
+       http://market-trading-lab:1703 http://market-trading-lab-development:1927
+       http://market-trading-lab-development:1703/other
        http://evil-market-trading-lab:1927 http://127.0.0.2:1927
        http://api.example.test:1927].each do |origin|
       assert_raises(ArgumentError, origin) { build(origin) }

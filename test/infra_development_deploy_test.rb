@@ -54,6 +54,7 @@ class InfraDevelopmentDeployTest < Minitest::Test
     assert_includes @contents, "secrets.TELEGRAM_BOT_TOKEN"
     assert_includes @contents, "secrets.TELEGRAM_WEBHOOK_SECRET"
     assert_includes @contents, "secrets.MARKET_API_TOKEN"
+    assert_includes @contents, "secrets.TRADING_LAB_TOKEN"
     assert_includes @contents, "vars.TELEGRAM_BOT_USERNAME"
     assert_includes @contents, "vars.MARKET_API_URL"
     assert_includes @contents, "vars.PUBLIC_URL"
