@@ -192,12 +192,16 @@ explicit instruction to start or resume the pricing command.
 ## One-click development stack deployment
 
 The manual GitHub Actions **Deploy complete Market development stack** workflow in
-`.github/workflows/deploy-stack.yml` coordinates three existing producer-owned,
-manual deployments in dependency order:
+`.github/workflows/deploy-stack.yml` coordinates the producer-owned manual
+deployments in dependency order:
 
 1. `core`: API, migrations, FX and pricing workers;
-2. `webapp-core`: its isolated, private static service through infra;
-3. `telegram-bot`: the Telegram Mini App host through infra.
+2. `webapp-core`: its isolated, private static service through infra.
+
+The bot itself (`market-bot-test`) is not dispatched: infra delivers it automatically
+from its `master` CI (see *Automatic development delivery*). The orchestrator still
+refuses to run unless the bot's exact `master` CI is green and `webapp/app.js` pins
+the `webapp-core` master SHA.
 
 Before any activation, the orchestrator checks each repository's current
 `master` commit and successful **push-triggered Full CI for that exact SHA**. It
@@ -207,10 +211,10 @@ waits for that particular downstream workflow to complete successfully before
 proceeding. The existing manual producer workflows remain usable individually.
 
 Configure GitHub Environment `development` in `telegram-bot` with the secret
-`MARKET_ORCHESTRATION_TOKEN`: a fine-grained GitHub token with **Actions: read/write** and **Contents: read** on all three
-`0xda-market` repositories. GitHub supplies repository metadata access
-implicitly. No VPS SSH secret is used by this orchestrator. Each
-producer continues to own its scoped `INFRA_DEPLOY_TOKEN` and delegates
+`MARKET_ORCHESTRATION_TOKEN`: a fine-grained GitHub token with **Actions: read/write** and **Contents: read** on the three
+`0xda-market` repositories (the bot is only read). GitHub supplies repository metadata access
+implicitly. No VPS SSH secret is used by this orchestrator. Core and WebApp
+continue to own their scoped `INFRA_DEPLOY_TOKEN` and delegate
 activation to `aiaiaiai-org/infra`, which owns the target server and SSH
 credentials.
 
@@ -235,8 +239,7 @@ remains an explicit, separate, manual operation and currently targets
 - One-time setup: in the package settings, under *Manage Actions access*, give
   `aiaiaiai-org/infra` **Read**.
 - **Reconcile deliveries** in infra deploys the head every 15 minutes, or on dispatch.
-- The manual `deploy-vps.yml` is kept only as a legacy fallback that still needs a valid
-  token.
+- The former manual `deploy-vps.yml` dispatch path and its `INFRA_DEPLOY_TOKEN` are removed.
 
 ## VPS deployment
 

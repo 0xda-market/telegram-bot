@@ -10,7 +10,6 @@ require "json"
 
 class MarketStackDeployWorkflowTest < Minitest::Test
   WORKFLOW = File.expand_path("../.github/workflows/deploy-stack.yml", __dir__)
-  BOT_WORKFLOW = File.expand_path("../.github/workflows/deploy-vps.yml", __dir__)
   SCRIPT = File.expand_path("../scripts/deploy-development-stack.sh", __dir__)
 
   def test_manual_only_deploy_with_one_serial_concurrency_group
@@ -28,8 +27,7 @@ class MarketStackDeployWorkflowTest < Minitest::Test
     contents = File.read(SCRIPT)
     assert_operator contents.index('dispatch_and_await "$core_repo"'), :<,
       contents.index('dispatch_and_await "$web_repo"')
-    assert_operator contents.index('dispatch_and_await "$web_repo"'), :<,
-      contents.index('dispatch_and_await "$bot_repo"')
+    refute_includes contents, 'dispatch_and_await "$bot_repo"'
     assert_includes contents, 'pinned_web_sha'
     assert_includes contents, 'head_sha=$sha'
     assert_includes contents, '.event == "push"'
@@ -38,15 +36,6 @@ class MarketStackDeployWorkflowTest < Minitest::Test
     assert_includes contents, 'workflow_dispatch'
     refute_includes contents, 'scp '
     refute_match(/\bssh -/, contents)
-  end
-
-  def test_bot_deploy_confirms_infra_activation
-    contents = File.read(BOT_WORKFLOW)
-    assert_includes contents, "run-name: Deploy Market Bot"
-    assert_includes contents, "request_id:"
-    assert_includes contents, "Verify matching infra activation and health"
-    assert_includes contents, 'request_id: $request_id'
-    assert_includes contents, 'title="Deploy $WORKLOAD / $GITHUB_RUN_ID"'
   end
 
   def test_stack_script_and_inline_workflow_steps_are_valid_bash
@@ -165,7 +154,7 @@ class MarketStackDeployWorkflowTest < Minitest::Test
   def test_fake_gh_stack_completes_in_order
     simulate_stack do |status, _stdout, stderr, result|
       assert status.success?, stderr
-      assert_equal %w[0xda-market/core 0xda-market/webapp-core 0xda-market/telegram-bot],
+      assert_equal %w[0xda-market/core 0xda-market/webapp-core],
         result.fetch("dispatches").map { |item| item.fetch("repo") }
       assert result.fetch("dispatches").all? { |item| item["request_id"] == "stack-12345-1" }
     end

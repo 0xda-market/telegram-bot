@@ -19,27 +19,20 @@ The bot consumes `0xda-market/core`; it does not own the core runtime or its pub
 
 ## GitHub delivery
 
-The **active development** deployment is manual-only through
-`.github/workflows/deploy-vps.yml` (`Deploy development via infra`). The product
-repository no longer uses SSH for this flow. It checks for successful push CI
-on the exact `master` commit, builds one GHCR image, and dispatches that
-immutable digest to `aiaiaiai-org/infra` as workload `market-bot-test`.
+The **active development** deployment is automatic delivery through infra
+(`aiaiaiai-org/infra` `docs/automatic-delivery.md`). The `publish-development` job
+in `.github/workflows/ci.yml` runs after green push CI on `master`. It publishes the
+attested image `ghcr.io/0xda-market/telegram-bot:<sha>` and the attested envelope
+`:<sha>.secrets`, and infra's **Reconcile deliveries** activates workload
+`market-bot-test`. The repository holds no infra token and no VPS `SSH_*` secret.
 
 GitHub Environment: `development`. Keep its own
-`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `MARKET_API_TOKEN`
-secrets and `TELEGRAM_BOT_USERNAME`, `PUBLIC_URL`, `MARKET_API_URL`
-variables. The organization-level `INFRA_DEPLOY_TOKEN` must be scoped to
-the producer repositories and must have dispatch and recipient-read access
-on infra. Product repositories must **not** receive VPS `SSH_*` secrets.
-
-A public key issued by infra for the contracted server encrypts the per-run
-bot credentials, but **never GHCR registry credentials**. Registry access belongs
-to `aiaiaiai-org/infra`: the target `edge-prod-1` Environment needs its own
-`GHCR_PULL_TOKEN` with `read:packages` access to the private
-`ghcr.io/0xda-market/telegram-bot` package, and the matching `GHCR_PULL_USER`.
-The producer job's short-lived `github.token` must not be sent to infra.
-Only infra's target GitHub Environment holds the key to decrypt the envelope.
-Infra owns network, port, host selection, activation, rollback and health checks.
+`TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `MARKET_API_TOKEN`, `TRADING_LAB_TOKEN`
+secrets and the `TELEGRAM_BOT_USERNAME`, `PUBLIC_URL`, `MARKET_API_URL` variables. The
+envelope holds exactly these names, encrypted with `age` to the `edge-prod-1`
+`encryptionRecipient` published in infra. Only infra's target Environment can decrypt it.
+The package is public, so infra pulls it without registry credentials. Infra owns the
+network, port, host selection, activation, rollback and health checks.
 
 The configured test bot identity must be a username, not a `t.me` URL:
 `zeroxda_market_test_bot`; `PUBLIC_URL` is

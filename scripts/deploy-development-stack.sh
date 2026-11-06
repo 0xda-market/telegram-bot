@@ -116,9 +116,10 @@ verify_ci "$bot_repo" "$bot_sha"
   echo "- Bot revision: $bot_sha"
 } >> "$GITHUB_STEP_SUMMARY"
 
-# Core includes API migrations and workers; it must finish before webapp/bot.
+# Core includes API migrations and workers; it must finish before webapp.
 dispatch_and_await "$core_repo" "deploy-vps.yml" "$core_sha" "Deploy Market Core $request_id"
 dispatch_and_await "$web_repo" "deploy-development.yml" "$web_sha" "Deploy Market WebApp $request_id"
-dispatch_and_await "$bot_repo" "deploy-vps.yml" "$bot_sha" "Deploy Market Bot $request_id"
 
-echo "All three producer workflows and infra activations finished successfully." >> "$GITHUB_STEP_SUMMARY"
+# The bot (market-bot-test) is delivered by infra automatic delivery from its own
+# master CI; it has no dispatch workflow. Its CI and WebApp pin were checked above.
+echo "Core and WebApp activations finished successfully; the bot is delivered automatically by infra." >> "$GITHUB_STEP_SUMMARY"
