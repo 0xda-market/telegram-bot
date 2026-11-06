@@ -332,3 +332,7 @@ dialog { width: min(calc(100% - var(--space-5)), 460px); border: 0; border-radiu
 .trading-leader-list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
 .trading-leader { display: grid; gap: 2px; padding: var(--space-2) var(--space-3); border: 1px solid var(--edge-control); border-radius: var(--radius-control); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .trading-leader p { font-size: 13px; color: var(--text-secondary); }
+.trading-copy { display: grid; gap: var(--space-2); margin-top: var(--space-2); }
+.trading-copy-action { min-height: var(--target-min); }
+.trading-copy-result { display: grid; gap: 2px; font-variant-numeric: tabular-nums; }
+.trading-copy-result p:last-child { font-size: 12px; color: var(--text-secondary); }
