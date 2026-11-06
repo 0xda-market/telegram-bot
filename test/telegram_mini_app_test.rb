@@ -40,6 +40,11 @@ class TelegramMiniAppTest < Minitest::Test
       { "data" => { "equity" => "1000.0", "net_pnl" => "0.0" } }
     end
 
+    def trading_copy_replay(init_data:, unique_code:, options: {})
+      @requests << [:trading_copy_replay, init_data, unique_code, options]
+      { "data" => { "unique_code" => unique_code, "copied" => 2 } }
+    end
+
     def trading_leaders(init_data:, options: {})
       @requests << [:trading_leaders, init_data, options]
       { "data" => { "data_version" => "20261105150001", "traders" => [] } }
@@ -282,6 +287,18 @@ class TelegramMiniAppTest < Minitest::Test
       assert_equal [status, code, error.message], [response.status, document["error"], document["message"]], error.class.name
       refute_includes response.body, "Bearer"
     end
+  end
+
+  def test_trading_copy_replay_uses_signed_session_and_body
+    response = @client.post(
+      "/webapp/trading/copy-replays",
+      "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data",
+      "CONTENT_TYPE" => "application/json",
+      input: JSON.generate(unique_code: "9A8534AB09862774", options: { trade_notional: "50" })
+    )
+    assert_equal 200, response.status
+    assert_equal ["ok", 2], JSON.parse(response.body).values_at("status").push(JSON.parse(response.body).dig("data", "copied"))
+    assert_equal [[:trading_copy_replay, "signed-init-data", "9A8534AB09862774", { "trade_notional" => "50" }]], @service.requests
   end
 
   def test_trading_leaders_uses_signed_session_and_query

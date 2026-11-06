@@ -366,6 +366,22 @@ class TelegramWebAppServiceTest < Minitest::Test
     assert_empty lab.calls
   end
 
+  def test_trading_copy_replay_requires_active_verified_account
+    lab = TradingLab.new
+    lab.define_singleton_method(:copy_replay) { |unique_code:, options:| calls << [unique_code, options]; { "copied" => 1 } }
+    result = trading_service(lab: lab).trading_copy_replay(init_data: "signed", unique_code: "9A8534AB09862774", options: {})
+    assert_equal 1, result.dig("data", "copied")
+    assert_equal [["9A8534AB09862774", {}]], lab.calls
+    inactive = TradingLab.new
+    inactive.define_singleton_method(:copy_replay) { |**| raise "must not be called" }
+    assert_raises(ZeroXDA::Market::TelegramBot::PurchaseFlow::AccessDenied) do
+      trading_service(market: InactiveMarket.new, lab: inactive).trading_copy_replay(init_data: "signed", unique_code: "9A8534AB09862774")
+    end
+    assert_raises(ZeroXDA::Market::TelegramBot::TelegramWebAppAuth::Invalid) do
+      trading_service(authentication: RejectingAuthentication.new, lab: inactive).trading_copy_replay(init_data: "", unique_code: "9A8534AB09862774")
+    end
+  end
+
   def test_trading_leaders_unavailable_without_trading_lab
     authentication = Authentication.new
     assert_raises(ZeroXDA::Market::TelegramBot::PurchaseFlow::AccessDenied) do

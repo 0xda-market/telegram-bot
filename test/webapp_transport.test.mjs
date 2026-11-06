@@ -184,3 +184,16 @@ test("leaderboard is a signed GET with encoded read-only filters", async () => {
   assert.match(calls[1][0], /\/trading\/leaders$/);
   assert.equal(JSON.stringify(calls).includes("TRADING_LAB_TOKEN"), false);
 });
+
+test("copy trading posts the lead trader code and options through the signed transport", async () => {
+  const calls = [];
+  const transport = createTelegramTransport({
+    telegram: { initData: "signed" },
+    fetchImpl: async (url, options) => { calls.push([url, options]); return response({ status: "ok", data: { copied: 3 } }); }
+  });
+  assert.deepEqual(await transport.copyTrading({ uniqueCode: "9A8534AB09862774", options: { trade_notional: "50" } }), { copied: 3 });
+  assert.match(calls[0][0], /\/trading\/copy-replays$/);
+  assert.equal(calls[0][1].method, "POST");
+  assert.deepEqual(JSON.parse(calls[0][1].body), { unique_code: "9A8534AB09862774", options: { trade_notional: "50" } });
+  assert.equal(calls[0][1].headers["x-telegram-init-data"], "signed");
+});
