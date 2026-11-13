@@ -1,0 +1,176 @@
+# © 2026 aiaiaiai · aiaiaiai.org
+# SPDX-License-Identifier: MIT
+name: Publish Market Bot production candidate
+run-name: Publish Market Bot production ${{ github.sha }}
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: market-bot-production-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Verify exact-head CI and publish attested production candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment:
+      name: production
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      IMAGE: ghcr.io/0xda-market/telegram-bot-production
+    steps:
+      - name: Require latest master with successful push CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = refs/heads/master || {
+            echo "::error::Production candidates must be published from master." >&2
+            exit 1
+          }
+          current="$(gh api "repos/$GITHUB_REPOSITORY/commits/master" --jq '.sha')"
+          test "$current" = "$GITHUB_SHA" || {
+            echo "::error::Master moved; dispatch this workflow again at its current head." >&2
+            exit 1
+          }
+          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=push&head_sha=$GITHUB_SHA&per_page=30")"
+          jq -e --arg sha "$GITHUB_SHA" '
+            [.workflow_runs[] | select(
+              .head_sha == $sha and .head_branch == "master" and
+              .event == "push" and .status == "completed" and
+              .conclusion == "success"
+            )] | length > 0
+          ' <<<"$runs" >/dev/null || {
+            echo "::error::No successful push-triggered Full CI for the exact master head." >&2
+            exit 1
+          }
+
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Validate isolated production configuration
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+          MARKET_API_TOKEN: ${{ secrets.MARKET_API_TOKEN }}
+          TRADING_LAB_TOKEN: ${{ secrets.TRADING_LAB_TOKEN }}
+          TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME }}
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+          MARKET_API_URL: ${{ vars.MARKET_API_URL }}
+        run: |
+          set -Eeuo pipefail
+          for name in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET MARKET_API_TOKEN TRADING_LAB_TOKEN TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL; do
+            value="$(printenv "$name")"
+            test -n "$value" || { echo "::error::Missing production configuration $name" >&2; exit 1; }
+            [[ "$value" != *$'\n'* && "$value" != *$'\r'* ]] || {
+              echo "::error::Invalid multiline production configuration $name" >&2
+              exit 1
+            }
+          done
+          [[ "$TELEGRAM_BOT_USERNAME" =~ ^[A-Za-z0-9_]{5,32}$ ]] || {
+            echo "::error::TELEGRAM_BOT_USERNAME must be a username without @." >&2
+            exit 1
+          }
+          test "$TELEGRAM_BOT_USERNAME" != zeroxda_market_test_bot || {
+            echo "::error::The development Telegram identity cannot be used for production." >&2
+            exit 1
+          }
+          test "$PUBLIC_URL" = "https://0xda-market.nilx.one/bot" || {
+            echo "::error::Production PUBLIC_URL must use /bot, not /bot-test." >&2
+            exit 1
+          }
+          test "$MARKET_API_URL" = "http://market-api-production:1927" || {
+            echo "::error::Production bot must use production Core on the private network." >&2
+            exit 1
+          }
+          [[ "$TELEGRAM_WEBHOOK_SECRET" =~ ^[A-Za-z0-9_-]{1,256}$ ]] || {
+            echo "::error::Invalid Telegram webhook secret alphabet." >&2
+            exit 1
+          }
+
+      - name: Authenticate to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Publish immutable production image
+        id: image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+
+      - name: Attest production image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+
+      - name: Encrypt production credentials for edge-prod-1
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+          MARKET_API_TOKEN: ${{ secrets.MARKET_API_TOKEN }}
+          TRADING_LAB_TOKEN: ${{ secrets.TRADING_LAB_TOKEN }}
+          TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME }}
+          PUBLIC_URL: ${{ vars.PUBLIC_URL }}
+          MARKET_API_URL: ${{ vars.MARKET_API_URL }}
+        run: |
+          set -Eeuo pipefail
+          umask 077
+          contract="$(curl --fail --silent --show-error --location --retry 2 --max-time 20 \
+            https://raw.githubusercontent.com/aiaiaiai-org/infra/master/contracts/servers/edge-prod-1.yaml)"
+          recipient="$(sed -n 's/^  encryptionRecipient: //p' <<<"$contract")"
+          [[ "$recipient" =~ ^ssh-ed25519\ [A-Za-z0-9+/]{68}$ ]] || {
+            echo "::error::No valid production server encryption recipient." >&2
+            exit 1
+          }
+          sudo apt-get -o Acquire::Retries=2 update -qq
+          sudo apt-get -o Acquire::Retries=2 install -y -qq age
+          mkdir -p "$RUNNER_TEMP/production-envelope"
+          for name in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET MARKET_API_TOKEN TRADING_LAB_TOKEN TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL; do
+            printf '%s=%s\n' "$name" "$(printenv "$name")"
+          done | age --recipient "$recipient" --output "$RUNNER_TEMP/production-envelope/secrets.age"
+          test -s "$RUNNER_TEMP/production-envelope/secrets.age"
+          printf 'FROM scratch\nCOPY secrets.age /secrets.age\n' > "$RUNNER_TEMP/production-envelope/Dockerfile"
+          echo "ENVELOPE_CONTEXT=$RUNNER_TEMP/production-envelope" >> "$GITHUB_ENV"
+
+      - name: Publish production secret envelope
+        id: envelope
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.ENVELOPE_CONTEXT }}
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: ${{ env.IMAGE }}:${{ github.sha }}.secrets
+
+      - name: Attest production secret envelope
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.envelope.outputs.digest }}
+          push-to-registry: true
+
+      - name: Print candidate instructions
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          echo "Production candidate for $COMMIT_SHA was published and attested." >> "$GITHUB_STEP_SUMMARY"
+          echo "This workflow did not deploy. Verify Core, edge routing, secrets and readiness, then explicitly dispatch infra Reconcile deliveries with workload=market-bot-production." >> "$GITHUB_STEP_SUMMARY"
