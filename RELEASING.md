@@ -25,13 +25,13 @@ for example, release `0.1.0` is tagged `v0.1.0` rather than `release_0.1`.
 6. Register or verify the production Telegram webhook explicitly only after
    `https://0xda-market.nilx.one/bot/health` is healthy. Do not infer
    registration from an infra deploy. Development must never perform this cutover.
-5. Verify `/health`, `/bot/health`, `/start`, `/buy`, `/apply_prices`, one
+7. Verify `/health`, `/bot/health`, `/start`, `/buy`, `/apply_prices`, one
    controlled price update and the production price-digest timer.
-6. Run **Prepare GitHub release** with `vX.Y.Z`, or create
+8. Run **Prepare GitHub release** with `vX.Y.Z`, or create
    `release-request/vX.Y.Z` from the exact production-branch HEAD. The workflow
    retests the commit, builds the image, creates an annotated tag and saves a
    draft GitHub Release.
-7. Review the draft and publish it after the matching core release is public.
+9. Review the draft and publish it after the matching core release is public.
 
 Tags are immutable release coordinates: never move or reuse a published tag.
 
