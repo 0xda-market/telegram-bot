@@ -98,6 +98,15 @@ jobs:
             echo "::error::Invalid Telegram webhook secret alphabet." >&2
             exit 1
           }
+          # A configured username is not proof that the credential belongs to that bot.
+          identity="$(curl --fail --silent --show-error --max-time 15 \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe")"
+          jq -e --arg username "$TELEGRAM_BOT_USERNAME" '
+            .ok == true and .result.is_bot == true and .result.username == $username
+          ' <<<"$identity" >/dev/null || {
+            echo "::error::Production Bot API token does not match TELEGRAM_BOT_USERNAME." >&2
+            exit 1
+          }
 
       - name: Authenticate to GHCR
         uses: docker/login-action@v3
