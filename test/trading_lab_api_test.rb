@@ -7,8 +7,8 @@ require "zero_x_da/market/telegram_bot/trading_lab_api"
 require "socket"
 
 class TradingLabAPITest < Minitest::Test
-  def build(origin, token = "fake-replay-token")
-    ZeroXDA::Market::TelegramBot::TradingLabAPI.new(origin: origin, token: token)
+  def build(origin, token = "fake-replay-token", reporter: nil)
+    ZeroXDA::Market::TelegramBot::TradingLabAPI.new(origin: origin, token: token, reporter: reporter)
   end
 
   def test_explicit_infra_private_host_and_port_are_allowed
@@ -48,7 +48,7 @@ class TradingLabAPITest < Minitest::Test
   end
 
   # Serves one HTTP response on 127.0.0.1 and records the raw request head.
-  def with_lab(status, body)
+  def with_lab(status, body, reporter: nil)
     server = TCPServer.new("127.0.0.1", 0)
     seen = []
     thread = Thread.new do
@@ -59,7 +59,7 @@ class TradingLabAPITest < Minitest::Test
       client.write "HTTP/1.1 #{status} X\r\nContent-Type: application/json\r\nContent-Length: #{body.bytesize}\r\nConnection: close\r\n\r\n#{body}"
       client.close
     end
-    yield build("http://127.0.0.1:#{server.addr[1]}"), seen
+    yield build("http://127.0.0.1:#{server.addr[1]}", reporter: reporter), seen
   ensure
     thread&.join(2)
     server&.close
@@ -94,6 +94,25 @@ class TradingLabAPITest < Minitest::Test
                                 message: "too many positions to quote in one replay; lower max_positions")) do |client, _|
       error = assert_raises(ArgumentError) { client.copy_replay(unique_code: "9A8534AB09862774") }
       assert_equal "too many positions to quote in one replay; lower max_positions", error.message
+    end
+  end
+
+  def test_copy_replay_reports_502_with_correlated_safe_metadata
+    reports = []
+    reporter = Object.new
+    reporter.define_singleton_method(:report) { |**entry| reports << entry }
+    with_lab(502, JSON.generate(status: "error", error: "upstream_unavailable"), reporter: reporter) do |client, seen|
+      assert_raises(ZeroXDA::Market::TelegramBot::TradingLabAPI::Error) do
+        client.copy_replay(unique_code: "9A8534AB09862774")
+      end
+      event = reports.fetch(0)
+      assert_equal "market.trading.upstream.unavailable", event[:error_id]
+      assert_equal 502, event.dig(:context, :upstream_status)
+      assert_equal "copy_replay", event.dig(:context, :operation)
+      assert_match(/\A[0-9a-f-]{36}\z/, event[:correlation_id])
+      assert(seen.any? { |line| line.downcase.start_with?("x-correlation-id: ") })
+      refute_includes JSON.generate(event), "9A8534AB09862774"
+      refute_includes JSON.generate(event), "fake-replay-token"
     end
   end
 

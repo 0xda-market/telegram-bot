@@ -137,6 +137,7 @@ jobs:
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
           MARKET_API_TOKEN: ${{ secrets.MARKET_API_TOKEN }}
           TRADING_LAB_TOKEN: ${{ secrets.TRADING_LAB_TOKEN }}
+          FOUR_X_ERRORS_URL: ${{ vars.FOUR_X_ERRORS_URL }}
           TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME }}
           PUBLIC_URL: ${{ vars.PUBLIC_URL }}
           MARKET_API_URL: ${{ vars.MARKET_API_URL }}
@@ -150,10 +151,15 @@ jobs:
             echo "::error::No valid production server encryption recipient." >&2
             exit 1
           }
+          # Collector address is public; the collector owns its database secret.
+          [[ "$FOUR_X_ERRORS_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?/?$ ]] || {
+            echo "::error::FOUR_X_ERRORS_URL must be a configured HTTPS origin." >&2
+            exit 1
+          }
           sudo apt-get -o Acquire::Retries=2 update -qq
           sudo apt-get -o Acquire::Retries=2 install -y -qq age
           mkdir -p "$RUNNER_TEMP/production-envelope"
-          for name in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET MARKET_API_TOKEN TRADING_LAB_TOKEN TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL; do
+          for name in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET MARKET_API_TOKEN TRADING_LAB_TOKEN TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL FOUR_X_ERRORS_URL; do
             printf '%s=%s\n' "$name" "$(printenv "$name")"
           done | age --recipient "$recipient" --output "$RUNNER_TEMP/production-envelope/secrets.age"
           test -s "$RUNNER_TEMP/production-envelope/secrets.age"
