@@ -22,7 +22,7 @@ module ZeroXDA::Market::TelegramBot
       origin = "#{public_url.scheme}://#{public_url.host}"
       origin += ":#{public_url.port}" unless public_url.default_port == public_url.port
       new(endpoint: endpoint, origin: origin)
-    rescue ArgumentError, URI::InvalidURIError
+    rescue ArgumentError, KeyError, URI::InvalidURIError
       nil
     end
 
