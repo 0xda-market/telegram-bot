@@ -6,7 +6,7 @@ import { localizeTelegramShell } from "./adapter/shell-localization.js";
 import { createStartupController } from "./adapter/startup-controller.js";
 import { createTelegramTransport } from "./adapter/telegram-transport.js";
 
-const WEBAPP_CORE_REVISION = "646fac4dcab7c77127d209e1efd05ebe672a1e38";
+const WEBAPP_CORE_REVISION = "4da42f97b2aaf2f3b004d8caa0eba8fb0308beb1";
 const runtime = globalThis.__ZERO_X_DA_MARKET__ || {};
 const webappCoreModuleUrl = runtime.webappCoreModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/index.js`;
