@@ -9,7 +9,7 @@ require "time"
 require "uri"
 
 module ZeroXDA::Market::TelegramBot
-  # Noncritical, bounded trusted-server errors.v1 producer. No browser or DB credentials.
+  # Noncritical, bounded public errors.v1 producer. No collector token or DB credentials.
   # No collector config => null reporter; errors never affect checkout or paper trading.
   class ErrorsReporter
     MAX_PENDING = 32
@@ -17,23 +17,27 @@ module ZeroXDA::Market::TelegramBot
 
     def self.from_env
       endpoint = ENV.fetch("FOUR_X_ERRORS_URL", "")
-      token = ENV.fetch("FOUR_X_ERRORS_TOKEN", "")
-      return nil if endpoint.empty? || token.empty?
-      new(endpoint: endpoint, token: token)
+      return nil if endpoint.empty?
+      public_url = URI.parse(ENV.fetch("PUBLIC_URL"))
+      origin = "#{public_url.scheme}://#{public_url.host}"
+      origin += ":#{public_url.port}" unless public_url.default_port == public_url.port
+      new(endpoint: endpoint, origin: origin)
     rescue ArgumentError, URI::InvalidURIError
       nil
     end
 
-    def initialize(endpoint:, token:, transport: nil)
+    def initialize(endpoint:, origin:, transport: nil)
       @uri = URI.parse(endpoint)
       local = %w[localhost 127.0.0.1 ::1].include?(@uri.hostname)
       valid_scheme = @uri.scheme == "https" || (local && @uri.scheme == "http")
       raise ArgumentError, "collector requires HTTPS" unless valid_scheme
       raise ArgumentError, "collector origin must be bare" if @uri.userinfo || @uri.query || @uri.fragment ||
                                                              !["", "/"].include?(@uri.path)
-      raise ArgumentError, "ingest token is required" if token.to_s.empty?
-      @token = token
-      @uri.path = "/v1/events"
+      @origin = URI.parse(origin)
+      raise ArgumentError, "source origin must be a bare HTTPS origin" unless
+        @origin.scheme == "https" && @origin.host && @origin.userinfo.nil? &&
+        @origin.query.nil? && @origin.fragment.nil? && ["", "/"].include?(@origin.path)
+      @uri.path = "/v1/browser/events"
       @queue = SizedQueue.new(MAX_PENDING)
       @transport = transport || method(:deliver)
       @worker = Thread.new do
@@ -79,7 +83,7 @@ module ZeroXDA::Market::TelegramBot
     def deliver(event)
       request = Net::HTTP::Post.new(@uri.request_uri)
       request["content-type"] = "application/json"
-      request["authorization"] = "Bearer #{@token}"
+      request["origin"] = @origin.to_s.delete_suffix("/")
       request.body = JSON.generate(event)
       Net::HTTP.start(@uri.hostname, @uri.port, use_ssl: @uri.scheme == "https",
                       open_timeout: 0.5, read_timeout: 0.8, write_timeout: 0.5) do |http|
