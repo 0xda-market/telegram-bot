@@ -137,6 +137,8 @@ jobs:
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
           MARKET_API_TOKEN: ${{ secrets.MARKET_API_TOKEN }}
           TRADING_LAB_TOKEN: ${{ secrets.TRADING_LAB_TOKEN }}
+          FOUR_X_ERRORS_URL: ${{ vars.FOUR_X_ERRORS_URL }}
+          FOUR_X_ERRORS_TOKEN: ${{ secrets.FOUR_X_ERRORS_TOKEN }}
           TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME }}
           PUBLIC_URL: ${{ vars.PUBLIC_URL }}
           MARKET_API_URL: ${{ vars.MARKET_API_URL }}
@@ -150,10 +152,91 @@ jobs:
             echo "::error::No valid production server encryption recipient." >&2
             exit 1
           }
-          sudo apt-get -o Acquire::Retries=2 update -qq
+          # Both values must be set to enable optional server telemetry.
+          if [[ -n "$FOUR_X_ERRORS_URL" || -n "$FOUR_X_ERRORS_TOKEN" ]]; then
+            [[ "$FOUR_X_ERRORS_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?/?$ ]] || {
+              echo "::error::FOUR_X_ERRORS_URL must be a bare HTTPS origin." >&2
+              exit 1
+            }
+            test -n "$FOUR_X_ERRORS_TOKEN" || {
+              echo "::error::FOUR_X_ERRORS_TOKEN required when telemetry enabled." >&2
+              exit 1
+            }
+            [[ "$FOUR_X_ERRORS_TOKEN" != *
           sudo apt-get -o Acquire::Retries=2 install -y -qq age
           mkdir -p "$RUNNER_TEMP/production-envelope"
           for name in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET MARKET_API_TOKEN TRADING_LAB_TOKEN TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL; do
+            printf '%s=%s\n' "$name" "$(printenv "$name")"
+          done | age --recipient "$recipient" --output "$RUNNER_TEMP/production-envelope/secrets.age"
+          test -s "$RUNNER_TEMP/production-envelope/secrets.age"
+          printf 'FROM scratch\nCOPY secrets.age /secrets.age\n' > "$RUNNER_TEMP/production-envelope/Dockerfile"
+          echo "ENVELOPE_CONTEXT=$RUNNER_TEMP/production-envelope" >> "$GITHUB_ENV"
+
+      - name: Publish production secret envelope
+        id: envelope
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.ENVELOPE_CONTEXT }}
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: ${{ env.IMAGE }}:${{ github.sha }}.secrets
+
+      - name: Attest production secret envelope
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.envelope.outputs.digest }}
+          push-to-registry: true
+
+      - name: Print candidate instructions
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          echo "Production candidate for $COMMIT_SHA was published and attested." >> "$GITHUB_STEP_SUMMARY"
+          echo "This workflow did not deploy. Verify Core, edge routing, secrets and readiness, then explicitly dispatch infra Reconcile deliveries with workload=market-bot-production." >> "$GITHUB_STEP_SUMMARY"
+\n'* && "$FOUR_X_ERRORS_TOKEN" != *
+          sudo apt-get -o Acquire::Retries=2 install -y -qq age
+          mkdir -p "$RUNNER_TEMP/production-envelope"
+          for name in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET MARKET_API_TOKEN TRADING_LAB_TOKEN TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL; do
+            printf '%s=%s\n' "$name" "$(printenv "$name")"
+          done | age --recipient "$recipient" --output "$RUNNER_TEMP/production-envelope/secrets.age"
+          test -s "$RUNNER_TEMP/production-envelope/secrets.age"
+          printf 'FROM scratch\nCOPY secrets.age /secrets.age\n' > "$RUNNER_TEMP/production-envelope/Dockerfile"
+          echo "ENVELOPE_CONTEXT=$RUNNER_TEMP/production-envelope" >> "$GITHUB_ENV"
+
+      - name: Publish production secret envelope
+        id: envelope
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.ENVELOPE_CONTEXT }}
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: ${{ env.IMAGE }}:${{ github.sha }}.secrets
+
+      - name: Attest production secret envelope
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.envelope.outputs.digest }}
+          push-to-registry: true
+
+      - name: Print candidate instructions
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          echo "Production candidate for $COMMIT_SHA was published and attested." >> "$GITHUB_STEP_SUMMARY"
+          echo "This workflow did not deploy. Verify Core, edge routing, secrets and readiness, then explicitly dispatch infra Reconcile deliveries with workload=market-bot-production." >> "$GITHUB_STEP_SUMMARY"
+\r'* ]] || {
+              echo "::error::FOUR_X_ERRORS_TOKEN must be single-line." >&2
+              exit 1
+            }
+          fi
+          sudo apt-get -o Acquire::Retries=2 update -qq
+          sudo apt-get -o Acquire::Retries=2 install -y -qq age
+          mkdir -p "$RUNNER_TEMP/production-envelope"
+          for name in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET MARKET_API_TOKEN TRADING_LAB_TOKEN TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL FOUR_X_ERRORS_URL FOUR_X_ERRORS_TOKEN; do
             printf '%s=%s\n' "$name" "$(printenv "$name")"
           done | age --recipient "$recipient" --output "$RUNNER_TEMP/production-envelope/secrets.age"
           test -s "$RUNNER_TEMP/production-envelope/secrets.age"
