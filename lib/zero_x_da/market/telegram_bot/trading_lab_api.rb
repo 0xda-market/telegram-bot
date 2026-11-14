@@ -76,7 +76,7 @@ module ZeroXDA::Market::TelegramBot
     # Pass through only short plain text; anything else falls back to a generic message.
     def safe_message(document)
       message = document.is_a?(Hash) ? document["message"] : nil
-      message if message.is_a?(String) && message.match?(/\A[\w .,:()<>=-]{1,120}\z/)
+      message if message.is_a?(String) && message.match?(/\A[\w .,:;()<>=-]{1,120}\z/)
     end
 
     def endpoint(path)
