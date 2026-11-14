@@ -18,9 +18,10 @@ Configure both values in the GitHub **production** environment of
 
 The collector must first configure the SHA-256 digest of that token for the
 **exact** project key in `INGEST_TOKEN_DIGESTS` and be able to persist into its
-own database. The bot **never** gets a PostgreSQL/Supabase credential. Both
-values missing means a null reporter and no change in application behaviour;
-only one set is an invalid production release configuration.
+own database. The bot **never** gets a PostgreSQL/Supabase credential. An unconfigured reporter is null in code, but **the production publication
+workflow requires both values** because Infra rejects empty mapped secrets.
+Provision the collector and its project-bound token before merging/activating
+the updated delivery contract. Tokens must be 43–128 base64url characters.
 
 Delivery is asynchronous via a fixed 32-event memory queue, one worker and
 sub-second HTTP timeouts; there is **no retry** on collector failure. Events can
