@@ -89,6 +89,14 @@ class TradingLabAPITest < Minitest::Test
     end
   end
 
+  def test_copy_replay_exposes_safe_quote_budget_error_instead_of_generic_validation
+    with_lab(422, JSON.generate(status: "error", error: "invalid_request",
+                                message: "too many positions to quote in one replay; lower max_positions")) do |client, _|
+      error = assert_raises(ArgumentError) { client.copy_replay(unique_code: "9A8534AB09862774") }
+      assert_equal "too many positions to quote in one replay; lower max_positions", error.message
+    end
+  end
+
   def test_copy_replay_posts_code_and_options_with_service_token
     body = JSON.generate(status: "ok", data: { "unique_code" => "9A8534AB09862774", "copied" => 3 })
     with_lab(200, body) do |client, seen|
