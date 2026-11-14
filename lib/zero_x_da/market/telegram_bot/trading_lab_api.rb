@@ -6,6 +6,7 @@ require "net/http"
 require "json"
 require "uri"
 require_relative "namespace"
+require_relative "errors_reporter"
 
 module ZeroXDA::Market::TelegramBot
   # Server-only adapter to a private, paper-only Trading Lab service.
@@ -16,7 +17,7 @@ module ZeroXDA::Market::TelegramBot
     LEADER_OPTIONS = %w[sort state min_lead_days min_assets max_assets min_aum max_aum data_version page limit].freeze
     LEADER_VALUE = /\A[A-Za-z0-9_]{1,32}\z/
 
-    def initialize(origin:, token:)
+    def initialize(origin:, token:, reporter: ErrorsReporter.from_env)
       @base = URI.parse(origin.to_s)
       raise ArgumentError, "Trading Lab origin must not include credentials or a query" if @base.userinfo || @base.query || @base.fragment
       local = %w[127.0.0.1 localhost ::1].include?(@base.hostname)
@@ -27,6 +28,7 @@ module ZeroXDA::Market::TelegramBot
         @base.scheme == "https" || (@base.scheme == "http" && (local || docker_service))
       raise ArgumentError, "Trading Lab token is required" if token.to_s.strip.empty?
       @token = token.to_s
+      @reporter = reporter
     end
 
     def replay(events:, options: {})
@@ -86,16 +88,40 @@ module ZeroXDA::Market::TelegramBot
     end
 
     def perform(uri, request, label, read_timeout: 8)
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      correlation_id = SecureRandom.uuid
       request["authorization"] = "Bearer #{@token}"
+      request["x-correlation-id"] = correlation_id
       response = Net::HTTP.start(uri.hostname, uri.port, use_ssl: uri.scheme == "https", open_timeout: 3, read_timeout: read_timeout) do |http|
         http.request(request)
       end
       document = JSON.parse(response.body)
-      raise ArgumentError, safe_message(document) || "invalid #{label} request" if response.code == "422"
-      raise Error, "Trading Lab #{label} is unavailable (HTTP #{response.code})" unless response.code == "200" && document["status"] == "ok" && document["data"].is_a?(Hash)
+      if response.code == "422"
+        report_failure("market.trading.request.rejected", "Trading Lab rejected a paper request", label,
+                       started, correlation_id, severity: "warning", upstream_status: 422)
+        raise ArgumentError, safe_message(document) || "invalid #{label} request"
+      end
+      unless response.code == "200" && document.is_a?(Hash) && document["status"] == "ok" && document["data"].is_a?(Hash)
+        report_failure("market.trading.upstream.unavailable", "Trading Lab returned an unsuccessful response", label,
+                       started, correlation_id, upstream_status: response.code.to_i)
+        raise Error, "Trading Lab #{label} is unavailable (HTTP #{response.code})"
+      end
       document.fetch("data")
     rescue JSON::ParserError, IOError, SystemCallError, Timeout::Error, OpenSSL::SSL::SSLError => error
+      report_failure("market.trading.transport.failed", "Trading Lab transport or response failed", label,
+                     started, correlation_id, exception_type: error.class.name.split("::").last)
       raise Error, "Trading Lab #{label} is unavailable (#{error.class})"
+    end
+
+    # Never copy Telegram initData, user IDs, trader codes, request bodies, tokens or raw
+    # upstream exception messages into 4x-errors. Only fixed operation and bounded metrics.
+    def report_failure(error_id, message, label, started, correlation_id, severity: "error", **details)
+      elapsed_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
+      @reporter&.report(error_id: error_id, message: message, severity: severity,
+                        correlation_id: correlation_id,
+                        context: { operation: label.tr(" ", "_"), elapsed_ms: elapsed_ms }.merge(details))
+    rescue StandardError
+      nil
     end
   end
 end
