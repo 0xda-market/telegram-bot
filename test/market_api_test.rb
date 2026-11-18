@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# © 2026 aiaiaiai · aiaiaiai.org
 
 require_relative "test_helper"
 require "zero_x_da/market/telegram_bot/market_api"
@@ -35,7 +36,8 @@ class MarketAPITest < Minitest::Test
     api.customer_assertions(secret: secret, clock: -> { Time.at(1_800_000_000) })
 
     order = api.create_issuer_order(customer: { user_id: "user-1", telegram_user_id: 77 },
-                                    sku: "0x1_special_1m", denomination: "seeds", idempotency_key: "tg.77.a.0x1_special_1m")
+                                    sku: "0x1_special_1m", denomination: "seeds", idempotency_key: "tg.77.a.0x1_special_1m",
+                                    expected_price_id: 4, expected_amount_minor: 640, expected_recipient_subject: "0x0sky")
     assert_equal "order-1", order.fetch("id")
     request = api.requests.last
     assert_equal "/v1/issuer-orders", api.uris.last.path
@@ -47,7 +49,8 @@ class MarketAPITest < Minitest::Test
     padded = payload.tr("-_", "+/") + ("=" * (-payload.length % 4))
     assert_equal({ "user_id" => "user-1", "provider" => "telegram", "provider_user_id" => "77",
                    "iat" => 1_800_000_000, "exp" => 1_800_000_060 }, JSON.parse(padded.unpack1("m0")))
-    assert_equal({ "sku" => "0x1_special_1m", "denomination" => "seeds", "idempotency_key" => "tg.77.a.0x1_special_1m" },
+    assert_equal({ "sku" => "0x1_special_1m", "denomination" => "seeds", "idempotency_key" => "tg.77.a.0x1_special_1m",
+                   "expected_price_id" => 4, "expected_amount_minor" => 640, "expected_recipient_subject" => "0x0sky" },
                  JSON.parse(request.body))
   end
 

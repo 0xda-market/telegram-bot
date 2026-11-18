@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# © 2026 aiaiaiai · aiaiaiai.org
 
 require_relative "namespace"
 
@@ -218,12 +219,16 @@ module ZeroXDA::Market::TelegramBot
           locale: locale
         )
         text = if screen.family == CatalogMenu::SUBSCRIPTION_FAMILY
-                 [screen.title, (t(:subscription_preview_note, locale: locale) if screen.has_previews)].compact.join("\n\n")
+                 [screen.title, (subscription_catalog_note(locale) if screen.has_previews)].compact.join("\n\n")
                else
                  "#{catalog_root_title(mode, locale)}\n\n#{screen.title}"
                end
         replace_callback_message(callback, text, reply_markup: screen.reply_markup)
         answer_callback(callback)
+      end
+
+      def subscription_catalog_note(locale)
+        t(:subscription_preview_note, locale: locale)
       end
 
       # Preview navigation never calls quote, debit, payment or entitlement APIs.

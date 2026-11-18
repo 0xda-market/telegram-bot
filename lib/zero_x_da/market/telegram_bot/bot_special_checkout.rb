@@ -4,6 +4,7 @@
 require_relative "bot"
 require_relative "nilx_identity_api"
 require_relative "special_checkout_messages"
+require_relative "special_confirmation"
 
 module ZeroXDA::Market::TelegramBot
   # Buying 0x1 Special with seeds from the chat.
@@ -23,12 +24,28 @@ module ZeroXDA::Market::TelegramBot
   module BotSpecialCheckout
     SPECIAL_SKU = /\A0x1_special_(?:1|3|6|12)m\z/
     DENOMINATION = "seeds"
-    CONFIRM_ARGUMENT = /\A([a-z0-9][a-z0-9_-]{0,59}):([a-z0-9]{1,12})\z/
     ORDER_ARGUMENT = /\A[A-Za-z0-9_-]{1,61}\z/
 
     # identity: NilxIdentityAPI; link_url: where a person signs in to 0x1 and
     # connects this Telegram account (the 0x1 Mini App or site).
-    Configuration = Data.define(:identity, :link_url)
+    Configuration = Data.define(:identity, :link_url, :confirmation_secret) do
+      def initialize(identity:, link_url:, confirmation_secret:)
+        raise ArgumentError, "Special confirmation secret must be at least 32 bytes" if confirmation_secret.to_s.bytesize < 32
+
+        super
+      end
+    end
+
+    def self.validate_bot!(environment:, actual_bot:, configured_bot:)
+      matches = !configured_bot.to_s.empty? && actual_bot.to_s.casecmp?(configured_bot)
+      test_bot = actual_bot.to_s.casecmp?("zeroxda_market_test_bot")
+      isolated = (environment == "development" && test_bot) || (environment == "production" && !test_bot)
+      raise ArgumentError, "Special checkout bot identity does not match its environment" unless matches && isolated
+    end
+
+    def subscription_catalog_note(locale)
+      @special_checkout ? t(:subscription_seeds_note, locale: locale) : super
+    end
 
     def initialize(special_checkout: nil, **options)
       @special_checkout = special_checkout
@@ -54,12 +71,14 @@ module ZeroXDA::Market::TelegramBot
     # v: and z: on a Special open the account-aware offer; x: confirms it.
     def show_subscription_offer_callback(callback, sku)
       return super unless special_checkout?(sku)
+      return special_private_only(callback) unless special_private_chat?(callback)
 
       special_offer(callback, sku)
     end
 
     def handle_subscription_action_callback(callback, action, sku)
       return super unless special_checkout?(sku) && action != "y"
+      return special_private_only(callback) unless special_private_chat?(callback)
 
       action == "x" ? special_confirm(callback, sku) : special_offer(callback, sku)
     end
@@ -68,16 +87,26 @@ module ZeroXDA::Market::TelegramBot
     # that button replays one order, while a later confirmation is new.
     def handle_issuer_checkout_callback(callback, action, argument)
       return super unless @special_checkout
+      return special_private_only(callback) unless special_private_chat?(callback)
 
       case action
       when "k"
-        match = CONFIRM_ARGUMENT.match(argument)
+        match = SpecialConfirmation::PATTERN.match(argument)
         return super unless match && SPECIAL_SKU.match?(match[1])
 
-        special_place(callback, match[1], match[2])
+        special_place(callback, match[1], argument)
       when "w" then ORDER_ARGUMENT.match?(argument) ? special_refresh(callback, argument) : super
       when "u" then ORDER_ARGUMENT.match?(argument) ? special_cancel(callback, argument) : super
       end
+    end
+
+    def special_private_chat?(callback)
+      callback.dig("message", "chat", "type") == "private" &&
+        callback.dig("message", "chat", "id") == callback.dig("from", "id")
+    end
+
+    def special_private_only(callback)
+      answer_callback(callback, text: t(:access_denied, locale: locale_for(callback)))
     end
 
     def special_checkout?(sku)
@@ -97,10 +126,12 @@ module ZeroXDA::Market::TelegramBot
     def special_confirm(callback, sku)
       locale = locale_for(callback)
       authenticate_callback_user(callback)
-      screen = special_account_screen(callback, sku, locale) do |account, price, name|
+      screen = special_account_screen(callback, sku, locale) do |account, price, name, price_id|
         if special_buyable?(account, price)
           SpecialCheckoutMessages.confirm(name: name, sku: sku, account: account, price: price, locale: locale,
-                                          nonce: special_nonce)
+                                          token: SpecialConfirmation.issue(secret: @special_checkout.confirmation_secret,
+                                            callback: callback, sku: sku, bond: account.pub_dress,
+                                            price_id: price_id, amount: price, now: @clock.call))
         else
           SpecialCheckoutMessages.offer(name: name, sku: sku, account: account, price: price, locale: locale)
         end
@@ -109,20 +140,25 @@ module ZeroXDA::Market::TelegramBot
       answer_callback(callback)
     end
 
-    # The checks are repeated right before the order: the wallet or Special
-    # may have changed since the offer was drawn. Identity checks them again
-    # under the wallet lock before any debit.
-    def special_place(callback, sku, nonce)
+    # Confirm the same Telegram sender and Bond, then submit the signed terms.
+    # Market checks current price for new orders and replays an existing order;
+    # Identity checks the wallet and Special under its lock before any debit.
+    def special_place(callback, sku, token)
       locale = locale_for(callback)
       user = authenticate_callback_user(callback)
       order = nil
       screen = special_account_screen(callback, sku, locale) do |account, price, name|
-        next SpecialCheckoutMessages.offer(name: name, sku: sku, account: account, price: price, locale: locale) \
-          unless special_buyable?(account, price)
+        terms = SpecialConfirmation.verify(token: token, secret: @special_checkout.confirmation_secret,
+                                           callback: callback, bond: account.pub_dress, now: @clock.call)
+        next SpecialCheckoutMessages.offer(name: name, sku: sku, account: account, price: price, locale: locale) unless terms
 
+        # Send the original terms even if the wallet/catalog changed: Market
+        # replays the same order first, or rejects stale terms before creating one.
         order = @market_api.create_issuer_order(
           customer: special_customer(user, callback), sku: sku, denomination: DENOMINATION,
-          idempotency_key: "tg.#{callback.fetch("from").fetch("id")}.#{nonce}.#{sku}"
+          idempotency_key: "tg.#{callback.fetch("from").fetch("id")}.#{token.split(":").last}",
+          expected_price_id: terms.fetch(:price_id), expected_amount_minor: terms.fetch(:amount),
+          expected_recipient_subject: account.pub_dress
         )
         SpecialCheckoutMessages.order(order: order, name: name, locale: locale)
       end
@@ -170,7 +206,8 @@ module ZeroXDA::Market::TelegramBot
                                                link_url: @special_checkout.link_url, locale: locale)
       end
 
-      yield account, special_price(sku, locale), name
+      price, price_id = special_price(sku, locale)
+      yield account, price, name, price_id
     rescue NilxIdentityAPI::Error => error
       # An unreachable Identity is never "not connected".
       warn "0x1 Identity unavailable: #{error.message}"
@@ -185,7 +222,10 @@ module ZeroXDA::Market::TelegramBot
     def special_price(sku, locale)
       entry = @market_api.denomination_prices(DENOMINATION, locale: locale).find { |item| item["id"] == sku }
       amount = entry&.dig("attributes", "amount_minor")
-      amount.is_a?(Integer) && amount.positive? ? amount : nil
+      price_id = entry&.dig("attributes", "price_id")
+      return unless amount.is_a?(Integer) && amount.positive? && price_id.is_a?(Integer) && price_id.positive?
+
+      [amount, price_id]
     rescue MarketAPI::Error
       nil
     end
@@ -202,9 +242,6 @@ module ZeroXDA::Market::TelegramBot
       { user_id: user.fetch("id"), telegram_user_id: callback.fetch("from").fetch("id") }
     end
 
-    def special_nonce
-      (@clock.call.to_r * 1000).to_i.to_s(36)
-    end
   end
 
   Bot.prepend(BotSpecialCheckout)

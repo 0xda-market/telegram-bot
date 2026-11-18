@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# © 2026 aiaiaiai · aiaiaiai.org
 
 require_relative "namespace"
 
@@ -91,9 +92,9 @@ module ZeroXDA::Market::TelegramBot
       # assertion that this market user is the Telegram account the bot has
       # just verified (`X-Market-Customer-Assertion`, see core
       # docs/architecture/issuer-orders.md).
-      def create_issuer_order(customer:, sku:, denomination:, idempotency_key:)
+      def create_issuer_order(customer:, sku:, denomination:, idempotency_key:, **confirmed_terms)
         write_request(Net::HTTP::Post, "v1/issuer-orders",
-                      { sku: sku, denomination: denomination, idempotency_key: idempotency_key },
+                      { sku: sku, denomination: denomination, idempotency_key: idempotency_key, **confirmed_terms },
                       customer: customer).fetch("data")
       end
 
