@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# © 2026 aiaiaiai · aiaiaiai.org
 
 require_relative "test_helper"
 require "zero_x_da/market/telegram_bot/bot"
@@ -31,20 +32,28 @@ class SpecialCheckoutTest < Minitest::Test
   # Market's seeds offers and issuer orders, as the bot sees them.
   module IssuerOrders
     attr_reader :issuer_orders, :issuer_calls
+    attr_accessor :price_amount, :price_id
 
     def denomination_prices(code, locale:)
       raise ArgumentError unless code == "seeds"
 
-      [{ "type" => "denomination_price", "id" => "0x1_special_1m",
-         "attributes" => { "sku" => "0x1_special_1m", "amount_minor" => 640, "denomination" => "seeds" } }]
+      [1, 3, 6, 12].map do |months|
+        sku = "0x1_special_#{months}m"
+        { "type" => "denomination_price", "id" => sku,
+          "attributes" => { "sku" => sku, "amount_minor" => price_amount || 640,
+                            "price_id" => price_id || 1, "denomination" => "seeds" } }
+      end
     end
 
-    def create_issuer_order(customer:, sku:, denomination:, idempotency_key:)
-      (@issuer_calls ||= []) << [:create, customer, sku, denomination, idempotency_key]
+    def create_issuer_order(customer:, sku:, denomination:, idempotency_key:, **terms)
+      (@issuer_calls ||= []) << [:create, customer, sku, denomination, idempotency_key, terms]
       @issuer_orders ||= {}
       existing = @issuer_orders.values.find { |order| order[:key] == idempotency_key }
       return existing.fetch(:document) if existing
 
+      if terms[:expected_price_id] != (price_id || 1) || terms[:expected_amount_minor] != (price_amount || 640)
+        raise ZeroXDA::Market::TelegramBot::MarketAPI::Error.new("changed", code: "price_changed")
+      end
       id = "order-#{@issuer_orders.length + 1}"
       document = { "type" => "issuer_order", "id" => id,
                    "attributes" => { "sku" => sku, "status" => "pending", "rejection_code" => nil } }
@@ -81,7 +90,7 @@ class SpecialCheckoutTest < Minitest::Test
     @identity = FakeIdentity.new(77 => linked(seeds: 10_000))
     @now = Time.utc(2026, 10, 31, 12, 0, 0)
     @bot = ZeroXDA::Market::TelegramBot::Bot.new(
-      special_checkout: Configuration.new(identity: @identity, link_url: LINK_URL),
+      special_checkout: Configuration.new(identity: @identity, link_url: LINK_URL, confirmation_secret: "s" * 32),
       market_api: @market, telegram_api: @telegram, clock: -> { @now }, status_message_ttl: 0
     )
   end
@@ -98,7 +107,7 @@ class SpecialCheckoutTest < Minitest::Test
     confirm = screen
     assert_equal "Сплатити 640 ₴€£ з гаманця zero за 0x1 Special 1 months?", confirm.fetch(:text)
     pay = button(confirm, "Сплатити 640 ₴€£")
-    assert_match(/\Ak:0x1_special_1m:[a-z0-9]+\z/, pay)
+    assert_match(/\Ak:0x1_special_1m:/, pay)
     assert_nil @market.issuer_orders
 
     @bot.handle(callback(pay))
@@ -109,7 +118,7 @@ class SpecialCheckoutTest < Minitest::Test
     _, customer, sku, denomination, key = @market.issuer_calls.first
     assert_equal({ user_id: FakeMarketAPI::ACTOR_USER_ID, telegram_user_id: 77 }, customer)
     assert_equal %w[0x1_special_1m seeds], [sku, denomination]
-    assert_match(/\Atg\.77\.[a-z0-9]+\.0x1_special_1m\z/, key)
+    assert_match(/\Atg\.77\.[A-Za-z0-9_-]{16}\z/, key)
 
     # A double tap on the same confirmation replays the one order.
     @bot.handle(callback(pay))
@@ -186,11 +195,12 @@ class SpecialCheckoutTest < Minitest::Test
   end
 
   def test_a_pending_order_can_be_cancelled_and_a_claimed_one_is_shown_as_it_is
-    @bot.handle(callback("k:0x1_special_1m:a1"))
+    @bot.handle(callback(confirmation))
     @bot.handle(callback("u:order-1"))
     assert_includes screen.fetch(:text), "Замовлення скасовано. Нічого не списано."
 
-    @bot.handle(callback("k:0x1_special_1m:a2"))
+    @now += 1
+    @bot.handle(callback(confirmation))
     @market.settle("order-2", "processing")
     @bot.handle(callback("u:order-2"))
     refute(buttons(screen).any? { |entry| entry[:callback_data] == "u:order-2" })
@@ -198,12 +208,13 @@ class SpecialCheckoutTest < Minitest::Test
   end
 
   def test_issuer_rejections_say_nothing_was_charged
-    @bot.handle(callback("k:0x1_special_1m:a1"))
+    @bot.handle(callback(confirmation))
     @market.settle("order-1", "rejected", "special_active")
     @bot.handle(callback("w:order-1"))
     assert_includes screen.fetch(:text), "0x1 не прийняв оплату (Special уже активна). Нічого не списано."
 
-    @bot.handle(callback("k:0x1_special_1m:a2"))
+    @now += 1
+    @bot.handle(callback(confirmation))
     @market.settle("order-2", "rejected", "authorization_expired")
     @bot.handle(callback("w:order-2"))
     assert_includes screen.fetch(:text), "не підтвердилось вчасно"
@@ -219,7 +230,95 @@ class SpecialCheckoutTest < Minitest::Test
     assert_empty @identity.asked
   end
 
+  def test_all_four_terms_use_signed_confirmations_within_telegram_limit
+    [1, 3, 6, 12].each do |months|
+      sku = "0x1_special_#{months}m"
+      pay = confirmation(sku)
+      assert_operator pay.bytesize, :<=, 64
+      @bot.handle(callback(pay))
+      terms = @market.issuer_calls.last.last
+      assert_equal({ expected_price_id: 1, expected_amount_minor: 640, expected_recipient_subject: "zero" }, terms)
+      assert_equal sku, @market.issuer_calls.last[2]
+    end
+  end
+
+  def test_stale_price_requires_another_confirmation
+    pay = confirmation
+    @market.price_amount = 900
+    @market.price_id = 2
+    @bot.handle(callback(pay))
+    assert_empty @market.issuer_orders
+    assert_equal "x:0x1_special_1m", button(screen, "Купити за 900 ₴€£")
+  end
+
+  def test_paid_confirmation_replays_even_after_wallet_and_special_change
+    pay = confirmation
+    @bot.handle(callback(pay))
+    @market.settle("order-1", "fulfilled")
+    @identity.accounts[77] = linked(seeds: 0, open: false)
+    @market.price_amount = 900
+    @bot.handle(callback(pay))
+    assert_equal 1, @market.issuer_orders.length
+    assert_includes screen.fetch(:text), "Оплачено ✅"
+  end
+
+  def test_forged_expired_or_rebound_confirmation_cannot_create_an_order
+    pay = confirmation
+    @bot.handle(callback(pay.sub(/.$/, pay.end_with?("A") ? "B" : "A")))
+    assert_nil @market.issuer_orders
+    @identity.accounts[77] = linked(seeds: 10_000).with(pub_dress: "other-bond")
+    @bot.handle(callback(pay))
+    assert_nil @market.issuer_orders
+    @identity.accounts[77] = linked(seeds: 10_000)
+    @now += 901
+    @bot.handle(callback(pay))
+    assert_nil @market.issuer_orders
+  end
+
+  def test_a_different_sender_or_message_cannot_reuse_a_confirmation
+    pay = confirmation
+    @identity.accounts[88] = linked(seeds: 10_000)
+    @bot.handle(callback(pay, user_id: 88))
+    assert_nil @market.issuer_orders
+    update = callback(pay)
+    update["callback_query"]["message"]["message_id"] = 99
+    @bot.handle(update)
+    assert_nil @market.issuer_orders
+  end
+
+  def test_catalog_describes_seeds_checkout_and_usdt_remains_disabled
+    @bot.handle(callback("c:b:0x1_special_1m"))
+    assert_includes screen.fetch(:text), "Special можна придбати за сіди"
+    refute_includes screen.fetch(:text), "купівля ще недоступна"
+    @bot.handle(callback("y:0x1_special_1m"))
+    assert_includes @telegram.answered_callbacks.last.fetch(:text), "поки недоступна"
+    assert_nil @market.issuer_orders
+  end
+
+  def test_account_and_checkout_are_private_chat_only
+    update = callback("v:0x1_special_1m")
+    update["callback_query"]["message"]["chat"]["type"] = "supergroup"
+    @bot.handle(update)
+    assert_empty @identity.asked
+    assert_nil @market.issuer_orders
+    assert_empty @telegram.edited_messages
+  end
+
+  def test_runtime_supports_matching_production_bot_and_keeps_environments_isolated
+    checkout = ZeroXDA::Market::TelegramBot::BotSpecialCheckout
+    checkout.validate_bot!(environment: "production", actual_bot: "market_bot", configured_bot: "market_bot")
+    checkout.validate_bot!(environment: "development", actual_bot: "zeroxda_market_test_bot", configured_bot: "zeroxda_market_test_bot")
+    assert_raises(ArgumentError) { checkout.validate_bot!(environment: "production", actual_bot: "zeroxda_market_test_bot", configured_bot: "zeroxda_market_test_bot") }
+    assert_raises(ArgumentError) { checkout.validate_bot!(environment: "production", actual_bot: "other_bot", configured_bot: "market_bot") }
+    assert_raises(ArgumentError) { checkout.validate_bot!(environment: "development", actual_bot: "market_bot", configured_bot: "market_bot") }
+  end
+
   private
+
+  def confirmation(sku = "0x1_special_1m")
+    @bot.handle(callback("x:#{sku}"))
+    buttons(screen).find { |entry| entry[:callback_data].to_s.start_with?("k:") }.fetch(:callback_data)
+  end
 
   def linked(seeds:, open: true, ends: nil)
     Account.new(state: "linked", pub_dress: "zero", seeds: seeds, special_held: !open, special_ends_at: ends,
@@ -251,7 +350,7 @@ class SpecialCheckoutTest < Minitest::Test
         "id" => "callback-#{@telegram.answered_callbacks.length + 1}",
         "data" => data,
         "from" => { "id" => user_id, "username" => "zero", "first_name" => "Sasha", "language_code" => "uk" },
-        "message" => { "message_id" => 42, "chat" => { "id" => 770, "type" => "private" } }
+        "message" => { "message_id" => 42, "chat" => { "id" => user_id, "type" => "private" } }
       }
     }
   end

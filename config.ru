@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# © 2026 aiaiaiai · aiaiaiai.org
 
 require "bundler/setup"
 require "rack/common_logger"
@@ -71,16 +72,17 @@ special_checkout = if special_settings.values.all?(&:empty?)
                      raise "Special checkout needs #{special_settings.keys.join(", ")} together"
                    else
                      actual_bot = telegram_api.get_me.fetch("username")
-                     unless ENV["DEPLOY_ENV"] == "development" && actual_bot.casecmp?("zeroxda_market_test_bot")
-                       raise "Special checkout requires the development Market test bot"
-                     end
+                     ZeroXDA::Market::TelegramBot::BotSpecialCheckout.validate_bot!(
+                       environment: deploy_environment, actual_bot: actual_bot, configured_bot: telegram_username
+                     )
                      market_api.customer_assertions(secret: special_settings.fetch("CHANNEL_ASSERTION_SECRET"))
                      ZeroXDA::Market::TelegramBot::BotSpecialCheckout::Configuration.new(
                        identity: ZeroXDA::Market::TelegramBot::NilxIdentityAPI.new(
                          base_url: special_settings.fetch("NILX_IDENTITY_URL"),
                          token: special_settings.fetch("NILX_PARTNER_TOKEN")
                        ),
-                       link_url: special_settings.fetch("NILX_LINK_URL")
+                       link_url: special_settings.fetch("NILX_LINK_URL"),
+                       confirmation_secret: special_settings.fetch("CHANNEL_ASSERTION_SECRET")
                      )
                    end
 bot = ZeroXDA::Market::TelegramBot::Bot.new(

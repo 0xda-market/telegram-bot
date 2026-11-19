@@ -193,11 +193,11 @@ module ZeroXDA::Market::TelegramBot
                                                       callback_data: "v:#{sku}" }], nav(sku, locale)] })
     end
 
-    def confirm(name:, sku:, account:, price:, locale:, nonce:)
+    def confirm(name:, sku:, account:, price:, locale:, token:)
       Screen.new(
         text: text(:confirm, locale: locale, price: price, bond: account.pub_dress, name: name),
         reply_markup: { inline_keyboard: [
-          [{ text: text(:confirm_button, locale: locale, price: price), callback_data: "k:#{sku}:#{nonce}" }],
+          [{ text: text(:confirm_button, locale: locale, price: price), callback_data: "k:#{token}" }],
           [{ text: text(:back, locale: locale), callback_data: "v:#{sku}" }]
         ] }
       )
