@@ -113,12 +113,31 @@ jobs:
           TELEGRAM_BOT_USERNAME: ${{ vars.TELEGRAM_BOT_USERNAME }}
           PUBLIC_URL: ${{ vars.PUBLIC_URL }}
           MARKET_API_URL: ${{ vars.MARKET_API_URL }}
+          PARTNER_LOOKUP_TOKEN: ${{ secrets.PARTNER_LOOKUP_TOKEN }}
+          CHANNEL_ASSERTION_SECRET: ${{ secrets.CHANNEL_ASSERTION_SECRET }}
+          NILX_DEVELOPMENT_ORIGIN: ${{ vars.NILX_DEVELOPMENT_ORIGIN }}
         run: |
           set -Eeuo pipefail
           umask 077
+          [[ "$NILX_DEVELOPMENT_ORIGIN" =~ ^https://[a-z0-9-]+(\.[a-z0-9-]+)+$ ]] &&
+            [[ "$NILX_DEVELOPMENT_ORIGIN" != https://nilx.one && "$NILX_DEVELOPMENT_ORIGIN" != https://www.nilx.one ]] || {
+            echo "::error::NILX_DEVELOPMENT_ORIGIN must be an isolated HTTPS Identity origin without a path."
+            exit 1
+          }
+          for name in PARTNER_LOOKUP_TOKEN CHANNEL_ASSERTION_SECRET; do
+            value="${!name}"
+            (( ${#value} >= 32 )) || { echo "::error::$name must contain at least 32 bytes."; exit 1; }
+          done
+          test "$PARTNER_LOOKUP_TOKEN" != "$CHANNEL_ASSERTION_SECRET" || {
+            echo "::error::Use distinct checkout credentials."
+            exit 1
+          }
+          export NILX_IDENTITY_URL="$NILX_DEVELOPMENT_ORIGIN"
+          export NILX_LINK_URL="$NILX_DEVELOPMENT_ORIGIN/"
           # Exactly the names the market-bot-test contract maps: secrets plus producerEnvironment.
           names=(TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET MARKET_API_TOKEN TRADING_LAB_TOKEN
-                 TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL)
+                 TELEGRAM_BOT_USERNAME PUBLIC_URL MARKET_API_URL PARTNER_LOOKUP_TOKEN
+                 CHANNEL_ASSERTION_SECRET NILX_IDENTITY_URL NILX_LINK_URL)
           for name in "${names[@]}"; do
             value="$(printenv "$name")"
             test -n "$value" || { echo "::error::Missing development credential/configuration $name." >&2; exit 1; }

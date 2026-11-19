@@ -124,6 +124,15 @@ and are included in the administrator pricing catalog.
 
 ## 0x1 Special for seeds
 
+The development publisher reads `PARTNER_LOOKUP_TOKEN` and
+`CHANNEL_ASSERTION_SECRET` from the GitHub `development` Environment.
+Use the same development values in Market Core, and the same partner token in
+development Identity. Set `NILX_DEVELOPMENT_ORIGIN` to the same isolated HTTPS
+Identity origin in both Market repositories. That service needs its own test
+database, Telegram binding and seeds wallet, and its issuer worker must poll
+development Market using its development handoff credential. The development
+bot must not use production Identity or a production wallet.
+
 With `NILX_IDENTITY_URL`, `NILX_PARTNER_TOKEN`, `NILX_LINK_URL` and
 `CHANNEL_ASSERTION_SECRET` set, a Special term in the 0x1 subscriptions
 category can be bought with seeds from the chat:
