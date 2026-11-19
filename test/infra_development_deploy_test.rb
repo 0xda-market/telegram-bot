@@ -19,8 +19,9 @@ class InfraDevelopmentDeployTest < Minitest::Test
     assert_equal ["${{ env.IMAGE }}:${{ github.sha }}", "${{ env.IMAGE }}:${{ github.sha }}.secrets"], tags
     assert_equal 2, steps.count { |step| step["uses"].to_s.start_with?("actions/attest-build-provenance@") }
     encrypt = steps.find { |step| step["name"] == "Encrypt credentials to the edge-prod-1 recipient" }
-    # Must equal the market-bot-test secret allowlist plus producerEnvironment in aiaiaiai-org/infra.
-    assert_equal %w[MARKET_API_TOKEN MARKET_API_URL PUBLIC_URL TELEGRAM_BOT_TOKEN TELEGRAM_BOT_USERNAME
+    # The publisher turns the development Identity origin into two runtime URLs.
+    assert_equal %w[CHANNEL_ASSERTION_SECRET MARKET_API_TOKEN MARKET_API_URL NILX_DEVELOPMENT_ORIGIN
+                    PARTNER_LOOKUP_TOKEN PUBLIC_URL TELEGRAM_BOT_TOKEN TELEGRAM_BOT_USERNAME
                     TELEGRAM_WEBHOOK_SECRET TRADING_LAB_TOKEN], encrypt.fetch("env").keys.sort
     refute_includes File.read(CI_WORKFLOW), "INFRA_DEPLOY_TOKEN"
     refute File.exist?(File.expand_path("../.github/workflows/deploy-vps.yml", __dir__)), "legacy dispatch deploy must stay removed"
