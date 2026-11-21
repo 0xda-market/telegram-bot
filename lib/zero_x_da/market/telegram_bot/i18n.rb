@@ -1,4 +1,5 @@
 # frozen_string_literal: true
+# © 2026 aiaiaiai · aiaiaiai.org
 
 require_relative "namespace"
 
@@ -15,6 +16,7 @@ module ZeroXDA::Market::TelegramBot
           assigned_admin_notice: "You have been assigned the admin role ✅",
           choose_product_to_buy: "Choose a product to buy:",
           subscription_preview_note: "0x1 subscriptions are shown for preview. Purchasing is not available yet.",
+          subscription_seeds_note: "Special can be purchased with seeds when available. Select a term to check your account and price.",
           subscription_unavailable: "0x1 subscriptions are not available for purchase yet.",
           selected_product: "Selected: %{name}",
           product_unavailable: "Product is unavailable",
@@ -44,6 +46,7 @@ module ZeroXDA::Market::TelegramBot
           assigned_admin_notice: "Вам призначено роль admin ✅",
           choose_product_to_buy: "обери продукт для купівлі:",
           subscription_preview_note: "Підписки 0x1 поки можна лише переглянути — купівля ще недоступна.",
+          subscription_seeds_note: "Special можна придбати за сіди, коли вона доступна. Обери термін, щоб перевірити акаунт і ціну.",
           subscription_unavailable: "Купівля підписок 0x1 поки недоступна.",
           selected_product: "обрано: %{name}",
           product_unavailable: "продукт недоступний",
@@ -73,6 +76,7 @@ module ZeroXDA::Market::TelegramBot
           assigned_admin_notice: "Вам назначена роль admin ✅",
           choose_product_to_buy: "Выберите продукт для покупки:",
           subscription_preview_note: "Подписки 0x1 пока доступны только для просмотра — покупка ещё недоступна.",
+          subscription_seeds_note: "Special можно купить за сиды, когда она доступна. Выбери срок, чтобы проверить аккаунт и цену.",
           subscription_unavailable: "Покупка подписок 0x1 пока недоступна.",
           selected_product: "Выбрано: %{name}",
           product_unavailable: "Продукт недоступен",
@@ -102,6 +106,7 @@ module ZeroXDA::Market::TelegramBot
           assigned_admin_notice: "Le rôle admin vous a été attribué ✅",
           choose_product_to_buy: "Choisissez un produit à acheter :",
           subscription_preview_note: "Les abonnements 0x1 sont en aperçu, pas encore disponibles à l'achat.",
+          subscription_seeds_note: "Special peut être acheté en seeds si disponible. Choisissez une durée pour vérifier le compte et le prix.",
           subscription_unavailable: "Les abonnements 0x1 ne sont pas encore disponibles à l'achat.",
           selected_product: "Sélectionné : %{name}",
           product_unavailable: "Produit indisponible",
@@ -131,6 +136,7 @@ module ZeroXDA::Market::TelegramBot
           assigned_admin_notice: "Se te ha asignado el rol admin ✅",
           choose_product_to_buy: "Elige un producto para comprar:",
           subscription_preview_note: "Las suscripciones 0x1 se muestran como vista previa; aún no se pueden comprar.",
+          subscription_seeds_note: "Special se puede comprar con seeds cuando esté disponible. Elige un plazo para consultar tu cuenta y el precio.",
           subscription_unavailable: "Las suscripciones 0x1 aún no están disponibles para comprar.",
           selected_product: "Seleccionado: %{name}",
           product_unavailable: "Producto no disponible",
@@ -160,6 +166,7 @@ module ZeroXDA::Market::TelegramBot
           assigned_admin_notice: "Dir wurde die Rolle admin zugewiesen ✅",
           choose_product_to_buy: "Wähle ein Produkt zum Kauf:",
           subscription_preview_note: "0x1-Abos werden nur als Vorschau gezeigt und sind noch nicht kaufbar.",
+          subscription_seeds_note: "Special kann bei Verfügbarkeit mit Seeds gekauft werden. Wähle eine Laufzeit, um Konto und Preis zu prüfen.",
           subscription_unavailable: "0x1-Abos können noch nicht gekauft werden.",
           selected_product: "Ausgewählt: %{name}",
           product_unavailable: "Produkt ist nicht verfügbar",

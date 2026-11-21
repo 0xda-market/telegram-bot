@@ -5,8 +5,8 @@
 require "net/http"
 require "json"
 require "uri"
+require "securerandom"
 require_relative "namespace"
-require_relative "errors_reporter"
 
 module ZeroXDA::Market::TelegramBot
   # Server-only adapter to a private, paper-only Trading Lab service.
@@ -17,7 +17,7 @@ module ZeroXDA::Market::TelegramBot
     LEADER_OPTIONS = %w[sort state min_lead_days min_assets max_assets min_aum max_aum data_version page limit].freeze
     LEADER_VALUE = /\A[A-Za-z0-9_]{1,32}\z/
 
-    def initialize(origin:, token:, reporter: ErrorsReporter.from_env)
+    def initialize(origin:, token:, logger: $stderr)
       @base = URI.parse(origin.to_s)
       raise ArgumentError, "Trading Lab origin must not include credentials or a query" if @base.userinfo || @base.query || @base.fragment
       local = %w[127.0.0.1 localhost ::1].include?(@base.hostname)
@@ -28,7 +28,7 @@ module ZeroXDA::Market::TelegramBot
         @base.scheme == "https" || (@base.scheme == "http" && (local || docker_service))
       raise ArgumentError, "Trading Lab token is required" if token.to_s.strip.empty?
       @token = token.to_s
-      @reporter = reporter
+      @logger = logger
     end
 
     def replay(events:, options: {})
@@ -113,13 +113,14 @@ module ZeroXDA::Market::TelegramBot
       raise Error, "Trading Lab #{label} is unavailable (#{error.class})"
     end
 
-    # Never copy Telegram initData, user IDs, trader codes, request bodies, tokens or raw
-    # upstream exception messages into 4x-errors. Only fixed operation and bounded metrics.
+    # Keep request data and credentials out of logs. Record only a fixed
+    # operation name, the correlation ID and bounded diagnostic metadata.
     def report_failure(error_id, message, label, started, correlation_id, severity: "error", **details)
       elapsed_ms = ((Process.clock_gettime(Process::CLOCK_MONOTONIC) - started) * 1000).round
-      @reporter&.report(error_id: error_id, message: message, severity: severity,
-                        correlation_id: correlation_id,
-                        context: { operation: label.tr(" ", "_"), elapsed_ms: elapsed_ms }.merge(details))
+      @logger&.puts(JSON.generate(
+        error_id: error_id, message: message, severity: severity, correlation_id: correlation_id,
+        context: { operation: label.tr(" ", "_"), elapsed_ms: elapsed_ms }.merge(details)
+      ))
     rescue StandardError
       nil
     end

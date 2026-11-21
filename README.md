@@ -132,7 +132,7 @@ category can be bought with seeds from the chat:
 offer   -> 0x1 Identity partner account (Telegram account that pressed it)
            sign in / "Bond already has another Telegram" / Bond, wallet, Special
 buy     -> only when Identity opens a Special purchase and wallet >= Market price
-confirm -> Market issuer order, signed as this verified customer (one per tap)
+confirm -> signed price + Bond confirmation -> one replayable Market issuer order
 status  -> pending (refresh / cancel) -> processing -> fulfilled = "Paid"
 ```
 
@@ -142,6 +142,51 @@ Special in one transaction, and refuses a Bond that already holds Special.
 Market's issuer-order routes trust a customer only through the short-lived
 `X-Market-Customer-Assertion` the bot signs after verifying the Telegram update.
 Exclusive and the USDT path stay preview-only.
+
+Confirmation is private-chat only and expires after 15 minutes. It binds the
+sender, message, SKU, price revision, amount and Bond. Core refuses a changed
+price or recipient; the person sees a fresh offer and must confirm again.
+Repeated taps replay the existing order, including after the balance was debited
+or Special became active. Old unsigned confirmation buttons cannot create orders.
+
+Deploy the Core confirmed-terms API first (`price_id` on denomination prices;
+`expected_price_id`, `expected_amount_minor`, `expected_recipient_subject` on
+issuer orders). Against an older Core, this bot deliberately offers no purchase.
+A configured production bot is supported when its verified Bot API username
+matches `TELEGRAM_BOT_USERNAME`; the test identity remains development-only.
+
+### Runtime activation prerequisites
+
+Code delivery does not activate checkout. The production publisher now requires
+`PARTNER_LOOKUP_TOKEN` and `CHANNEL_ASSERTION_SECRET` (distinct, at least 32 bytes)
+in its GitHub production Environment. Infra maps the partner token to
+`NILX_PARTNER_TOKEN` and supplies the public 0x1 URLs. Matching Core and Identity
+publication/Infra changes must land together before publishing candidates:
+
+| Component | Required configuration |
+| --- | --- |
+| Bot | `NILX_IDENTITY_URL`, `NILX_LINK_URL`, `NILX_PARTNER_TOKEN`, `CHANNEL_ASSERTION_SECRET` |
+| Market Core | `ENABLE_ISSUER_ORDER_ROUTES=1`, `CHANNEL_ASSERTION_PROVIDERS=telegram`, matching `CHANNEL_ASSERTION_SECRET`, `ISSUER_DIRECTORY_URL`, `ISSUER_DIRECTORY_TOKEN`, `ISSUER_DIRECTORY_PROVIDERS=telegram` |
+| 0x1 Identity | `PARTNER_LOOKUP_TOKEN` matching both partner clients, active issuer worker using the same Market environment |
+| Catalog | Active Special terms and authoritative seeds denomination prices |
+
+The directory URL ends in `/api/v1/partner/provider-lookup`; the bot identity
+URL is the base origin used for `/api/v1/partner/provider-account`.
+Set the same `PARTNER_LOOKUP_TOKEN` production secret in `nilx-one/web`,
+`0xda-market/core` and `0xda-market/telegram-bot`. Set the same separate
+`CHANNEL_ASSERTION_SECRET` in Core and Bot only. Do not reuse the issuer's
+`NILX_BROWSER_HANDOFF_TOKEN`: the bot must never receive settlement authority.
+Missing settings stop candidate publication before rollout; no placeholders.
+
+Keep development wallet/issuer traffic separate from production. Provision secrets
+through the environment's secret delivery mechanism, never in repository files.
+Before activation, verify one isolated purchase through the real issuer worker:
+correct term, exactly one wallet debit, one receipt and one entitlement; repeat
+confirmation and refresh, then verify insufficient funds and existing Special.
+The chat purchase does not require an xPing flight, visit or return callback.
+The existing production catalog activator selects Special 1 month only; longer
+terms stay unavailable unless their catalog policy is separately authorized.
+
 
 ## Telegram Mini App
 
