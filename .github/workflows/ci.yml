@@ -38,13 +38,13 @@ jobs:
           path: test.log
           retention-days: 3
 
-  # Automatic development delivery of market-bot-test (aiaiaiai-org/infra
-  # docs/automatic-delivery.md). Runs only for a master push whose CI passed.
-  # Infra verifies both attestations against this workflow, branch and commit;
-  # this repository holds no infra credential.
+  # Explicit development publication only. A master push runs correctness checks
+  # but never publishes or activates a deployment. Production has a separate
+  # manual publish-production.yml workflow with its own environment contract.
+  # Infra verifies the attestations; this repository holds no infra credential.
   publish-development:
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
