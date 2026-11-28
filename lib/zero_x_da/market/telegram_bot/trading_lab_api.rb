@@ -12,13 +12,28 @@ require_relative "namespace"
 module ZeroXDA::Market::TelegramBot
   # Server-only adapter to a private, paper-only Trading Lab service.
   class TradingLabAPI
-    class Error < StandardError; end
+    # `code` is the stable, locale-free reason the Mini App turns into user text. The message is an
+    # English fallback only: it never carries an HTTP status or an exception class, which belong to
+    # the correlated runtime log.
+    class Error < StandardError
+      UNAVAILABLE = "trading_lab_unavailable"
+      TIMEOUT = "trading_lab_timeout"
+
+      attr_reader :code
+
+      def initialize(message = nil, code: UNAVAILABLE)
+        super(message)
+        @code = code
+      end
+    end
+
+    # A job endpoint answered with a named, user-meaningful state (busy or expired).
     class JobError < Error
-      attr_reader :status, :code
+      attr_reader :status
 
       def initialize(status, code)
-        @status, @code = status, code
-        super(code)
+        @status = status
+        super(code, code: code)
       end
     end
 
@@ -144,13 +159,16 @@ module ZeroXDA::Market::TelegramBot
       unless response.code == accepted_status && document.is_a?(Hash) && document["status"] == "ok" && document["data"].is_a?(Hash)
         report_failure("market.trading.upstream.unavailable", "Trading Lab returned an unsuccessful response", label,
                        started, correlation_id, upstream_status: response.code.to_i)
-        raise Error, "Trading Lab #{label} is unavailable (HTTP #{response.code})"
+        raise Error, "Trading Lab #{label} is unavailable"
       end
       document.fetch("data")
     rescue JSON::ParserError, IOError, SystemCallError, Timeout::Error, OpenSSL::SSL::SSLError => error
       report_failure("market.trading.transport.failed", "Trading Lab transport or response failed", label,
                      started, correlation_id, exception_type: error.class.name.split("::").last)
-      raise Error, "Trading Lab #{label} is unavailable (#{error.class})"
+      if error.is_a?(Timeout::Error)
+        raise Error.new("Trading Lab #{label} did not respond in time", code: Error::TIMEOUT)
+      end
+      raise Error, "Trading Lab #{label} is unavailable"
     end
 
     # Keep request data and credentials out of logs. Record only a fixed

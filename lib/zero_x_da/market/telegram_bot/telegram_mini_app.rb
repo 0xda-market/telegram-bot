@@ -96,7 +96,8 @@ module ZeroXDA::Market::TelegramBot
       rescue TradingLabAPI::JobError => error
         json_response(error.status, status: "error", error: error.code, code: error.code)
       rescue TradingLabAPI::Error => error
-        json_response(502, status: "error", error: "trading_lab_unavailable", message: error.message)
+        # `error` keeps its stable value; `code` tells the client which user text to show (timeout or not).
+        json_response(502, status: "error", error: "trading_lab_unavailable", code: error.code, message: error.message)
       rescue MarketAPI::Error => error
         json_response(error.status, status: "error", error: error.code, message: error.message)
       rescue JSON::ParserError

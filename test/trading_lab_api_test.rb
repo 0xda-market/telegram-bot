@@ -3,6 +3,7 @@
 # frozen_string_literal: true
 
 require_relative "test_helper"
+require "minitest/mock"
 require "zero_x_da/market/telegram_bot/trading_lab_api"
 require "socket"
 require "stringio"
@@ -113,6 +114,54 @@ class TradingLabAPITest < Minitest::Test
       refute_includes JSON.generate(event), "9A8534AB09862774"
       refute_includes JSON.generate(event), "fake-replay-token"
     end
+  end
+
+  def test_unavailable_errors_carry_a_stable_code_and_no_internal_details
+    error_class = ZeroXDA::Market::TelegramBot::TradingLabAPI::Error
+    with_lab(502, JSON.generate(status: "error", error: "upstream_unavailable")) do |client, _|
+      error = assert_raises(error_class) { client.copy_replay(unique_code: "9A8534AB09862774") }
+      assert_equal "trading_lab_unavailable", error.code
+      assert_equal "Trading Lab copy replay is unavailable", error.message
+    end
+    with_lab(200, "not json") do |client, _|
+      error = assert_raises(error_class) { client.leaders }
+      assert_equal "trading_lab_unavailable", error.code
+      refute_match(/JSON|HTTP|Net::/, error.message)
+    end
+  end
+
+  def test_job_endpoints_report_outages_and_timeouts_with_codes_and_no_internals
+    error_class = ZeroXDA::Market::TelegramBot::TradingLabAPI::Error
+    id = "a" * 32
+    with_lab(502, JSON.generate(status: "error", error: "upstream_unavailable")) do |client, _|
+      error = assert_raises(error_class) { client.start_copy_replay(unique_code: "9A8534AB09862774", owner: "internal-owner") }
+      assert_equal ["trading_lab_unavailable", "Trading Lab copy job submit is unavailable"], [error.code, error.message]
+    end
+    client = build("http://127.0.0.1:9")
+    Net::HTTP.stub(:start, ->(*, **, &_block) { raise Net::ReadTimeout }) do
+      error = assert_raises(error_class) { client.copy_replay_job(job_id: id, owner: "internal-owner") }
+      assert_equal ["trading_lab_timeout", "Trading Lab copy job status did not respond in time"], [error.code, error.message]
+    end
+    with_lab(503, JSON.generate(status: "error", error: "copy_jobs_busy")) do |busy, _|
+      error = assert_raises(ZeroXDA::Market::TelegramBot::TradingLabAPI::JobError) do
+        busy.start_copy_replay(unique_code: "9A8534AB09862774", owner: "internal-owner")
+      end
+      assert_equal [503, "copy_jobs_busy", "copy_jobs_busy"], [error.status, error.code, error.message]
+    end
+  end
+
+  def test_a_read_timeout_is_reported_as_a_timeout_not_as_an_outage
+    error_class = ZeroXDA::Market::TelegramBot::TradingLabAPI::Error
+    logger = StringIO.new
+    client = build("http://127.0.0.1:9", logger: logger)
+    [Net::ReadTimeout, Net::OpenTimeout].each do |timeout|
+      Net::HTTP.stub(:start, ->(*, **, &_block) { raise timeout }) do
+        error = assert_raises(error_class) { client.copy_replay(unique_code: "9A8534AB09862774") }
+        assert_equal "trading_lab_timeout", error.code
+        assert_equal "Trading Lab copy replay did not respond in time", error.message
+      end
+    end
+    assert_equal "ReadTimeout", JSON.parse(logger.string.lines.first, symbolize_names: true).dig(:context, :exception_type)
   end
 
   def test_copy_replay_posts_code_and_options_with_service_token

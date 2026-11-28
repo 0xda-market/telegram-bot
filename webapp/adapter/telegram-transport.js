@@ -22,7 +22,9 @@ const ERROR_MESSAGES = Object.freeze({
     store_unavailable: "The research store is temporarily unavailable.",
     copy_poll_timeout: "Simulation is still running or unavailable. Start again to check.",
     copy_job_invalid: "Invalid simulation response. No result was calculated.",
-    copy_job_invalid_request: "Simulation request is invalid."
+    copy_job_invalid_request: "Simulation request is invalid.",
+    trading_lab_unavailable: "Trading Lab is temporarily unavailable. Try again in a minute.",
+    trading_lab_timeout: "Trading Lab did not respond in time. Try again in a minute."
   }),
   uk_UA: Object.freeze({
     insufficient_liquidity: "Недостатньо доступної пропозиції брокерів для цього замовлення.",
@@ -55,7 +57,9 @@ const ERROR_MESSAGES = Object.freeze({
     validation_error: "Перевірте введені дані й спробуйте ще раз.",
     unauthorized: "Потрібна авторизація.",
     forbidden: "Недостатньо прав для цієї дії.",
-    not_found: "Запитаний ресурс не знайдено."
+    not_found: "Запитаний ресурс не знайдено.",
+    trading_lab_unavailable: "Trading Lab тимчасово недоступний. Спробуйте ще раз за хвилину.",
+    trading_lab_timeout: "Trading Lab не відповів вчасно. Спробуйте ще раз за хвилину."
   }),
   ru_RU: Object.freeze({
     single_quantity_only: "Этот продукт можно купить только по одному.",
@@ -63,7 +67,9 @@ const ERROR_MESSAGES = Object.freeze({
     recipient_mode_unsupported: "Этот вариант получателя недоступен для продукта.",
     recipient_identity_unavailable: "Для покупки себе требуется ваш Telegram username.",
     recipient_ambiguous: "Не удалось однозначно определить этот username.",
-    premium_already_active: "У этого получателя Telegram Premium уже активен."
+    premium_already_active: "У этого получателя Telegram Premium уже активен.",
+    trading_lab_unavailable: "Trading Lab временно недоступен. Попробуйте ещё раз через минуту.",
+    trading_lab_timeout: "Trading Lab не ответил вовремя. Попробуйте ещё раз через минуту."
   })
 });
 
@@ -265,7 +271,8 @@ export function createTelegramTransport({
     // Paper copy of one lead trader's real closed OKX positions; no order is placed.
     async copyTrading({ uniqueCode, options = {} }) {
       const path = "/trading/copy-replay-jobs";
-      const fail = (code) => apiError({ code }, 0, defaultLocale);
+      // A job code this client has no text for must not surface as "HTTP 0" or as raw backend text.
+      const fail = (code) => apiError({ code: ERROR_MESSAGES.en_US[code] ? code : "replay_internal_error" }, 0, defaultLocale);
       let job = await requestResource(path, { method: "POST", body: JSON.stringify({ unique_code: uniqueCode, options }) });
       const jobId = job?.job_id;
       if (!/^[0-9a-f]{32}$/.test(jobId || "")) throw fail("copy_job_invalid");
