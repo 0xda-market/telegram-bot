@@ -22,7 +22,7 @@ const ERROR_MESSAGES = Object.freeze({
     store_unavailable: "The research store is temporarily unavailable.",
     copy_poll_timeout: "Simulation is still running or unavailable. Start again to check.",
     copy_job_invalid: "Invalid simulation response. No result was calculated.",
-    invalid_request: "Simulation request is invalid."
+    copy_job_invalid_request: "Simulation request is invalid."
   }),
   uk_UA: Object.freeze({
     insufficient_liquidity: "Недостатньо доступної пропозиції брокерів для цього замовлення.",
@@ -50,7 +50,7 @@ const ERROR_MESSAGES = Object.freeze({
     store_unavailable: "Сховище досліджень тимчасово недоступне.",
     copy_poll_timeout: "Симуляція ще триває або недоступна. Запустіть знову для перевірки.",
     copy_job_invalid: "Некоректна відповідь симуляції. Результат не розраховано.",
-    invalid_request: "Некоректний запит симуляції.",
+    copy_job_invalid_request: "Некоректний запит симуляції.",
     missing_field: "У запиті бракує обов’язкових даних.",
     validation_error: "Перевірте введені дані й спробуйте ще раз.",
     unauthorized: "Потрібна авторизація.",
@@ -277,7 +277,7 @@ export function createTelegramTransport({
           if (!job.data || typeof job.data !== "object" || Array.isArray(job.data)) throw fail("copy_job_invalid");
           return job.data;
         }
-        if (job.state === "failed") throw fail(job.error || "replay_internal_error");
+        if (job.state === "failed") throw fail(job.error === "invalid_request" ? "copy_job_invalid_request" : job.error || "replay_internal_error");
         if (!["queued", "running"].includes(job.state)) throw fail("copy_job_invalid");
         if (Date.now() >= deadline) throw fail("copy_poll_timeout");
         await delay(copyPollDelayMs);
