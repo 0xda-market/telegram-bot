@@ -1,6 +1,8 @@
 const DEFAULT_REQUEST_TIMEOUT_MS = 15_000;
 const PAYMENT_REFRESH_ATTEMPTS = 6;
 const PAYMENT_REFRESH_DELAY_MS = 500;
+const COPY_POLL_DELAY_MS = 2_000;
+const COPY_POLL_TIMEOUT_MS = 420_000;
 
 const ERROR_MESSAGES = Object.freeze({
   en_US: Object.freeze({
@@ -9,7 +11,18 @@ const ERROR_MESSAGES = Object.freeze({
     recipient_mode_unsupported: "This recipient option is not supported for the product.",
     recipient_identity_unavailable: "Your Telegram username is required to buy this product for yourself.",
     recipient_ambiguous: "This username cannot be resolved safely.",
-    premium_already_active: "Telegram Premium is already active for this recipient."
+    premium_already_active: "Telegram Premium is already active for this recipient.",
+    copy_jobs_busy: "Simulation capacity is busy. Try again shortly.",
+    copy_job_not_found: "Simulation expired or the service restarted. Start again.",
+    upstream_rate_limited: "OKX is rate limiting history requests. Try again later.",
+    upstream_unavailable: "OKX history is temporarily unavailable. Try again later.",
+    upstream_data_error: "OKX history could not be validated. No result was calculated.",
+    replay_deadline_exceeded: "Simulation exceeded its execution limit. Try again later.",
+    replay_internal_error: "Simulation failed. No result was calculated.",
+    store_unavailable: "The research store is temporarily unavailable.",
+    copy_poll_timeout: "Simulation is still running or unavailable. Start again to check.",
+    copy_job_invalid: "Invalid simulation response. No result was calculated.",
+    invalid_request: "Simulation request is invalid."
   }),
   uk_UA: Object.freeze({
     insufficient_liquidity: "Недостатньо доступної пропозиції брокерів для цього замовлення.",
@@ -27,6 +40,17 @@ const ERROR_MESSAGES = Object.freeze({
     recipient_identity_unavailable: "Для купівлі собі потрібен ваш Telegram username.",
     recipient_ambiguous: "Не вдалося однозначно визначити цей username.",
     premium_already_active: "У цього одержувача Telegram Premium уже активний.",
+    copy_jobs_busy: "Черга симуляцій заповнена. Спробуйте трохи пізніше.",
+    copy_job_not_found: "Симуляція завершила термін зберігання або сервіс перезапустився. Запустіть її знову.",
+    upstream_rate_limited: "OKX обмежив запити історії. Спробуйте пізніше.",
+    upstream_unavailable: "Історія OKX тимчасово недоступна. Спробуйте пізніше.",
+    upstream_data_error: "Не вдалося перевірити дані OKX. Результат не розраховано.",
+    replay_deadline_exceeded: "Перевищено ліміт часу симуляції. Спробуйте пізніше.",
+    replay_internal_error: "Симуляція завершилася помилкою. Результат не розраховано.",
+    store_unavailable: "Сховище досліджень тимчасово недоступне.",
+    copy_poll_timeout: "Симуляція ще триває або недоступна. Запустіть знову для перевірки.",
+    copy_job_invalid: "Некоректна відповідь симуляції. Результат не розраховано.",
+    invalid_request: "Некоректний запит симуляції.",
     missing_field: "У запиті бракує обов’язкових даних.",
     validation_error: "Перевірте введені дані й спробуйте ще раз.",
     unauthorized: "Потрібна авторизація.",
@@ -55,6 +79,7 @@ function apiError(document, status, locale) {
   const fallback = first?.message || document?.message || document?.error || `HTTP ${status}`;
   const error = new Error(localized || fallback);
   if (code) error.code = code;
+  error.httpStatus = status;
   if (first?.details || document?.details) error.details = first?.details || document?.details;
   return error;
 }
@@ -101,6 +126,8 @@ export function createTelegramTransport({
   apiBaseUrl = ".",
   fetchImpl = globalThis.fetch,
   requestTimeoutMs = DEFAULT_REQUEST_TIMEOUT_MS,
+  copyPollDelayMs = COPY_POLL_DELAY_MS,
+  copyPollTimeoutMs = COPY_POLL_TIMEOUT_MS,
   locale: defaultLocale = "en_US"
 } = {}) {
   let bootstrapPromise;
@@ -236,8 +263,33 @@ export function createTelegramTransport({
     },
     replayTrading({ events, options = {} }) { return requestResource("/trading/replays", { method: "POST", body: JSON.stringify({ events, options }) }); },
     // Paper copy of one lead trader's real closed OKX positions; no order is placed.
-    copyTrading({ uniqueCode, options = {} }) {
-      return requestResource("/trading/copy-replays", { method: "POST", body: JSON.stringify({ unique_code: uniqueCode, options }) });
+    async copyTrading({ uniqueCode, options = {} }) {
+      const path = "/trading/copy-replay-jobs";
+      const fail = (code) => apiError({ code }, 0, defaultLocale);
+      let job = await requestResource(path, { method: "POST", body: JSON.stringify({ unique_code: uniqueCode, options }) });
+      const jobId = job?.job_id;
+      if (!/^[0-9a-f]{32}$/.test(jobId || "")) throw fail("copy_job_invalid");
+      const deadline = Date.now() + copyPollTimeoutMs;
+      let consecutiveFailures = 0;
+      while (true) {
+        if (job?.job_id !== jobId) throw fail("copy_job_invalid");
+        if (job.state === "succeeded") {
+          if (!job.data || typeof job.data !== "object" || Array.isArray(job.data)) throw fail("copy_job_invalid");
+          return job.data;
+        }
+        if (job.state === "failed") throw fail(job.error || "replay_internal_error");
+        if (!["queued", "running"].includes(job.state)) throw fail("copy_job_invalid");
+        if (Date.now() >= deadline) throw fail("copy_poll_timeout");
+        await delay(copyPollDelayMs);
+        if (Date.now() >= deadline) throw fail("copy_poll_timeout");
+        try {
+          job = await requestResource(`${path}/${jobId}`);
+          consecutiveFailures = 0;
+        } catch (error) {
+          const transient = error?.code === "request_timeout" || error instanceof TypeError || error?.httpStatus >= 500;
+          if (!transient || ++consecutiveFailures >= 3) throw error;
+        }
+      }
     },
     // Read-only OKX leaderboard through the bot's private Trading Lab adapter.
     tradingLeaders(query = {}) {
