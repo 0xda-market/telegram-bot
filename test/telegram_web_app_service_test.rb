@@ -425,6 +425,22 @@ class TelegramWebAppServiceTest < Minitest::Test
     end
   end
 
+  def test_async_copy_jobs_require_an_active_authorized_owner
+    lab = TradingLab.new
+    lab.define_singleton_method(:start_copy_replay) { |unique_code:, options:, owner:| calls << [:start, unique_code, options, owner]; { "job_id" => "a" * 32 } }
+    lab.define_singleton_method(:copy_replay_job) { |job_id:, owner:| calls << [:status, job_id, owner]; { "state" => "running" } }
+    service = trading_service(lab: lab)
+    id = service.start_trading_copy_job(init_data: "signed", unique_code: "9A8534AB09862774").dig("data", "job_id")
+    assert_equal "running", service.trading_copy_job(init_data: "signed", job_id: id).dig("data", "state")
+    assert_equal [[:start, "9A8534AB09862774", {}, "internal-user-id"], [:status, id, "internal-user-id"]], lab.calls
+    [InactiveMarket.new, ClientMarket.new].each do |market|
+      denied = trading_service(market: market, lab: lab)
+      assert_raises(ZeroXDA::Market::TelegramBot::PurchaseFlow::AccessDenied) { denied.start_trading_copy_job(init_data: "signed", unique_code: "9A8534AB09862774") }
+      assert_raises(ZeroXDA::Market::TelegramBot::PurchaseFlow::AccessDenied) { denied.trading_copy_job(init_data: "signed", job_id: id) }
+    end
+    assert_equal 2, lab.calls.size
+  end
+
   def test_trading_leaders_unavailable_without_trading_lab
     authentication = Authentication.new
     assert_raises(ZeroXDA::Market::TelegramBot::PurchaseFlow::AccessDenied) do
