@@ -185,15 +185,36 @@ test("leaderboard is a signed GET with encoded read-only filters", async () => {
   assert.equal(JSON.stringify(calls).includes("TRADING_LAB_TOKEN"), false);
 });
 
-test("copy trading posts the lead trader code and options through the signed transport", async () => {
+test("copy trading submits then polls through the signed transport", async () => {
   const calls = [];
+  const jobId = "a".repeat(32);
+  const replies = [
+    response({ status: "ok", data: { job_id: jobId, state: "queued" } }, { status: 202 }),
+    response({ status: "ok", data: { job_id: jobId, state: "running" } }),
+    response({ status: "ok", data: { job_id: jobId, state: "succeeded", data: { copied: 3 } } })
+  ];
   const transport = createTelegramTransport({
-    telegram: { initData: "signed" },
-    fetchImpl: async (url, options) => { calls.push([url, options]); return response({ status: "ok", data: { copied: 3 } }); }
+    telegram: { initData: "signed" }, copyPollDelayMs: 0,
+    fetchImpl: async (url, options) => { calls.push([url, options]); return replies.shift(); }
   });
   assert.deepEqual(await transport.copyTrading({ uniqueCode: "9A8534AB09862774", options: { trade_notional: "50" } }), { copied: 3 });
-  assert.match(calls[0][0], /\/trading\/copy-replays$/);
+  assert.match(calls[0][0], /\/trading\/copy-replay-jobs$/);
   assert.equal(calls[0][1].method, "POST");
   assert.deepEqual(JSON.parse(calls[0][1].body), { unique_code: "9A8534AB09862774", options: { trade_notional: "50" } });
-  assert.equal(calls[0][1].headers["x-telegram-init-data"], "signed");
+  assert.equal(calls.length, 3);
+  for (const [, options] of calls) assert.equal(options.headers["x-telegram-init-data"], "signed");
+  assert.ok(calls.slice(1).every(([url]) => url.endsWith("/" + jobId)));
+});
+
+test("copy job retries a transient status error but never fabricates a result", async () => {
+  const id = "a".repeat(32);
+  const replies = [
+    response({ status: "ok", data: { job_id: id, state: "queued" } }, { status: 202 }),
+    response({}, { ok: false, status: 502 }),
+    response({ status: "ok", data: { job_id: id, state: "failed", error: "upstream_data_error" } })
+  ];
+  const transport = createTelegramTransport({ telegram: { initData: "signed" }, locale: "uk_UA", copyPollDelayMs: 0,
+    fetchImpl: async () => replies.shift() });
+  await assert.rejects(() => transport.copyTrading({ uniqueCode: "9A8534AB09862774" }), /Не вдалося перевірити дані OKX/);
+  assert.equal(replies.length, 0);
 });
