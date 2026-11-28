@@ -129,6 +129,26 @@ class TradingLabAPITest < Minitest::Test
     assert_raises(ArgumentError) { client.copy_replay(unique_code: "9A8534AB09862774", options: { "x" => "y" * 5000 }) }
   end
 
+  def test_async_copy_replay_uses_opaque_owner_and_accepts_202
+    id = "a" * 32
+    owner = OpenSSL::HMAC.hexdigest("SHA256", "fake-replay-token", "copy-replay-owner:v1:internal-owner")
+    with_lab(202, JSON.generate(status: "ok", data: { job_id: id, state: "queued" })) do |client, seen|
+      assert_equal id, client.start_copy_replay(unique_code: "9A8534AB09862774", owner: "internal-owner").fetch("job_id")
+      assert_equal "POST /v1/paper/copy-replay-jobs HTTP/1.1", seen.first
+      assert(seen.any? { |line| line.casecmp?("x-trading-replay-owner: #{owner}") })
+      refute_includes seen.join, "internal-owner"
+    end
+    with_lab(200, JSON.generate(status: "ok", data: { job_id: id, state: "running" })) do |client, seen|
+      assert_equal "running", client.copy_replay_job(job_id: id, owner: "internal-owner").fetch("state")
+      assert_equal "GET /v1/paper/copy-replay-jobs/#{id} HTTP/1.1", seen.first
+      assert(seen.any? { |line| line.casecmp?("x-trading-replay-owner: #{owner}") })
+    end
+    with_lab(404, JSON.generate(status: "error", error: "copy_job_not_found")) do |client, _|
+      error = assert_raises(ZeroXDA::Market::TelegramBot::TradingLabAPI::JobError) { client.copy_replay_job(job_id: id, owner: "internal-owner") }
+      assert_equal [404, "copy_job_not_found"], [error.status, error.code]
+    end
+  end
+
   def test_leaders_options_are_checked_before_transport
     client = build("http://market-trading-lab:1927")
     assert_raises(ArgumentError) { client.leaders(options: "sort=pnl") }

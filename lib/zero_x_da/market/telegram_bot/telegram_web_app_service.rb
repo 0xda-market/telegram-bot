@@ -100,6 +100,20 @@ module ZeroXDA::Market::TelegramBot
         { "data" => @trading_lab_api.copy_replay(unique_code: unique_code, options: options) }
       end
 
+      def start_trading_copy_job(init_data:, unique_code:, options: {})
+        raise PurchaseFlow::AccessDenied, "paper trading unavailable" unless @trading_lab_api
+        _session, user = authenticate(init_data)
+        authorize_paper_trading!(user)
+        { "data" => @trading_lab_api.start_copy_replay(unique_code: unique_code, options: options, owner: user.fetch("id")) }
+      end
+
+      def trading_copy_job(init_data:, job_id:)
+        raise PurchaseFlow::AccessDenied, "paper trading unavailable" unless @trading_lab_api
+        _session, user = authenticate(init_data)
+        authorize_paper_trading!(user)
+        { "data" => @trading_lab_api.copy_replay_job(job_id: job_id, owner: user.fetch("id")) }
+      end
+
       def quote(init_data:, sku:, quantity:, locale:, recipient: nil)
         session, user = authenticate(init_data)
         quote = @purchase_flow.quote(

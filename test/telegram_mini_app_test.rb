@@ -45,6 +45,16 @@ class TelegramMiniAppTest < Minitest::Test
       { "data" => { "unique_code" => unique_code, "copied" => 2 } }
     end
 
+    def start_trading_copy_job(init_data:, unique_code:, options: {})
+      @requests << [:start_trading_copy_job, init_data, unique_code, options]
+      { "data" => { "job_id" => "a" * 32, "state" => "queued" } }
+    end
+
+    def trading_copy_job(init_data:, job_id:)
+      @requests << [:trading_copy_job, init_data, job_id]
+      { "data" => { "job_id" => job_id, "state" => "running" } }
+    end
+
     def trading_leaders(init_data:, options: {})
       @requests << [:trading_leaders, init_data, options]
       { "data" => { "data_version" => "20261105150001", "traders" => [] } }
@@ -299,6 +309,17 @@ class TelegramMiniAppTest < Minitest::Test
     assert_equal 200, response.status
     assert_equal ["ok", 2], JSON.parse(response.body).values_at("status").push(JSON.parse(response.body).dig("data", "copied"))
     assert_equal [[:trading_copy_replay, "signed-init-data", "9A8534AB09862774", { "trade_notional" => "50" }]], @service.requests
+  end
+
+  def test_async_copy_job_routes_use_signed_session
+    response = @client.post("/webapp/trading/copy-replay-jobs", "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data",
+                            "CONTENT_TYPE" => "application/json", input: JSON.generate(unique_code: "9A8534AB09862774"))
+    assert_equal 202, response.status
+    id = JSON.parse(response.body).dig("data", "job_id")
+    response = @client.get("/webapp/trading/copy-replay-jobs/#{id}", "HTTP_X_TELEGRAM_INIT_DATA" => "signed-init-data")
+    assert_equal 200, response.status
+    assert_equal "running", JSON.parse(response.body).dig("data", "state")
+    assert_equal [[:start_trading_copy_job, "signed-init-data", "9A8534AB09862774", {}], [:trading_copy_job, "signed-init-data", id]], @service.requests
   end
 
   def test_trading_leaders_uses_signed_session_and_query

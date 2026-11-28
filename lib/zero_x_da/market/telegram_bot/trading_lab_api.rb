@@ -6,12 +6,21 @@ require "net/http"
 require "json"
 require "uri"
 require "securerandom"
+require "openssl"
 require_relative "namespace"
 
 module ZeroXDA::Market::TelegramBot
   # Server-only adapter to a private, paper-only Trading Lab service.
   class TradingLabAPI
     class Error < StandardError; end
+    class JobError < Error
+      attr_reader :status, :code
+
+      def initialize(status, code)
+        @status, @code = status, code
+        super(code)
+      end
+    end
 
     # Read-only leaderboard filters forwarded to Trading Lab, which validates their values.
     LEADER_OPTIONS = %w[sort state min_lead_days min_assets max_assets min_aum max_aum data_version page limit].freeze
@@ -72,7 +81,33 @@ module ZeroXDA::Market::TelegramBot
       perform(uri, request, "copy replay", read_timeout: 12)
     end
 
+    def start_copy_replay(unique_code:, options: {}, owner:)
+      raise ArgumentError, "unique_code is invalid" unless unique_code.is_a?(String) && unique_code.match?(/\A(?:[0-9A-Za-z]{16}|[0-9]{18})\z/)
+      raise ArgumentError, "options must be an object" unless options.is_a?(Hash)
+      body = JSON.generate(unique_code: unique_code, options: options)
+      raise ArgumentError, "copy replay request is too large" if body.bytesize > 4096
+      uri = endpoint("/v1/paper/copy-replay-jobs")
+      request = Net::HTTP::Post.new(uri.request_uri)
+      request["content-type"] = "application/json"
+      request["x-trading-replay-owner"] = owner_reference(owner)
+      request.body = body
+      perform(uri, request, "copy job submit", accepted_status: "202", job_errors: true)
+    end
+
+    def copy_replay_job(job_id:, owner:)
+      raise ArgumentError, "invalid job id" unless job_id.is_a?(String) && job_id.match?(/\A[0-9a-f]{32}\z/)
+      uri = endpoint("/v1/paper/copy-replay-jobs/#{job_id}")
+      request = Net::HTTP::Get.new(uri.request_uri)
+      request["x-trading-replay-owner"] = owner_reference(owner)
+      perform(uri, request, "copy job status", job_errors: true)
+    end
+
     private
+
+    def owner_reference(owner)
+      raise ArgumentError, "invalid replay owner" if owner.to_s.empty?
+      OpenSSL::HMAC.hexdigest("SHA256", @token, "copy-replay-owner:v1:#{owner}")
+    end
 
     # Trading Lab 422 messages describe the caller's own filters (e.g. "limit must be between 1 and 20").
     # Pass through only short plain text; anything else falls back to a generic message.
@@ -87,7 +122,7 @@ module ZeroXDA::Market::TelegramBot
       uri
     end
 
-    def perform(uri, request, label, read_timeout: 8)
+    def perform(uri, request, label, read_timeout: 8, accepted_status: "200", job_errors: false)
       started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
       correlation_id = SecureRandom.uuid
       request["authorization"] = "Bearer #{@token}"
@@ -101,7 +136,12 @@ module ZeroXDA::Market::TelegramBot
                        started, correlation_id, severity: "warning", upstream_status: 422)
         raise ArgumentError, safe_message(document) || "invalid #{label} request"
       end
-      unless response.code == "200" && document.is_a?(Hash) && document["status"] == "ok" && document["data"].is_a?(Hash)
+      if job_errors && document.is_a?(Hash)
+        code = document["error"]
+        raise JobError.new(404, code) if response.code == "404" && code == "copy_job_not_found"
+        raise JobError.new(503, code) if response.code == "503" && code == "copy_jobs_busy"
+      end
+      unless response.code == accepted_status && document.is_a?(Hash) && document["status"] == "ok" && document["data"].is_a?(Hash)
         report_failure("market.trading.upstream.unavailable", "Trading Lab returned an unsuccessful response", label,
                        started, correlation_id, upstream_status: response.code.to_i)
         raise Error, "Trading Lab #{label} is unavailable (HTTP #{response.code})"
