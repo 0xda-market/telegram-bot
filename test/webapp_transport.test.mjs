@@ -143,7 +143,7 @@ test("rejects a nominal HTTP success carrying status error", async () => {
 
 test("pins and mounts the current webapp-core contracts", () => {
   const source = readFileSync(new URL("../webapp/app.js", import.meta.url), "utf8");
-  assert.match(source, /e6d0834756a672d268b176ceb7f84fc2f13d484e/);
+  assert.match(source, /a062196e06364a98a6ec405c402131c2e0fc46f5/);
   assert.match(source, /checkout-feedback-state\.js/);
   assert.match(source, /createCheckoutFeedbackState/);
   assert.match(source, /withCheckoutFeedback/);
