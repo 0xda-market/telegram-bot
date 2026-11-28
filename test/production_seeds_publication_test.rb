@@ -37,7 +37,7 @@ class ProductionSeedsPublicationTest < Minitest::Test
     { "TELEGRAM_BOT_TOKEN" => "test-token", "TELEGRAM_WEBHOOK_SECRET" => "test_secret",
       "MARKET_API_TOKEN" => "test-token", "TRADING_LAB_TOKEN" => "test-token",
       "PARTNER_LOOKUP_TOKEN" => "p" * 40, "CHANNEL_ASSERTION_SECRET" => "c" * 40,
-      "TELEGRAM_BOT_USERNAME" => "production_market_bot", "PUBLIC_URL" => "https://0xda-market.nilx.one/bot",
+      "TELEGRAM_BOT_USERNAME" => "zeroxda_market_bot", "PUBLIC_URL" => "https://0xda-market.nilx.one/bot",
       "MARKET_API_URL" => "http://market-api-production:1927" }
   end
 end

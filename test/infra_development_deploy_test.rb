@@ -11,7 +11,7 @@ class InfraDevelopmentDeployTest < Minitest::Test
     ci = YAML.safe_load(File.read(CI_WORKFLOW), aliases: false)
     job = ci.dig("jobs", "publish-development")
     assert_equal "test", job["needs"]
-    assert_equal "github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')", job["if"]
+    assert_equal "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'", job["if"]
     assert_equal "development", job.dig("environment", "name")
     assert_equal({ "contents" => "read", "packages" => "write", "id-token" => "write", "attestations" => "write" }, job["permissions"])
     steps = job.fetch("steps")
