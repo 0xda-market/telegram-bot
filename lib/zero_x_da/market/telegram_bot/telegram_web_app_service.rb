@@ -9,6 +9,8 @@ require_relative "telegram_web_app_auth"
 
 module ZeroXDA::Market::TelegramBot
     class TelegramWebAppService
+      PAPER_TRADING_ROLES = %w[broker admin].freeze
+
       def initialize(
         market_api:,
         authentication:,
@@ -43,7 +45,7 @@ module ZeroXDA::Market::TelegramBot
           "status" => user.dig("attributes", "status"),
           "subject" => session.subject,
           "environment" => @environment,
-          "paper_trading_enabled" => !!@trading_lab_api && user.dig("attributes", "status") == "active"
+          "paper_trading_enabled" => !!@trading_lab_api && paper_trading_user?(user)
         }
         if @special_checkout && @environment == "development" && user.dig("attributes", "status") == "active"
           public_session["special_account"] = special_account(session.user.fetch("id"))
@@ -80,21 +82,21 @@ module ZeroXDA::Market::TelegramBot
       def paper_replay(init_data:, events:, options: {})
         raise PurchaseFlow::AccessDenied, "paper trading unavailable" unless @trading_lab_api
         _session, user = authenticate(init_data)
-        raise PurchaseFlow::AccessDenied, "inactive market account" unless user.dig("attributes", "status") == "active"
+        authorize_paper_trading!(user)
         { "data" => @trading_lab_api.replay(events: events, options: options) }
       end
 
       def trading_leaders(init_data:, options: {})
         raise PurchaseFlow::AccessDenied, "paper trading unavailable" unless @trading_lab_api
         _session, user = authenticate(init_data)
-        raise PurchaseFlow::AccessDenied, "inactive market account" unless user.dig("attributes", "status") == "active"
+        authorize_paper_trading!(user)
         { "data" => @trading_lab_api.leaders(options: options) }
       end
 
       def trading_copy_replay(init_data:, unique_code:, options: {})
         raise PurchaseFlow::AccessDenied, "paper trading unavailable" unless @trading_lab_api
         _session, user = authenticate(init_data)
-        raise PurchaseFlow::AccessDenied, "inactive market account" unless user.dig("attributes", "status") == "active"
+        authorize_paper_trading!(user)
         { "data" => @trading_lab_api.copy_replay(unique_code: unique_code, options: options) }
       end
 
@@ -226,6 +228,16 @@ module ZeroXDA::Market::TelegramBot
           "held" => account.special_held, "purchase_open" => account.purchase_open }
       rescue NilxIdentityAPI::Error
         { "state" => "unavailable" }
+      end
+
+      def paper_trading_user?(user)
+        attributes = user.fetch("attributes")
+        attributes["status"] == "active" && PAPER_TRADING_ROLES.include?(attributes["role"])
+      end
+
+      def authorize_paper_trading!(user)
+        raise PurchaseFlow::AccessDenied, "inactive market account" unless user.dig("attributes", "status") == "active"
+        raise PurchaseFlow::AccessDenied, "paper trading requires broker role" unless paper_trading_user?(user)
       end
 
       def verified_session(init_data)
