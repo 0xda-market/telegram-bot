@@ -38,13 +38,12 @@ jobs:
           path: test.log
           retention-days: 3
 
-  # Explicit development publication only. A master push runs correctness checks
-  # but never publishes or activates a deployment. Production has a separate
-  # manual publish-production.yml workflow with its own environment contract.
+  # Infra reconciles the development image published after successful master CI.
+  # Production uses its own manual publication workflow.
   # Infra verifies the attestations; this repository holds no infra credential.
   publish-development:
     needs: test
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:
