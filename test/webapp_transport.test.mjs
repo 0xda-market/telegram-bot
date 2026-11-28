@@ -185,6 +185,48 @@ test("leaderboard is a signed GET with encoded read-only filters", async () => {
   assert.equal(JSON.stringify(calls).includes("TRADING_LAB_TOKEN"), false);
 });
 
+test("Trading Lab outages are shown in the person's language, never as English or Ruby internals", async () => {
+  const expected = {
+    uk_UA: { trading_lab_unavailable: "Trading Lab тимчасово недоступний. Спробуйте ще раз за хвилину.", trading_lab_timeout: "Trading Lab не відповів вчасно. Спробуйте ще раз за хвилину." },
+    ru_RU: { trading_lab_unavailable: "Trading Lab временно недоступен. Попробуйте ещё раз через минуту.", trading_lab_timeout: "Trading Lab не ответил вовремя. Попробуйте ещё раз через минуту." },
+    en_US: { trading_lab_unavailable: "Trading Lab is temporarily unavailable. Try again in a minute.", trading_lab_timeout: "Trading Lab did not respond in time. Try again in a minute." }
+  };
+  for (const [locale, codes] of Object.entries(expected)) {
+    for (const [code, text] of Object.entries(codes)) {
+      const transport = createTelegramTransport({
+        telegram: { initData: "signed" },
+        locale,
+        fetchImpl: async () => response(
+          { status: "error", error: "trading_lab_unavailable", code, message: "Trading Lab copy replay is unavailable (Net::ReadTimeout)" },
+          { ok: false, status: 502 }
+        )
+      });
+      await assert.rejects(() => transport.copyTrading({ uniqueCode: "9A8534AB09862774" }),
+        (error) => error.message === text && error.code === code, `${locale} ${code} copy`);
+      await assert.rejects(() => transport.tradingLeaders(), (error) => error.message === text, `${locale} ${code} leaderboard`);
+    }
+  }
+});
+
+test("a failed copy job submit or poll is shown in the person's language, never as HTTP or Ruby internals", async () => {
+  const id = "a".repeat(32);
+  const outage = (message, code = "trading_lab_unavailable") =>
+    response({ status: "error", error: "trading_lab_unavailable", code, message }, { ok: false, status: 502 });
+  const queued = () => response({ status: "ok", data: { job_id: id, state: "queued" } }, { status: 202 });
+  const attempt = (replies, locale = "uk_UA") => createTelegramTransport({
+    telegram: { initData: "signed" }, locale, copyPollDelayMs: 0, fetchImpl: async () => replies.shift()
+  }).copyTrading({ uniqueCode: "9A8534AB09862774" });
+
+  await assert.rejects(() => attempt([outage("Trading Lab copy job submit is unavailable")]),
+    (error) => error.message === "Trading Lab тимчасово недоступний. Спробуйте ще раз за хвилину." && error.code === "trading_lab_unavailable");
+  await assert.rejects(() => attempt([queued(), outage("x", "trading_lab_timeout"), outage("x", "trading_lab_timeout"), outage("x", "trading_lab_timeout")]),
+    (error) => error.message === "Trading Lab не відповів вчасно. Спробуйте ще раз за хвилину." && error.code === "trading_lab_timeout");
+  await assert.rejects(() => attempt([outage("Trading Lab copy job submit is unavailable")], "en_US"),
+    (error) => error.message === "Trading Lab is temporarily unavailable. Try again in a minute.");
+  await assert.rejects(() => attempt([response({ status: "ok", data: { job_id: id, state: "failed", error: "something_new" } }, { status: 202 })]),
+    (error) => error.message === "Симуляція завершилася помилкою. Результат не розраховано." && error.code === "replay_internal_error");
+});
+
 test("copy trading submits then polls through the signed transport", async () => {
   const calls = [];
   const jobId = "a".repeat(32);

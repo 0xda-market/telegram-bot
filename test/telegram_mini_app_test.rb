@@ -299,6 +299,16 @@ class TelegramMiniAppTest < Minitest::Test
     end
   end
 
+  def test_trading_lab_outage_response_names_its_reason_without_internals
+    error_class = ZeroXDA::Market::TelegramBot::TradingLabAPI::Error
+    outage = leaders_failing_with(error_class.new("Trading Lab leaderboard is unavailable"))
+    timeout = leaders_failing_with(error_class.new("Trading Lab leaderboard did not respond in time", code: error_class::TIMEOUT))
+    assert_equal [502, "trading_lab_unavailable", "trading_lab_unavailable"],
+                 [outage.status, JSON.parse(outage.body)["error"], JSON.parse(outage.body)["code"]]
+    assert_equal [502, "trading_lab_unavailable", "trading_lab_timeout"],
+                 [timeout.status, JSON.parse(timeout.body)["error"], JSON.parse(timeout.body)["code"]]
+  end
+
   def test_trading_copy_replay_uses_signed_session_and_body
     response = @client.post(
       "/webapp/trading/copy-replays",
