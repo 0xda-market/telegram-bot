@@ -7,11 +7,11 @@ require "open3"
 class InfraDevelopmentDeployTest < Minitest::Test
   CI_WORKFLOW = File.expand_path("../.github/workflows/ci.yml", __dir__)
 
-  def test_automatic_delivery_publishes_attested_image_and_envelope
+  def test_manual_development_publication_publishes_attested_image_and_envelope
     ci = YAML.safe_load(File.read(CI_WORKFLOW), aliases: false)
     job = ci.dig("jobs", "publish-development")
     assert_equal "test", job["needs"]
-    assert_equal "github.event_name == 'push' && github.ref == 'refs/heads/master'", job["if"]
+    assert_equal "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'", job["if"]
     assert_equal "development", job.dig("environment", "name")
     assert_equal({ "contents" => "read", "packages" => "write", "id-token" => "write", "attestations" => "write" }, job["permissions"])
     steps = job.fetch("steps")
