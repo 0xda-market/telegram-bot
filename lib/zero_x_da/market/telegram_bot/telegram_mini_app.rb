@@ -42,6 +42,10 @@ module ZeroXDA::Market::TelegramBot
         return paper_replay(request) if request.post? && request.path_info == "/webapp/trading/replays"
         return trading_leaders(request) if request.get? && request.path_info == "/webapp/trading/leaders"
         return trading_copy_replay(request) if request.post? && request.path_info == "/webapp/trading/copy-replays"
+        return start_trading_copy_job(request) if request.post? && request.path_info == "/webapp/trading/copy-replay-jobs"
+        if request.get? && (job = request.path_info.match(%r{\A/webapp/trading/copy-replay-jobs/([0-9a-f]{32})\z}))
+          return post_document(200, @service.trading_copy_job(init_data: init_data(request), job_id: job[1]))
+        end
         return quote(request) if request.post? && request.path_info == "/webapp/quotes"
         return broker_listings(request) if request.get? && request.path_info == "/webapp/broker/listings"
         return create_broker_listing(request) if request.post? && request.path_info == "/webapp/broker/listings"
@@ -89,6 +93,8 @@ module ZeroXDA::Market::TelegramBot
         json_response(403, status: "error", error: "access_denied", message: error.message)
       rescue PurchaseFlow::UnpricedProduct, ArgumentError => error
         json_response(422, status: "error", error: "invalid_request", message: error.message)
+      rescue TradingLabAPI::JobError => error
+        json_response(error.status, status: "error", error: error.code, code: error.code)
       rescue TradingLabAPI::Error => error
         json_response(502, status: "error", error: "trading_lab_unavailable", message: error.message)
       rescue MarketAPI::Error => error
@@ -123,6 +129,13 @@ module ZeroXDA::Market::TelegramBot
         document = @service.trading_copy_replay(init_data: init_data(request), unique_code: body.fetch("unique_code"),
                                                 options: body.fetch("options", {}))
         post_document(200, document)
+      end
+
+      def start_trading_copy_job(request)
+        body = request_document(request)
+        raise ArgumentError, "invalid copy replay request" unless body.key?("unique_code") && (body.keys - %w[unique_code options]).empty?
+        document = @service.start_trading_copy_job(init_data: init_data(request), unique_code: body.fetch("unique_code"), options: body.fetch("options", {}))
+        post_document(202, document)
       end
 
       def quote(request)
