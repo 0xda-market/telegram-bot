@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The Mini App Trading workspace and its Trading Lab calls (paper replay, OKX
+  leaders, copy simulation) are limited to active `broker` and `admin` accounts.
+  `paper_trading_enabled` is false for clients, and the server refuses their
+  Trading requests instead of relying on the hidden tab.
+
 - The Mini App base surface is now brand-owned and always dark; only the accent,
   the lens and the material highlights derive from the active Telegram theme.
   The app no longer follows a light Telegram theme.

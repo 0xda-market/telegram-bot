@@ -329,6 +329,18 @@ class TelegramWebAppServiceTest < Minitest::Test
     end
   end
 
+  class ClientMarket < Market
+    def authenticate_telegram(user:, chat:)
+      super.tap { |account| account["attributes"]["role"] = "client" }
+    end
+  end
+
+  class AdminMarket < Market
+    def authenticate_telegram(user:, chat:)
+      super.tap { |account| account["attributes"]["role"] = "admin" }
+    end
+  end
+
   class RejectingAuthentication < Authentication
     def verify(init_data)
       @requests << init_data
@@ -355,6 +367,37 @@ class TelegramWebAppServiceTest < Minitest::Test
     end
     assert_empty market.authentications
     assert_empty lab.calls
+  end
+
+  def test_trading_requires_broker_or_admin_role
+    denied = ZeroXDA::Market::TelegramBot::PurchaseFlow::AccessDenied
+    client_lab = TradingLab.new
+    service = trading_service(market: ClientMarket.new, lab: client_lab)
+
+    [
+      -> { service.trading_leaders(init_data: "signed", options: {}) },
+      -> { service.paper_replay(init_data: "signed", events: [], options: {}) },
+      -> { service.trading_copy_replay(init_data: "signed", unique_code: "9A8534AB09862774", options: {}) }
+    ].each do |call|
+      error = assert_raises(denied, &call)
+      assert_equal "paper trading requires broker role", error.message
+    end
+    assert_empty client_lab.calls
+
+    [Market.new, AdminMarket.new].each do |market|
+      lab = TradingLab.new
+      refute_empty trading_service(market: market, lab: lab).trading_leaders(init_data: "signed", options: {})
+      refute_empty lab.calls
+    end
+  end
+
+  def test_bootstrap_enables_paper_trading_only_for_active_broker_or_admin
+    {
+      Market => true, AdminMarket => true, ClientMarket => false, InactiveMarket => false
+    }.each do |market_class, expected|
+      document = trading_service(market: market_class.new).bootstrap(init_data: "signed", locale: "en_US")
+      assert_equal expected, document.dig("meta", "session", "paper_trading_enabled"), market_class.name
+    end
   end
 
   def test_trading_leaders_rejects_inactive_account
