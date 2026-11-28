@@ -1,9 +1,13 @@
 # © 2026 aiaiaiai · aiaiaiai.org
 # SPDX-License-Identifier: MIT
-name: Publish Market Bot production candidate
-run-name: Publish Market Bot production ${{ github.sha }}
+name: Publish Market Bot production release
+run-name: Publish Market Bot production ${{ github.event.workflow_run.head_sha || github.sha }}
 
 on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -15,7 +19,14 @@ concurrency:
 
 jobs:
   publish:
-    name: Verify exact-head CI and publish attested production candidate
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'master' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    name: Verify exact-head CI and publish attested production release
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment:
@@ -28,23 +39,21 @@ jobs:
       attestations: write
     env:
       IMAGE: ghcr.io/0xda-market/telegram-bot-production
+      RELEASE_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - name: Require latest master with successful push CI
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -Eeuo pipefail
-          test "$GITHUB_REF" = refs/heads/master || {
-            echo "::error::Production candidates must be published from master." >&2
-            exit 1
-          }
+          [[ "$RELEASE_SHA" =~ ^[a-f0-9]{40}$ ]]
           current="$(gh api "repos/$GITHUB_REPOSITORY/commits/master" --jq '.sha')"
-          test "$current" = "$GITHUB_SHA" || {
+          test "$current" = "$RELEASE_SHA" || {
             echo "::error::Master moved; dispatch this workflow again at its current head." >&2
             exit 1
           }
-          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=push&head_sha=$GITHUB_SHA&per_page=30")"
-          jq -e --arg sha "$GITHUB_SHA" '
+          runs="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?event=push&head_sha=$RELEASE_SHA&per_page=30")"
+          jq -e --arg sha "$RELEASE_SHA" '
             [.workflow_runs[] | select(
               .head_sha == $sha and .head_branch == "master" and
               .event == "push" and .status == "completed" and
@@ -57,6 +66,7 @@ jobs:
 
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.RELEASE_SHA }}
           persist-credentials: false
 
       - name: Validate isolated production configuration
@@ -89,8 +99,8 @@ jobs:
             echo "::error::TELEGRAM_BOT_USERNAME must be a username without @." >&2
             exit 1
           }
-          test "$TELEGRAM_BOT_USERNAME" != zeroxda_market_test_bot || {
-            echo "::error::The development Telegram identity cannot be used for production." >&2
+          test "$TELEGRAM_BOT_USERNAME" = zeroxda_market_bot || {
+            echo "::error::Production publication requires @zeroxda_market_bot." >&2
             exit 1
           }
           test "$PUBLIC_URL" = "https://0xda-market.nilx.one/bot" || {
@@ -129,7 +139,7 @@ jobs:
           context: .
           platforms: linux/amd64
           push: true
-          tags: ${{ env.IMAGE }}:${{ github.sha }}
+          tags: ${{ env.IMAGE }}:${{ env.RELEASE_SHA }}
 
       - name: Attest production image
         uses: actions/attest-build-provenance@v2
@@ -181,7 +191,7 @@ jobs:
           platforms: linux/amd64
           push: true
           provenance: false
-          tags: ${{ env.IMAGE }}:${{ github.sha }}.secrets
+          tags: ${{ env.IMAGE }}:${{ env.RELEASE_SHA }}.secrets
 
       - name: Attest production secret envelope
         uses: actions/attest-build-provenance@v2
@@ -190,9 +200,6 @@ jobs:
           subject-digest: ${{ steps.envelope.outputs.digest }}
           push-to-registry: true
 
-      - name: Print candidate instructions
-        env:
-          COMMIT_SHA: ${{ github.sha }}
+      - name: Record publication
         run: |
-          echo "Production candidate for $COMMIT_SHA was published and attested." >> "$GITHUB_STEP_SUMMARY"
-          echo "This workflow did not deploy. Verify Core, edge routing, secrets and readiness, then explicitly dispatch infra Reconcile deliveries with workload=market-bot-production." >> "$GITHUB_STEP_SUMMARY"
+          echo "Production release for $RELEASE_SHA is published and attested for infra reconciliation." >> "$GITHUB_STEP_SUMMARY"

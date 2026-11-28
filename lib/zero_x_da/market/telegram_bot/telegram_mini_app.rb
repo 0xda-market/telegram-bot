@@ -3,6 +3,7 @@
 require_relative "namespace"
 
 require "json"
+require "net/http"
 require "rack"
 require_relative "market_api"
 require_relative "purchase_flow"
@@ -26,8 +27,11 @@ module ZeroXDA::Market::TelegramBot
       ].join("; ").freeze
       RESOURCE_ID_PATTERN = /\A[A-Za-z0-9:_-]{1,80}\z/
 
-      def initialize(service:, root:)
+      PRODUCTION_CORE_ASSET = %r{\A/webapp/core/(?<asset>revision\.txt|[0-9a-f]{40}/[a-z][a-z0-9-]*\.js)\z}
+
+      def initialize(service:, root:, production_core: false)
         @service = service
+        @production_core = production_core
         @files = Rack::Files.new(File.expand_path(root))
       end
 
@@ -73,6 +77,9 @@ module ZeroXDA::Market::TelegramBot
           )
         end
 
+        if @production_core && request.get? && (match = PRODUCTION_CORE_ASSET.match(request.path_info))
+          return production_core_asset(match[:asset])
+        end
         return static_asset(request, environment) if request.get? || request.head?
 
         json_response(404, status: "error", error: "not_found")
@@ -281,6 +288,29 @@ module ZeroXDA::Market::TelegramBot
           },
           []
         ]
+      end
+
+      def production_core_asset(asset)
+        upstream = Net::HTTP.new("market-webapp-production", 1927, nil)
+        upstream.open_timeout = 2
+        upstream.read_timeout = 3
+        upstream.max_retries = 0
+        response = upstream.get("/#{asset}")
+        return json_response(404, status: "error", error: "not_found") if response.code == "404"
+        return json_response(503, status: "error", error: "webapp_core_unavailable") unless response.is_a?(Net::HTTPOK)
+
+        manifest = asset == "revision.txt"
+        [
+          200,
+          {
+            "content-type" => manifest ? "text/plain; charset=utf-8" : "application/javascript; charset=utf-8",
+            "cache-control" => manifest ? "no-store" : "public, max-age=31536000, immutable",
+            "x-content-type-options" => "nosniff"
+          },
+          [response.body]
+        ]
+      rescue IOError, SocketError, SystemCallError, Net::OpenTimeout, Net::ReadTimeout
+        json_response(503, status: "error", error: "webapp_core_unavailable")
       end
 
       def static_asset(request, environment)

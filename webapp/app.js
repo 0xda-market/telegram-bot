@@ -16,6 +16,21 @@ const checkoutFeedbackModuleUrl = runtime.checkoutFeedbackModuleUrl ||
   `https://cdn.jsdelivr.net/gh/0xda-market/webapp-core@${WEBAPP_CORE_REVISION}/src/checkout-feedback-state.js`;
 const apiBaseUrl = runtime.apiBaseUrl || ".";
 
+async function loadCoreModules() {
+  let revision = WEBAPP_CORE_REVISION;
+  let urls = [webappCoreModuleUrl, brokerOrdersModuleUrl, checkoutFeedbackModuleUrl];
+  if (location.pathname === "/bot/webapp/") {
+    const response = await fetch("./core/revision.txt", { cache: "no-store" });
+    if (!response.ok) throw new Error("Production WebApp revision unavailable");
+    revision = (await response.text()).trim();
+    if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error("Invalid production WebApp revision");
+    urls = ["index.js", "broker-orders.js", "checkout-feedback-state.js"]
+      .map((name) => new URL(`./core/${revision}/${name}`, document.baseURI).href);
+  }
+  const [webappCore, brokerOrdersModule, checkoutModule] = await Promise.all(urls.map((url) => import(url)));
+  return { webappCore, brokerOrdersModule, checkoutModule, revision };
+}
+
 function revealApplication() {
   document.body.classList.remove("app-booting");
   document.body.removeAttribute("aria-busy");
@@ -71,11 +86,7 @@ function showSpecialAccount(account, locale) {
   }
 }
 
-async function initializeApplication({ host, transport }) {
-  const [webappCore, brokerOrdersModule] = await Promise.all([
-    import(webappCoreModuleUrl),
-    import(brokerOrdersModuleUrl)
-  ]);
+async function initializeApplication({ host, transport, webappCore, brokerOrdersModule }) {
   const app = await webappCore.mountMarketApp({ host, transport, document });
   const context = app.context();
   const marketRoot = document.querySelector("main");
@@ -120,12 +131,8 @@ async function start() {
   let host = createTelegramHost(telegram);
   const locale = host.locale();
   const checkoutDialog = document.querySelector("#checkout-dialog");
-  const { createCheckoutFeedbackState, withCheckoutFeedback } = await import(checkoutFeedbackModuleUrl);
-  const checkoutFeedback = createCheckoutFeedbackState({ dialog: checkoutDialog });
-  const transport = withCheckoutFeedback(
-    createTelegramTransport({ telegram, apiBaseUrl, locale }),
-    { dialog: checkoutDialog, feedback: checkoutFeedback }
-  );
+  const baseTransport = createTelegramTransport({ telegram, apiBaseUrl, locale });
+  let revision = WEBAPP_CORE_REVISION;
   const recipientTransport = createRecipientPickerTransport({ telegram, apiBaseUrl });
   host = createTelegramHost(telegram, {
     recipientPicker: () => pickTelegramRecipient({ telegram, transport: recipientTransport, locale })
@@ -138,7 +145,14 @@ async function start() {
   shellMessage(locale.startsWith("uk") ? "Завантаження маркету…" : "Loading market…");
 
   const startup = createStartupController({
-    run: () => initializeApplication({ host, transport }),
+    run: async () => {
+      const modules = await loadCoreModules();
+      revision = modules.revision;
+      const { createCheckoutFeedbackState, withCheckoutFeedback } = modules.checkoutModule;
+      const feedback = createCheckoutFeedbackState({ dialog: checkoutDialog });
+      const transport = withCheckoutFeedback(baseTransport, { dialog: checkoutDialog, feedback });
+      await initializeApplication({ host, transport, ...modules });
+    },
     onPhase: (event) => {
       logStartup(event);
       if (event.phase === "retry") {
@@ -150,10 +164,10 @@ async function start() {
         locale.startsWith("uk") ? "Не вдалося завантажити. Відкрийте застосунок ще раз." : "Could not load. Reopen the app.",
         true
       );
-      await transport.reportRuntimeEvent?.({
+      await baseTransport.reportRuntimeEvent?.({
         type: "startup_failed",
         message: error?.message || "unknown startup failure",
-        revision: WEBAPP_CORE_REVISION
+        revision
       }).catch(() => {});
     }
   });

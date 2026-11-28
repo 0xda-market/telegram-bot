@@ -38,12 +38,12 @@ jobs:
           path: test.log
           retention-days: 3
 
-  # Infra reconciles the development image published after successful master CI.
+  # Development publication is available only for an explicit legacy workflow run.
   # Production uses its own manual publication workflow.
   # Infra verifies the attestations; this repository holds no infra credential.
   publish-development:
     needs: test
-    if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment:

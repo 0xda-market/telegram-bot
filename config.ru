@@ -126,6 +126,7 @@ web_app_service = ZeroXDA::Market::TelegramBot::TelegramWebAppService.new(
 mini_app = ZeroXDA::Market::TelegramBot::TelegramMiniApp.new(
   service: web_app_service,
   root: File.expand_path("webapp", __dir__),
+  production_core: deploy_environment == "production",
   payment_terms: payment_terms
 )
 runtime_event_notifier = ZeroXDA::Market::TelegramBot::RuntimeEventNotifier.new(
