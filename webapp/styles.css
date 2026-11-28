@@ -314,25 +314,140 @@ dialog { width: min(calc(100% - var(--space-5)), 460px); border: 0; border-radiu
   .admin-capability-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
-/* Existing Telegram shell hosts the shared, paper-only trading workspace. */
-.trading-workspace { max-width: 800px; margin: 0 auto; padding: var(--space-4) var(--space-3); display: grid; gap: var(--space-4); }
-.trading-header { display: grid; gap: var(--space-2); }
-.trading-header p, .trading-status { font-size: 13px; color: var(--text-secondary); }
-.trading-form { display: grid; gap: var(--space-3); }
-.trading-form label { display: grid; gap: var(--space-2); font-size: 13px; color: var(--text-secondary); }
-.trading-form input, .trading-form textarea { width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--edge-control); border-radius: var(--radius-control); background: var(--surface-recessed); color: var(--text-primary); }
-.trading-form textarea { min-height: 160px; font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
-.trading-form button { min-height: var(--target-min); }
-.trading-result { display: grid; gap: var(--space-2); font-variant-numeric: tabular-nums; }
-.trading-result p { padding: var(--space-2); border: 1px solid var(--edge-control); border-radius: var(--radius-control); }
-.trading-leaders { display: grid; gap: var(--space-3); }
-.trading-leaders h3 { font-size: 15px; }
-.trading-hint { font-size: 13px; color: var(--text-secondary); }
-.trading-form select { width: 100%; min-width: 0; min-height: var(--target-min); padding: 0 12px; border: 1px solid var(--edge-control); border-radius: var(--radius-control); background: var(--surface-recessed); color: var(--text-primary); }
-.trading-leader-list { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
-.trading-leader { display: grid; gap: 2px; padding: var(--space-2) var(--space-3); border: 1px solid var(--edge-control); border-radius: var(--radius-control); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.trading-leader p { font-size: 13px; color: var(--text-secondary); }
-.trading-copy { display: grid; gap: var(--space-2); margin-top: var(--space-2); }
-.trading-copy-action { min-height: var(--target-min); }
-.trading-copy-result { display: grid; gap: 2px; font-variant-numeric: tabular-nums; }
-.trading-copy-result p:last-child { font-size: 12px; color: var(--text-secondary); }
+/* Trading Lab uses the same surface and control tokens as the market. */
+.trading-workspace {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-3) var(--space-5);
+  display: grid;
+  gap: var(--space-4);
+}
+
+.trading-header,
+.trading-leaders,
+.trading-workspace > .trading-form {
+  display: grid;
+  gap: var(--space-3);
+  padding: clamp(16px, 4vw, 24px);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-plane);
+  background: var(--surface-raised);
+  box-shadow: 0 6px 16px var(--edge-shadow), inset 0 1px 0 var(--edge-hairline);
+}
+
+.trading-header {
+  background: var(--surface-floating);
+  background: radial-gradient(ellipse at top right, var(--orb-track), transparent 70%), var(--surface-floating);
+}
+.trading-header h2 {
+  font-size: clamp(1.75rem, 6vw, 2.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+}
+.trading-leaders h3 { margin: 0; font-size: 1.125rem; }
+.trading-header p,
+.trading-status,
+.trading-hint {
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.trading-leader-list:empty,
+.trading-result:empty,
+.trading-copy-result:empty { display: none; }
+
+.trading-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+.trading-form label {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+.trading-workspace > .trading-form > label:first-child,
+.trading-form > button { grid-column: 1 / -1; }
+.trading-form :is(input, select, textarea) {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--target-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--edge-control);
+  border-radius: var(--radius-control);
+  background: var(--surface-recessed);
+  color: var(--text-primary);
+  font-size: 1rem;
+}
+.trading-form input { font-variant-numeric: tabular-nums; }
+.trading-form textarea {
+  min-height: 9rem;
+  font-family: ui-monospace, monospace;
+  resize: vertical;
+}
+.trading-form button:not(.primary-action),
+.trading-copy-action {
+  min-height: var(--target-min);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--edge-control);
+  border-radius: var(--radius-control);
+  color: var(--text-primary);
+  background: var(--surface-floating);
+  font-weight: 600;
+}
+.trading-copy-action:disabled { cursor: default; opacity: 0.55; }
+.trading-workspace .primary-action { padding-block: var(--space-2); }
+
+.trading-leader-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trading-leader,
+.trading-result p,
+.trading-copy-result {
+  padding: var(--space-3);
+  border: 1px solid var(--edge-hairline);
+  border-radius: var(--radius-card);
+  background: var(--surface-recessed);
+}
+.trading-leader {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.trading-leader p { color: var(--text-secondary); font-size: 0.875rem; line-height: 1.45; }
+.trading-copy,
+.trading-copy-result {
+  display: grid;
+  gap: var(--space-2);
+}
+.trading-copy { margin-top: var(--space-2); }
+.trading-copy-result p:last-child {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--edge-hairline);
+}
+.trading-result {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: var(--space-2);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 600px) {
+  .trading-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .trading-form > button:not(.primary-action) {
+    grid-column: 1;
+    justify-self: start;
+  }
+}
