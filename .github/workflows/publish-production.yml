@@ -138,7 +138,7 @@ jobs:
           subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
 
-      - name: Encrypt production credentials for edge-prod-1
+      - name: Encrypt production credentials for edge-dev-1
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
@@ -153,7 +153,11 @@ jobs:
           set -Eeuo pipefail
           umask 077
           contract="$(curl --fail --silent --show-error --location --retry 2 --max-time 20 \
-            https://raw.githubusercontent.com/aiaiaiai-org/infra/master/contracts/servers/edge-prod-1.yaml)"
+            https://raw.githubusercontent.com/aiaiaiai-org/infra/master/contracts/servers/edge-dev-1.yaml)"
+          grep -Fxq '    - market-bot-production' <<<"$contract" || {
+            echo "::error::edge-dev-1 does not own market-bot-production." >&2
+            exit 1
+          }
           recipient="$(sed -n 's/^  encryptionRecipient: //p' <<<"$contract")"
           [[ "$recipient" =~ ^ssh-ed25519\ [A-Za-z0-9+/]{68}$ ]] || {
             echo "::error::No valid production server encryption recipient." >&2
